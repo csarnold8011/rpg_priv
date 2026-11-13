@@ -38,8 +38,10 @@ export const TARSADALMI_OSZTALY = [
 ];
 const KEZDO_PENZ_ALAP = { 'Kívülálló': 15, 'Alsó': 25, 'Közép': 50, 'Felső': 100 };
 
-export function tarsadalmiOsztalyDobasbol(d6) {
-  const sor = TARSADALMI_OSZTALY.find((s) => tartomanyban(s.dobas, d6));
+export function tarsadalmiOsztalyDobasbol(d6, ix) {
+  const alt = ix ? reszletek(ix.elem('Szintlépés', 'szint_altalanos')) : {};
+  const tabla = alt.tarsadalmi_osztaly_dobas || TARSADALMI_OSZTALY;
+  const sor = tabla.find((s) => tartomanyban(s.dobas, d6));
   return sor ? sor.osztaly : null;
 }
 

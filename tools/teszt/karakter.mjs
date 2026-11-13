@@ -4,6 +4,7 @@ import { karakterSzamol, sebzesSzoveg, szamitottKivonat } from '../../web/js/kar
 import { uresKarakter, atallit, kulcsmezok, normalizal, uresSzint } from '../../web/js/karakter/adat.js';
 import { tulajdonsagDobasbol, fejlesztesKoltseg, tarsadalmiOsztalyDobasbol, kezdoPenzRez } from '../../web/js/karakter/tablak.js';
 import { index, szam } from '../../web/js/karakter/szabalyindex.js';
+import { kezdoCsomag } from '../../web/js/karakter/felszereles.js';
 import { LAPOK } from './karakter_minta.mjs';
 
 let hibak = 0;
@@ -20,7 +21,7 @@ const ix = index(LAPOK);
 ellenoriz([3, 4, 8, 9, 11, 12, 15, 18].map((n) => tulajdonsagDobasbol(n, ix)).join() === '-2,-1,0,1,1,2,3,4', 'tulajdonság a 3d6 összegből (a szabályadat táblája szerint)');
 ellenoriz(tulajdonsagDobasbol(10) === 1 && tulajdonsagDobasbol(16) === 3, 'tulajdonság a tartalék táblából is');
 ellenoriz([5, 6, 8, 9, 12].map(fejlesztesKoltseg).join() === '1,2,2,3,3', 'fejlesztési költség az új érték szerint');
-ellenoriz(tarsadalmiOsztalyDobasbol(2) === 'Alsó' && tarsadalmiOsztalyDobasbol(6) === 'Felső', 'társadalmi osztály 1d6-ra');
+ellenoriz(tarsadalmiOsztalyDobasbol(2) === 'Alsó' && tarsadalmiOsztalyDobasbol(6) === 'Felső' && tarsadalmiOsztalyDobasbol(4, ix) === 'Közép', 'társadalmi osztály 1d6-ra (tartalék és szabályadat)');
 ellenoriz(kezdoPenzRez('Alsó', 12, ix) === 370, 'kezdőpénz: Alsó osztály, 3d6 = 12 → 37 ezüst = 370 réz');
 ellenoriz(sebzesSzoveg('2d6+1', 2) === '2d6+3' && sebzesSzoveg('3d6', 3) === '3d6+3' && sebzesSzoveg('1d6+3', -3) === '1d6', 'sebzés szöveg');
 ellenoriz(szam('−1') === -1 && szam('') === 0 && szam('2,5') === 2.5, 'szám a cellából (nyomdai mínusz, üres, vessző)');
@@ -194,6 +195,55 @@ ellenoriz(lap.pancel.buntetes === 0 && lap.sebesseg.ertek === 11 && lap.pancel.u
 z.felszereles.targyak = [{ id: 'pan_heavy_mail', felszerelve: true }, { id: 'pan_medium_shield', felszerelve: true }];
 lap = karakterSzamol(z, LAPOK);
 ellenoriz(lap.pancel.buntetes === 3 && lap.pancel.ugyesseg_buntetes === 3 && lap.vedekezes.ertek === 12, 'zsivány sodronyban: büntetés 3; pajzs talentum nélkül csak +1 Védekezés', { pancel: lap.pancel, ved: lap.vedekezes.ertek });
+
+// ---------- Import 08: különleges faji előnyök, specializációk, kezdő felszerelés ----------
+const dr = nicole();
+dr.faj = 'faj_draak';
+dr.faj_dontes = { fokusz: 'fok_willpower_courage', elonyok: [{ dobas: 4 }, { dobas: 8 }], vegleges: 'fok_willpower_self_discipline' };
+lap = karakterSzamol(dr, LAPOK);
+ellenoriz(lap.pancelertek.ertek === 6 && lap.kepessegek.some((k) => k.nev_hu === 'Ellenállás a mágiával szemben'), 'Draak: Páncélos +2 a gépi mezőből, végleges választás a képességek között', lap.pancelertek);
+dr.faj_dontes.vegleges = null;
+ellenoriz(kodok(karakterSzamol(dr, LAPOK)).includes('faji_valasztas_hianyzik'), 'Draak: hiányzó végleges választás figyelmeztet');
+
+const vn = nicole();
+vn.faj = 'faj_beastfolk';
+vn.faj_dontes = { fokusz: 'fok_perception_searching', elonyok: [{ dobas: 7 }], fajta: { dobas: 5, valasztott: [0, 2] } };
+lap = karakterSzamol(vn, LAPOK);
+ellenoriz(lap.vedekezes.ertek === 12 && lap.fokuszok.fok_dexterity_stealth && !lap.sotetlatas, 'Vadnép, Rágcsáló: +1 Védekezés és Lopakodás (a Sötétlátást nem választotta)', lap.vedekezes);
+vn.faj_dontes.fajta = { dobas: 6, valasztott: [0, 1] };
+lap = karakterSzamol(vn, LAPOK);
+const karom = lap.fegyverek.find((w) => w.termeszetes);
+ellenoriz(karom && karom.tamadas === 4 && karom.sebzes === '1d6+3', 'Vadnép, Macskaféle: karmok természetes fegyverként, Harc 2 + Karmok fókusz (+4, 1d6+3)', karom);
+vn.faj_dontes.fajta = { dobas: 7, valasztott: [0, 1] };
+lap = karakterSzamol(vn, LAPOK);
+ellenoriz(lap.sebesseg.ertek === 12 && lap.talentumok.some((t) => t.id === 'tal_lore'), 'Vadnép, Kutyaféle: +2 Sebesség; a már meglévő Keresés helyett Műveltség talentum', lap.sebesseg);
+vn.faj_dontes.fajta = { dobas: 7, valasztott: [0] };
+ellenoriz(kodok(karakterSzamol(vn, LAPOK)).includes('fajta_darab'), 'Vadnép: két fajtaelőny választandó');
+
+const fv = nicole();
+fv.faj = 'faj_blooded';
+fv.faj_dontes = { fokusz: null, alap: [{ tipus: 'tulajdonsag', ertek: 'tul_strength', mertek: 1 }, { tipus: 'fokusz', ertek: 'fok_strength_might' }],
+  elonyok: [{ dobas: 2, sajat: { tipus: 'tulajdonsag', ertek: 'tul_strength', mertek: 1 } }, { dobas: 9 }] };
+lap = karakterSzamol(fv, LAPOK);
+ellenoriz(lap.tulajdonsagok.tul_strength.ertek === 5 && lap.fokuszok.fok_strength_might, 'Félvér: alapválasztás és saját előny (+2 Erő, Erőkifejtés)');
+ellenoriz(lap.figyelmeztetesek.some((x) => x.kod === 'faji_valasztas_hianyzik' && x.targy === '1'), 'Félvér: a választásos előnysor kiválasztást kér');
+
+const lv = nicole();
+lv.szintek[0].kapott = [{ tipus: 'talentum', id: 'tal_armor_training' }, { tipus: 'talentum', id: 'tal_single_weapon_style' }, { tipus: 'talentum', id: 'tal_archery_style' }];
+lv.szintek.push({ ...uresSzint(2), egeszseg_dobas: 3, fejlesztes: 'tul_strength', fokusz: 'fok_fighting_axes', kapott: [{ tipus: 'fokusz', id: 'fok_dexterity_riding' }, { tipus: 'specializacio', id: 'spec_knight' }] });
+lap = karakterSzamol(lv, LAPOK);
+ellenoriz(lap.fegyvercsoportok.some((c) => c.id === 'fcs_lances') && lap.specializaciok[0].fokozat === 'Kezdő' && !kodok(lap).includes('elofeltetel'), 'Lovag specializáció: Kezdő fokon Kopják; az „egyik” előfeltétel teljesül', kodok(lap));
+
+const zs = nicole();
+zs.osztaly = 'osz_rogue'; zs.osztaly_dontes.fegyvercsoportok = ['fcs_bows']; zs.szintek[0].kapott = [];
+zs.felszereles.targyak = [{ id: 'pan_heavy_leather', felszerelve: true }];
+ellenoriz(karakterSzamol(zs, LAPOK).pancel.buntetes === 0, 'Zsiványpáncél a gépi listából');
+
+const cs = kezdoCsomag(LAPOK, 'osz_warrior', ['fgy_two_handed_axe', 'fgy_mace', 'fgy_crossbow'], ['tal_armor_training']);
+ellenoriz(cs.targyak.map((t) => t.id).join() === 'fel_backpack,fel_travelers_garb,fel_skin,pan_heavy_leather,fgy_two_handed_axe,fgy_mace,fgy_crossbow,fel_quiver,fel_bolts'
+  && cs.targyak.find((t) => t.id === 'pan_heavy_leather').felszerelve && cs.hianyzo.length === 0, 'kezdő csomag: harcos, három fegyver, számszeríjhoz tegez és vessző', cs);
+const csm = kezdoCsomag(LAPOK, 'osz_mage', ['fgy_long_bow', 'fgy_mace'], ['tal_weapon_and_shield_style']);
+ellenoriz(csm.targyak.map((t) => t.id).join() === 'fel_backpack,fel_travelers_garb,fel_skin,fel_arcane_device,fgy_long_bow,fel_quiver,fel_arrows,pan_medium_shield', 'kezdő csomag: mágus egy fegyverrel és arkán eszközzel; pajzs a stílushoz', csm.targyak.map((t) => t.id));
 
 // ---------- Kézi módosítók ----------
 const kz = nicole();

@@ -150,8 +150,13 @@ export function ellenorzes(adat, ix, lap, k) {
     if (e.tipus === 'tulajdonsag') return tulE(e.ertek) < szam(e.min);
     if (e.tipus === 'fokusz') return !(e.egyik || []).some((x) => lap.fokuszok[x]);
     if (e.tipus === 'fegyvercsoport') return !(e.egyik || []).some((x) => csoportIdk.has(x));
-    if (e.tipus === 'arkanum') return !lap.arkanumok.some((a) => a.db >= (fokozatSzam(e.fokozat) || 1));
-    if (e.tipus === 'talentum') return !lap.talentumok.some((t) => t.id === e.ertek && t.db >= (fokozatSzam(e.fokozat) || 1));
+    // arkánum: az `egyik` listából (vagy ha nincs lista, bármelyikből) legalább a megadott fokozat
+    if (e.tipus === 'arkanum') return !lap.arkanumok.some((a) => (!e.egyik || e.egyik.includes(a.id)) && a.db >= (fokozatSzam(e.fokozat) || 1));
+    if (e.tipus === 'talentum') {
+      const lista = e.egyik || (e.ertek ? [e.ertek] : []);
+      return !lap.talentumok.some((t) => lista.includes(t.id) && t.db >= (fokozatSzam(e.fokozat) || 1));
+    }
+    // szöveges előfeltétel (például „Pontosság 2+ vagy Harc 2+”): géppel nem ellenőrizzük
     return false;
   });
   const fokozatosEllenor = (lista, lap1, lepesNev) => lista.forEach((t) => {

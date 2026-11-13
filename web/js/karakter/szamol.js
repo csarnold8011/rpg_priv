@@ -68,32 +68,86 @@ export function karakterSzamol(nyers, lapok) {
 
   // ---- Faji előnyök ----
   const kepessegek = [];
-  let fajiPancel = 0;
-  const elonyok = adat.faj_dontes.elonyok || [];
-  elonyok.forEach((e, i) => {
-    const sor = e.sajat || (fr.elonytabla || []).find((s) => tartomanyban(s.dobas, szam(e.dobas)));
-    const eredet = `Faji előny (${i + 1}. dobás${e.dobas ? ': ' + e.dobas : ''})`;
-    if (!sor) {
-      if (faj) f('faji_elony_hianyzik', String(i), `A ${i + 1}. faji előnydobás (${e.dobas || 'nincs megadva'}) nem illik az előnytáblára.`, 'faj');
-      return;
-    }
+  const fajiBonusz = { pancelertek: 0, vedekezes: 0, sebesseg: 0 };
+  let sotetlatas = !!(faj && fr.sotetlatas);
+  const fajiTalentumok = []; // „ha már megvan” helyett kapott talentum
+  const termeszetesFegyverek = [];
+  // Egy előny alkalmazása (táblázat sora, fajta előnye vagy a készítő saját választása).
+  const elonyAlkalmaz = (sor, eredet, e = {}) => {
     if (sor.tipus === 'tulajdonsag') tulAd(sor.ertek, szam(sor.mertek, 1), eredet);
-    else if (sor.tipus === 'fokusz') fokuszAd(sor.ertek, eredet, 1);
-    else if (sor.tipus === 'fegyvercsoport') {
-      const cs = ix.csoportFokuszbol(sor.helyettes);
+    else if (sor.tipus === 'fokusz') {
+      if (sor.ha_megvan && fokuszok.has(sor.ertek)) {
+        if (sor.ha_megvan.tipus === 'talentum') fajiTalentumok.push({ tipus: 'talentum', id: sor.ha_megvan.ertek, szint: 1 });
+        else fokuszAd(sor.ha_megvan.ertek, eredet, 1);
+      } else fokuszAd(sor.ertek, eredet, 1);
+    } else if (sor.tipus === 'fegyvercsoport') {
+      const cs = sor.helyettes ? ix.csoportFokuszbol(sor.helyettes) : ix.elem('Fegyvercsoportok', sor.ertek);
       const id = cs ? cs.id : (sor.id || 'fcs_' + String(sor.ertek || '').toLowerCase().replace(/[^a-z]+/g, '_'));
+      const helyettes = sor.helyettes || reszletek(cs).fokusz;
       // Ha az osztály már adja (vagy a készítő így döntött), a csoporthoz tartozó fókusz jár helyette.
-      if (e.csere_fokusz || csoportok.has(id)) fokuszAd(e.csere_fokusz || sor.helyettes, eredet + ', fegyvercsoport helyett', 1);
+      if (e.csere_fokusz || csoportok.has(id)) fokuszAd(e.csere_fokusz || helyettes, eredet + ', fegyvercsoport helyett', 1);
       else csoportAd(id, eredet);
     } else {
       const leiras = sor.leiras || '';
       kepessegek.push({ nev_hu: sor.nev_hu || 'Faji előny', leiras, eredet, tipus: sor.tipus });
       const pm = leiras.match(/Páncélérték \+(\d+)/);
-      if (szam(sor.pancelertek_bonusz) || pm) fajiPancel += szam(sor.pancelertek_bonusz) || Number(pm[1]);
-      if (sor.tipus === 'szoveg') f('faji_elony_kezi', String(i), `A(z) ${i + 1}. faji előny („${leiras}”) hatását kézi módosítóként kell felvenni.`, 'faj', 'info');
+      if (sor.pancelertek_bonusz !== undefined) fajiBonusz.pancelertek += szam(sor.pancelertek_bonusz);
+      else if (pm) fajiBonusz.pancelertek += Number(pm[1]);
+      fajiBonusz.vedekezes += szam(sor.vedekezes_bonusz);
+      fajiBonusz.sebesseg += szam(sor.sebesseg_bonusz);
+      if (sor.sotetlatas) sotetlatas = true;
+      if (sor.termeszetes_fegyver) termeszetesFegyverek.push({ nev_hu: sor.nev_hu, ...sor.termeszetes_fegyver });
+      return sor.tipus === 'kulonleges';
     }
+    return true;
+  };
+
+  // Félvér: a származási lénytől függő alapválasztások (tulajdonság és fókusz).
+  (fr.alap_valasztas || []).forEach((v, i) => {
+    const d = (adat.faj_dontes.alap || [])[i];
+    if (d && d.ertek) elonyAlkalmaz({ ...d, tipus: d.tipus || v.jelleg, mertek: d.mertek !== undefined ? d.mertek : v.mertek }, 'Faj: ' + nevE(faj));
+    else f('faji_valasztas_hianyzik', 'alap:' + i, `Faji választás hiányzik: ${v.leiras || v.jelleg}.`, 'faj');
   });
-  if (faj && fr.sotetlatas) kepessegek.push({ nev_hu: 'Sötétlátás', leiras: '20 yardig lát sötétben fényforrás nélkül.', eredet: 'Faj: ' + nevE(faj), tipus: 'faj' });
+
+  const elonyok = adat.faj_dontes.elonyok || [];
+  elonyok.forEach((e, i) => {
+    const tablaSor = (fr.elonytabla || []).find((s) => tartomanyban(s.dobas, szam(e.dobas)));
+    const sor = e.sajat || tablaSor;
+    const eredet = `Faji előny (${i + 1}. dobás${e.dobas ? ': ' + e.dobas : ''})`;
+    if (!sor) {
+      if (faj) f('faji_elony_hianyzik', String(i), `A ${i + 1}. faji előnydobás (${e.dobas || 'nincs megadva'}) nem illik az előnytáblára.`, 'faj');
+      return;
+    }
+    if (sor.tipus === 'valasztas') {
+      f('faji_valasztas_hianyzik', String(i), `A ${i + 1}. faji előnynél választani kell: ${sor.leiras || sor.jelleg}.`, 'faj');
+      return;
+    }
+    elonyAlkalmaz(sor, eredet, e);
+    if (sor.tipus === 'szoveg') f('faji_elony_kezi', String(i), `A(z) ${i + 1}. faji előny („${sor.leiras || ''}”) hatását kézi módosítóként kell felvenni.`, 'faj', 'info');
+  });
+
+  // Vadnép: a fajtatábla dobása és a kidobott fajta előnyei közül a választottak.
+  if (fr.fajtatabla) {
+    const fd = adat.faj_dontes.fajta || null;
+    const fajta = fd ? fr.fajtatabla.find((x) => tartomanyban(x.dobas, szam(fd.dobas))) : null;
+    if (!fajta) { if (adat.keszites.allapot === 'kesz') f('fajta_hianyzik', '', 'Hiányzik a fajta dobása.', 'faj'); }
+    else {
+      const eredet = 'Fajta: ' + fajta.nev_hu;
+      const kell = szam(fr.fajta_valasztando, 2);
+      const valasztott = (fd.valasztott || []).map((i) => (fajta.elonyok_gepi || [])[i]).filter(Boolean)
+        .concat(fd.sajat || []);
+      valasztott.forEach((sor) => { if (sor.tipus !== 'szabad') elonyAlkalmaz(sor, eredet); });
+      const db = valasztott.filter((sor) => sor.tipus !== 'szabad').length;
+      if (db !== kell && (db > kell || adat.keszites.allapot === 'kesz')) f('fajta_darab', String(db), `A fajta előnyei közül ${kell} választható (most ${db}).`, 'faj');
+    }
+  }
+  // Draak: végleges választás a mágia elleni próbákhoz.
+  if (fr.vegleges_valasztas) {
+    const v = adat.faj_dontes.vegleges;
+    if (v) kepessegek.push({ nev_hu: fr.vegleges_valasztas.nev_hu, leiras: `${fr.vegleges_valasztas.leiras || ''} Választott: ${nevE(ix.elem('Fókuszok', v), v)}.`.trim(), eredet: 'Faj: ' + nevE(faj), tipus: 'faj' });
+    else if (adat.keszites.allapot === 'kesz') f('faji_valasztas_hianyzik', 'vegleges', `Faji választás hiányzik: ${fr.vegleges_valasztas.nev_hu}.`, 'faj');
+  }
+  if (sotetlatas && !kepessegek.some((k) => k.nev_hu === 'Sötétlátás')) kepessegek.push({ nev_hu: 'Sötétlátás', leiras: '20 yardig lát sötétben fényforrás nélkül.', eredet: 'Faj: ' + nevE(faj), tipus: 'faj' });
 
   // ---- Háttér ----
   const hatter = ix.elem('Hátterek', adat.hatter.id);
@@ -102,9 +156,10 @@ export function karakterSzamol(nyers, lapok) {
 
   // ---- Szintek: Egészség, Mágiapont, fejlesztések, fókuszok, kapott elemek ----
   const szint1 = osztaly ? ix.szintSor(osztaly.id, 1) : null;
-  const magus = !!(reszletek(szint1).kepessegek || []).find((k) => k.tipus === 'mp');
+  const mpKepesseg = (reszletek(szint1).kepessegek || []).find((k) => k.tipus === 'mp');
+  const magus = !!mpKepesseg;
   const arkAlt = reszletek(ix.elem('Arkánumok', 'ark_altalanos'));
-  const mpAlap = szam(String(arkAlt.mp_kezdo || '10').split('+')[0], 10);
+  const mpAlap = magus && mpKepesseg.alap !== undefined ? szam(mpKepesseg.alap) : szam(String(arkAlt.mp_kezdo || '10').split('+')[0], 10);
   const eg = [];
   const mp = [];
   const kapott = []; // { tipus, id, szint }
@@ -155,6 +210,7 @@ export function karakterSzamol(nyers, lapok) {
     });
   });
   TULAJDONSAGOK.forEach((t) => { tul[t].fejlesztes_fuggo = fuggo[t] || 0; });
+  kapott.push(...fajiTalentumok);
   const szint = adat.szintek.length ? adat.szintek[adat.szintek.length - 1].szint : 1;
 
   // ---- Talentumok, arkánumok, specializációk, varázslatok ----
@@ -179,6 +235,18 @@ export function karakterSzamol(nyers, lapok) {
     if (r.fokusz && a.db >= (fokozatSzam(r.fokusz_fokozat || 'Haladó') || 2)) fokuszAd(r.fokusz, `${a.nev_hu} (${r.fokusz_fokozat || 'Haladó'})`, Math.max(...a.szintek));
   });
   const talentumFokozat = (id) => { const t = talentumok.find((x) => x.id === id); return t ? t.db : 0; };
+  // Specializációk és talentumok fix juttatásai fokozatonként (reszletek.ad), például Lovag: Kopják.
+  specializaciok.concat(talentumok).forEach((t) => {
+    const ad = reszletek(t.elem).ad || {};
+    Object.keys(ad).forEach((fok) => {
+      if (t.db < fokozatSzam(fok)) return;
+      (ad[fok] || []).forEach((x) => {
+        const eredet = `${t.nev_hu} (${fok})`;
+        if (x.tipus === 'fegyvercsoport' && !csoportok.has(x.id)) csoportAd(x.id, eredet);
+        else if (x.tipus === 'fokusz') fokuszAd(x.id, eredet, Math.max(...t.szintek));
+      });
+    });
+  });
 
   // ---- Kézi módosítók ----
   const kezi = { egeszseg_max: [], magiapont_max: [], vedekezes: [], sebesseg: [], pancelertek: [] };
@@ -232,9 +300,9 @@ export function karakterSzamol(nyers, lapok) {
     const b = Math.abs(szam(pancelT.elem.buntetes));
     pancelReszek.push({ ertek: szam(pancelT.elem.pancelertek), eredet: nevE(pancelT.elem) });
     // Zsiványpáncél: bőrpáncélban nincs büntetés (Alapkönyv 23. o.).
-    const zsivanyPancel = (reszletek(szint1).kepessegek || []).some((k) => k.nev_en === "Rogue's Armor" || k.pancel_buntetes_nincs);
-    const bor = /leather/.test(pancelT.id);
-    if (!(zsivanyPancel && bor)) {
+    const mentes = (reszletek(szint1).kepessegek || []).some((k) => (k.pancel_buntetes_nincs || []).includes(pancelT.id)
+      || (!k.pancel_buntetes_nincs && k.nev_en === "Rogue's Armor" && /leather/.test(pancelT.id)));
+    if (!mentes) {
       sebessegBuntetes = b;
       // Páncélviselet: Kezdő fokon bőr- és sodronypáncélban, Haladó fokon lemezpáncélban sincs Ügyesség-büntetés.
       const lemez = /plate/.test(pancelT.id);
@@ -242,10 +310,11 @@ export function karakterSzamol(nyers, lapok) {
       if (!kepzett) ugyessegBuntetes = b;
     }
   }
-  if (fajiPancel) pancelReszek.push({ ertek: fajiPancel, eredet: 'Faji előny (Páncélos)' });
+  if (fajiBonusz.pancelertek) pancelReszek.push({ ertek: fajiBonusz.pancelertek, eredet: 'Faji előny' });
 
   const ugyesseg = tulErtek('tul_dexterity');
   const vedReszek = [{ ertek: 10, eredet: 'Alap' }, { ertek: ugyesseg, eredet: 'Ügyesség' }];
+  if (fajiBonusz.vedekezes) vedReszek.push({ ertek: fajiBonusz.vedekezes, eredet: 'Faji előny' });
   if (pajzsT) {
     const pr = reszletek(pajzsT.elem);
     const alt = reszletek(ix.elem('Páncélok', 'pan_altalanos'));
@@ -255,6 +324,7 @@ export function karakterSzamol(nyers, lapok) {
     vedReszek.push({ ertek: bonusz, eredet: nevE(pajzsT.elem) });
   }
   const sebReszek = faj ? [{ ertek: szam(fr.sebesseg_alap, 10), eredet: 'Faj: ' + nevE(faj) }, { ertek: ugyesseg, eredet: 'Ügyesség' }] : [];
+  if (faj && fajiBonusz.sebesseg) sebReszek.push({ ertek: fajiBonusz.sebesseg, eredet: 'Faji előny' });
   if (faj && sebessegBuntetes) sebReszek.push({ ertek: -sebessegBuntetes, eredet: 'Páncélbüntetés' });
 
   const fegyverAlt = reszletek(ix.elem('Fegyverek', 'fgy_altalanos'));
@@ -279,6 +349,17 @@ export function karakterSzamol(nyers, lapok) {
       min_ero_alatt: minEro !== null && tulErtek('tul_strength') < minEro,
       hatotav: e.hatotav || null, ketkezes: !!r.ketkezes, tavolsagi: !!r.tavolsagi
     };
+  });
+
+  termeszetesFegyverek.forEach((w, i) => {
+    const tulId = w.tulajdonsag || 'tul_fighting';
+    const fok = w.fokusz && fokuszLista[w.fokusz] ? fokuszLista[w.fokusz].bonusz : 0;
+    fegyverek.push({
+      id: 'termeszetes_' + i, nev_hu: w.nev_hu, csoport: null, csoport_nev: 'természetes fegyver', felszerelve: true,
+      tulajdonsag: tulId, fokusz: fok ? w.fokusz : null, tamadas: tulErtek(tulId) + fok,
+      sebzes: sebzesSzoveg(w.sebzes, tulErtek('tul_strength')), sebzes_tulajdonsag: 'tul_strength', ismert: true,
+      min_ero: null, min_ero_alatt: false, hatotav: null, ketkezes: false, tavolsagi: false, termeszetes: true
+    });
   });
 
   // ---- Osztályképességek a szintig ----
@@ -318,6 +399,7 @@ export function karakterSzamol(nyers, lapok) {
   lap.egeszseg.aktualis = adat.allapot.egeszseg === null || adat.allapot.egeszseg === undefined ? lap.egeszseg.ertek : szam(adat.allapot.egeszseg);
   if (lap.magiapont) lap.magiapont.aktualis = adat.allapot.magiapont === null || adat.allapot.magiapont === undefined ? lap.magiapont.ertek : szam(adat.allapot.magiapont);
 
+  lap.sotetlatas = sotetlatas;
   ellenorzes(adat, ix, lap, { f, faj, fr, osztaly, or, hatter, magus, talentumFokozat });
   lap.figyelmeztetesek = f.lista();
   return lap;
