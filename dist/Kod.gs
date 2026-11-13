@@ -1207,12 +1207,15 @@ const BETOLTVE = 'Betöltve: ';
 function importalas() {
   const p = PropertiesService.getScriptProperties();
   const mappa = mappa_(DriveApp.getFolderById(p.getProperty('MAPPA_ID')), IMPORT_MAPPA);
-  const fajlok = mappa.getFilesByType(MimeType.GOOGLE_SHEETS);
+  const it = mappa.getFilesByType(MimeType.GOOGLE_SHEETS);
+  const fajlok = [];
+  while (it.hasNext()) fajlok.push(it.next());
+  // név szerinti sorrendben, így egy későbbi számú adag felülírhatja a korábbit
+  fajlok.sort(function (a, b) { return a.getName() < b.getName() ? -1 : 1; });
   const naplo = [];
   let volt = false;
-  while (fajlok.hasNext()) {
-    const f = fajlok.next();
-    if (f.getName().indexOf(BETOLTVE) === 0 || f.getName().indexOf('Import') !== 0) continue;
+  fajlok.forEach(function (f) {
+    if (f.getName().indexOf(BETOLTVE) === 0 || f.getName().indexOf('Import') !== 0) return;
     const forras = SpreadsheetApp.openById(f.getId());
     forras.getSheets().forEach(function (lap) {
       const nev = lap.getName();
@@ -1222,7 +1225,7 @@ function importalas() {
     });
     f.setName(BETOLTVE + f.getName());
     volt = true;
-  }
+  });
   if (volt) naplo.push('Új szabályverzió: ' + szabalyVerzioNovelese());
   else naplo.push('Nincs betöltendő import táblázat.');
   Logger.log(naplo.join('\n'));
