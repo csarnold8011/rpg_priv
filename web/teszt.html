@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="hu" data-theme="pergamen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fantasy AGE · háttérteszt</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=Alegreya:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@600;700&display=swap">
+<style>
+  /* A design rendszer tokenjeinek egy része (pergamen téma). A végleges felület a components/bundle.css-t használja. */
+  :root {
+    --surface: #f4ead6; --surface-raised: #fbf6ea; --surface-sunken: #e8d9bb; --line: #d6c29e; --line-strong: #86704f;
+    --ink: #2a1c11; --ink-muted: #5a4532; --accent: #7a1e22; --on-accent: #fbf6ea; --accent-soft: #efd6cf;
+    --dragon: #c6952f; --dragon-ink: #7a560f; --on-dragon: #2a1c11;
+    --success: #1c636d; --success-soft: #cfe7e8; --danger: #9b2529; --danger-soft: #f2d4d0; --warning: #8a5200; --focus-ring: #2b4e86;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--ink); font: 17px/28px Alegreya, Georgia, serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
+  h1 { font: 600 30px/38px Cinzel, Georgia, serif; letter-spacing: .02em; margin: 0 0 8px; }
+  h2 { font: 600 22px/30px Cinzel, Georgia, serif; letter-spacing: .03em; margin: 0 0 12px; }
+  .panel { background: var(--surface-raised); border: 1px solid var(--line); border-radius: 6px; padding: 24px; margin-bottom: 24px; }
+  .racs { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+  label { display: block; font: 700 13px/16px "Alegreya Sans", system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin: 12px 0 4px; }
+  input, select, textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 3px;
+    background: var(--surface-sunken); color: var(--ink); font: 500 16px/24px "Alegreya Sans", system-ui, sans-serif; }
+  textarea { font: 15px/22px ui-monospace, monospace; min-height: 120px; }
+  button { min-height: 40px; padding: 0 16px; margin: 12px 8px 0 0; border-radius: 6px; border: 1px solid var(--line-strong);
+    background: var(--surface-raised); color: var(--ink); font: 500 16px/24px "Alegreya Sans", system-ui, sans-serif; cursor: pointer; }
+  button.elsodleges { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  :focus-visible { outline: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring); }
+  .muted { color: var(--ink-muted); font-size: 15px; }
+  .uzenet { padding: 8px 12px; border-radius: 3px; margin-top: 12px; font: 500 15px/22px "Alegreya Sans", sans-serif; }
+  .siker { background: var(--success-soft); color: var(--success); }
+  .hiba { background: var(--danger-soft); color: var(--danger); }
+  pre { background: var(--surface-sunken); padding: 12px; border-radius: 3px; overflow: auto; max-height: 360px; font-size: 13px; line-height: 18px; }
+  .kocka { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; margin-right: 6px; border-radius: 3px;
+    border: 1px solid var(--line-strong); background: var(--surface-raised); font: 700 22px/28px "Alegreya Sans", sans-serif; font-variant-numeric: tabular-nums; }
+  .kocka.sarkany { background: var(--dragon); border-color: var(--dragon-ink); color: var(--on-dragon); }
+  .rejtve { display: none; }
+  @media (max-width: 640px) { main { padding: 16px; } .panel { padding: 16px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fantasy AGE · háttérteszt</h1>
+  <p class="muted">Ez az oldal az alapozás ellenőrzésére szolgál: belépés, karakterek, kampányok, dobásnapló és a szinkron két eszköz között.</p>
+
+  <section class="panel" id="beallitas">
+    <h2>Kapcsolat</h2>
+    <label for="url">Apps Script web app címe</label>
+    <input id="url" placeholder="https://script.google.com/macros/s/.../exec">
+    <button id="url-mentes">Cím mentése</button>
+  </section>
+
+  <section class="panel" id="belepes-panel">
+    <h2>Belépés</h2>
+    <label for="nev">Név</label><input id="nev" autocomplete="username">
+    <label for="jelszo">Jelszó</label><input id="jelszo" type="password" autocomplete="current-password">
+    <button class="elsodleges" id="belepes">Belépés</button>
+    <div id="belepes-uzenet"></div>
+  </section>
+
+  <div id="bent" class="rejtve">
+    <section class="panel">
+      <h2 id="udv"></h2>
+      <button id="kilepes">Kilépés</button>
+      <button id="szabaly-betoltes">Szabályok betöltése</button>
+      <div id="szabaly-uzenet"></div>
+    </section>
+
+    <div class="racs">
+      <section class="panel">
+        <h2>Karakterek</h2>
+        <button id="karakter-lista">Lista frissítése</button>
+        <label for="uj-karakter">Új karakter neve</label><input id="uj-karakter">
+        <label for="uj-karakter-kampany">Kampányba (mesterjátékosnak, DM-nek)</label><select id="uj-karakter-kampany"><option value="">nincs</option></select>
+        <button id="karakter-letrehoz">Karakter létrehozása</button>
+        <label for="karakter-valaszt">Szerkesztett karakter</label><select id="karakter-valaszt"></select>
+        <label for="karakter-adat">Adat (JSON)</label><textarea id="karakter-adat"></textarea>
+        <button class="elsodleges" id="karakter-mentes">Mentés</button>
+        <div id="karakter-uzenet"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Kampány és szinkron</h2>
+        <button id="kampany-lista">Kampányok frissítése</button>
+        <label for="kampany-valaszt">Kampány</label><select id="kampany-valaszt"></select>
+        <button class="elsodleges" id="kapcsolodas">Kapcsolódás</button>
+        <p class="muted" id="szinkron-statusz">Nincs kapcsolat.</p>
+        <label for="dobas-mire">Próba neve</label><input id="dobas-mire" value="Észlelés próba">
+        <label for="dobas-mod">Módosító</label><input id="dobas-mod" type="number" value="2">
+        <label><input type="checkbox" id="dobas-rejtett" style="width:auto;min-height:0"> Rejtett dobás (csak DM)</label>
+        <button id="dobas">Dobás</button>
+        <div id="dobas-eredmeny"></div>
+        <label>Kampányállapot</label>
+        <pre id="allapot">Még nincs betöltve.</pre>
+      </section>
+    </div>
+
+    <section class="panel rejtve" id="dm-panel">
+      <h2>DM eszközök</h2>
+      <div class="racs">
+        <div>
+          <label for="u-nev">Új felhasználó neve</label><input id="u-nev">
+          <label for="u-jelszo">Jelszava</label><input id="u-jelszo">
+          <label for="u-szerep">Szerep</label><select id="u-szerep"><option value="jatekos">játékos</option><option value="dm">DM</option></select>
+          <button id="u-letrehoz">Felhasználó létrehozása</button>
+          <button id="u-lista">Felhasználók listája</button>
+        </div>
+        <div>
+          <label for="k-cim">Új kampány címe</label><input id="k-cim">
+          <label for="k-mester">Mesterjátékos</label><select id="k-mester"><option value="">nincs</option></select>
+          <button id="k-letrehoz">Kampány létrehozása</button>
+        </div>
+        <div>
+          <label for="t-karakter">Karakter</label><select id="t-karakter"></select>
+          <label for="t-jatekos">Játékos</label><select id="t-jatekos"><option value="">nincs (játékos nélküli)</option></select>
+          <button id="t-tarsit">Társítás</button>
+          <button id="t-kampanyba">A kiválasztott kampányba</button>
+        </div>
+      </div>
+      <div id="dm-uzenet"></div>
+      <pre id="dm-kimenet" class="rejtve"></pre>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+import { Api } from './js/api.js';
+import { AppsScriptSync } from './js/sync.js';
+import { szabalyokBetoltese } from './js/szabalyok.js';
+
+const $ = (id) => document.getElementById(id);
+const api = new Api();
+const sync = new AppsScriptSync(api);
+let karakterek = [], felhasznalok = [], kampanyok = [];
+
+function uzenet(hova, szoveg, jo = true) {
+  $(hova).innerHTML = '';
+  const d = document.createElement('div');
+  d.className = 'uzenet ' + (jo ? 'siker' : 'hiba');
+  d.textContent = (jo ? '✓ ' : '✗ ') + szoveg;
+  $(hova).appendChild(d);
+}
+function opciok(sel, lista, cimke, uresSzoveg) {
+  const elozo = sel.value;
+  sel.innerHTML = uresSzoveg !== undefined ? `<option value="">${uresSzoveg}</option>` : '';
+  lista.forEach(e => { const o = document.createElement('option'); o.value = e.id; o.textContent = cimke(e); sel.appendChild(o); });
+  if ([...sel.options].some(o => o.value === elozo)) sel.value = elozo;
+}
+async function probal(hova, fn) {
+  try { await fn(); } catch (e) { uzenet(hova, e.message, false); }
+}
+
+function nezet() {
+  $('url').value = api.url || '';
+  const bent = api.bejelentkezve;
+  $('belepes-panel').classList.toggle('rejtve', bent);
+  $('bent').classList.toggle('rejtve', !bent);
+  if (bent) {
+    const f = api.felhasznalo;
+    $('udv').textContent = `Szia, ${f.nev}! (${f.szerep === 'dm' ? 'DM' : 'játékos'})`;
+    $('dm-panel').classList.toggle('rejtve', f.szerep !== 'dm');
+    karakterListazas(); kampanyListazas();
+    if (f.szerep === 'dm') felhasznaloListazas();
+  }
+}
+api.onKijelentkezes(() => { sync.disconnect(); nezet(); });
+
+$('url-mentes').onclick = () => { api.beallitUrl($('url').value.trim()); uzenet('belepes-uzenet', 'Cím elmentve.'); };
+$('belepes').onclick = () => probal('belepes-uzenet', async () => {
+  const v = await api.belepes($('nev').value.trim(), $('jelszo').value);
+  nezet();
+  if (v.elso_belepes) uzenet('szabaly-uzenet', 'Ez volt a legelső belépés: DM fiók létrejött.');
+});
+$('kilepes').onclick = () => api.kijelentkezes();
+
+$('szabaly-betoltes').onclick = () => probal('szabaly-uzenet', async () => {
+  const t0 = performance.now();
+  const s = await szabalyokBetoltese(api);
+  const db = Object.entries(s.lapok).map(([n, l]) => `${n}: ${l.length}`).join(', ');
+  uzenet('szabaly-uzenet', `Szabályverzió ${s.verzio} (${s.forras === 'helyi' ? 'helyi példány' : 'letöltve'}, ${Math.round(performance.now() - t0)} ms). ${db}`);
+});
+
+async function karakterListazas() {
+  await probal('karakter-uzenet', async () => {
+    karakterek = (await api.hivas('characters.list')).karakterek;
+    opciok($('karakter-valaszt'), karakterek, k => `${k.nev} (v${k.verzio})`);
+    opciok($('t-karakter'), karakterek, k => k.nev);
+    karakterBetoltes();
+  });
+}
+async function karakterBetoltes() {
+  const id = $('karakter-valaszt').value;
+  if (!id) { $('karakter-adat').value = ''; return; }
+  const k = (await api.hivas('character.get', { id })).karakter;
+  $('karakter-adat').value = JSON.stringify(k.adat, null, 2);
+  $('karakter-adat').dataset.verzio = k.verzio;
+}
+$('karakter-valaszt').onchange = () => probal('karakter-uzenet', karakterBetoltes);
+$('karakter-lista').onclick = karakterListazas;
+$('karakter-letrehoz').onclick = () => probal('karakter-uzenet', async () => {
+  const v = await api.hivas('character.create', { nev: $('uj-karakter').value, kampany_id: $('uj-karakter-kampany').value || undefined });
+  uzenet('karakter-uzenet', `Létrejött: ${v.karakter.nev}`);
+  await karakterListazas();
+});
+$('karakter-mentes').onclick = () => probal('karakter-uzenet', async () => {
+  const adat = JSON.parse($('karakter-adat').value);
+  const v = await sync.push({ action: 'character.save', adat: { id: $('karakter-valaszt').value, verzio: Number($('karakter-adat').dataset.verzio), adat } });
+  $('karakter-adat').dataset.verzio = v.verzio;
+  uzenet('karakter-uzenet', `Mentve, új verzió: ${v.verzio}`);
+});
+
+async function kampanyListazas() {
+  await probal('dobas-eredmeny', async () => {
+    kampanyok = (await api.hivas('campaigns.list')).kampanyok;
+    opciok($('kampany-valaszt'), kampanyok, k => `${k.cim} (${k.sajat_szerep})`);
+    opciok($('uj-karakter-kampany'), kampanyok.filter(k => k.sajat_szerep !== 'jatekos'), k => k.cim, 'nincs');
+  });
+}
+$('kampany-lista').onclick = kampanyListazas;
+$('kapcsolodas').onclick = () => probal('dobas-eredmeny', () => sync.connect($('kampany-valaszt').value));
+
+sync.subscribe(e => {
+  if (e.tipus === 'allapot') $('allapot').textContent = JSON.stringify(e.allapot, null, 2);
+  if (e.tipus === 'statusz') {
+    const s = e.statusz;
+    $('szinkron-statusz').textContent = s.kampanyId
+      ? `${s.online ? '✓ Online' : '⚠ Offline'} · verzió ${s.verzio ?? 'nincs'} · várakozó mentés: ${s.varakozo} · utolsó szinkron: ${s.utolsoSzinkron ? s.utolsoSzinkron.toLocaleTimeString('hu-HU') : 'még nem volt'}`
+      : 'Nincs kapcsolat.';
+  }
+  if (e.tipus === 'utkozes') uzenet('karakter-uzenet', 'Közben más is módosította a karaktert. Töltsd be újra.', false);
+});
+
+$('dobas').onclick = () => probal('dobas-eredmeny', async () => {
+  const kockak = [1, 2, 3].map(() => 1 + Math.floor(Math.random() * 6));
+  const mod = Number($('dobas-mod').value) || 0;
+  const dupla = new Set(kockak).size < 3;
+  const osszeg = kockak.reduce((a, b) => a + b, 0) + mod;
+  $('dobas-eredmeny').innerHTML = kockak.map((k, i) => `<span class="kocka${i === 2 ? ' sarkany' : ''}">${k}</span>`).join('') +
+    ` = <strong>${osszeg}</strong>${dupla ? ` · dupla, ${kockak[2]} mutatványpont` : ''}`;
+  await sync.push({ action: 'roll.log', adat: {
+    id: crypto.randomUUID(), kampany_id: sync.kampanyId, mire: $('dobas-mire').value, kockak, modosito: mod,
+    mutatvanypont: dupla ? kockak[2] : 0, rejtett: $('dobas-rejtett').checked } });
+});
+
+async function felhasznaloListazas() {
+  await probal('dm-uzenet', async () => {
+    felhasznalok = (await api.hivas('users.admin', { muvelet: 'lista' })).felhasznalok;
+    opciok($('k-mester'), felhasznalok, f => f.nev, 'nincs');
+    opciok($('t-jatekos'), felhasznalok, f => f.nev, 'nincs (játékos nélküli)');
+  });
+}
+function dmKimenet(adat) { $('dm-kimenet').classList.remove('rejtve'); $('dm-kimenet').textContent = JSON.stringify(adat, null, 2); }
+$('u-lista').onclick = () => probal('dm-uzenet', async () => { await felhasznaloListazas(); dmKimenet(felhasznalok); });
+$('u-letrehoz').onclick = () => probal('dm-uzenet', async () => {
+  const v = await api.hivas('users.admin', { muvelet: 'letrehoz', nev: $('u-nev').value, jelszo: $('u-jelszo').value, szerep: $('u-szerep').value });
+  uzenet('dm-uzenet', `Létrejött: ${v.felhasznalo.nev}`); felhasznaloListazas();
+});
+$('k-letrehoz').onclick = () => probal('dm-uzenet', async () => {
+  const v = await api.hivas('campaign.create', { cim: $('k-cim').value, mesterjatekos_id: $('k-mester').value });
+  uzenet('dm-uzenet', `Kampány létrejött: ${v.kampany.cim}`); kampanyListazas();
+});
+$('t-tarsit').onclick = () => probal('dm-uzenet', async () => {
+  await api.hivas('character.assign', { karakter_id: $('t-karakter').value, jatekos_id: $('t-jatekos').value });
+  uzenet('dm-uzenet', 'Társítás kész.'); karakterListazas();
+});
+$('t-kampanyba').onclick = () => probal('dm-uzenet', async () => {
+  await api.hivas('campaign.addCharacter', { kampany_id: $('kampany-valaszt').value, karakter_id: $('t-karakter').value });
+  uzenet('dm-uzenet', 'A karakter a kampányba került.'); karakterListazas();
+});
+
+nezet();
+</script>
+</body>
+</html>
