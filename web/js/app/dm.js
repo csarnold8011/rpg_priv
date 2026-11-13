@@ -7,6 +7,7 @@ import {
 import {
   useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, megjelenitettNev
 } from './jatek.js';
+import { uresKarakter } from '../karakter/adat.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -431,7 +432,7 @@ function UjKarakterParbeszed({ onBezar }) {
   const [fut, indit] = useMuvelet();
   const ment = () => indit(async () => {
     if (!nev.trim()) throw new Error('Adj nevet a karakternek.');
-    const v = await api.hivas('character.create', { nev: nev.trim(), jatekos_id: jatekos, kampany_id: kampany || undefined });
+    const v = await api.hivas('character.create', { nev: nev.trim(), adat: uresKarakter({ nev: nev.trim() }), jatekos_id: jatekos, kampany_id: kampany || undefined });
     dm.karakterFrissit(v.karakter);
     onBezar();
     navigal('/dm/karakter/' + v.karakter.id);

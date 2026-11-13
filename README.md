@@ -14,6 +14,7 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 | `index.html` | A felület nyitóoldala (belépés, utána a szerep szerint DM vagy játékos nézet): https://csarnold8011.github.io/rpg_priv/ |
 | `web/js/app/` | A felület: `main.js` (belépési pont), `belepes.js`, `dm.js`, `jatekos.js`, `jatek.js` (közös játékelemek), `kozos.js`, `ikonok.js` |
 | `web/js/` | Közös modulok: `api.js` (háttérhívások), `sync.js` (szinkronréteg), `szabalyok.js` (szabályadat a böngészőben) |
+| `web/js/karakter/` | A karakter adatszerkezete és számolása: `adat.js` (szerkezet, átállás a korábbiról), `szamol.js` (végértékek a döntésekből, magyarázattal), `ellenoriz.js` (figyelmeztetések), `tablak.js`, `szabalyindex.js` |
 | `web/kaland/` | A design rendszer másolata (komponensek, tokenek), lásd `web/kaland/README.md` |
 | `web/css/app.css` | A felület elrendezése, csak tokenekkel |
 | `web/vendor/` | React 18 és htm helyben (nincs fordítási lépés) |
@@ -27,6 +28,7 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 python3 tools/sema_general.py      # schema/sema.json -> backend/Sema.gs
 python3 tools/backend_osszefuz.py  # backend/*.gs -> dist/Kod.gs
 node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 63 ellenőrzés)
+node tools/teszt/karakter.mjs      # a karakterszámoló tesztje (az Alapkönyv példakarakterével, 61 ellenőrzés)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 
@@ -36,4 +38,4 @@ A felület fordítási lépés nélkül fut: a `web/js/app/` modulok böngésző
 
 Telepítés: [docs/telepites.md](docs/telepites.md).
 
-A tervezési döntések a Claude projektben vannak (`claude/rendszerkeret-es-dontesek.md`, `claude/alapozas-terv.md`).
+A tervezési döntések a Claude projektben vannak (`claude/rendszerkeret-es-dontesek.md`, `claude/alapozas-terv.md`, `claude/karakterkeszito-terv.md`).

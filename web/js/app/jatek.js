@@ -1,6 +1,7 @@
 // A DM és a játékos felület közös játékelemei: kampány élő állapota, dobás, dobásnapló, karakterlap.
 import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Jelolo, Ikon, idopont, elojel, SZEREP_NEV, tarOlvas, tarIr, gyorsKulcs } from './kozos.js';
 import { megjelenitettNev } from '../szabalyok.js';
+import { karakterSzamol } from '../karakter/szamol.js';
 
 // ---- Kampány élő állapota a szinkronrétegen keresztül ----
 // Visszaadja: { allapot, hiba, frissit }. Megnyitáskor kapcsolódik, elhagyáskor bont.
@@ -140,10 +141,9 @@ export function DobasNaplo({ dobasok, karakterek, dm, max = 30 }) {
   </ol>`;
 }
 
-// ---- Karakterlap (váz) ----
-// Ideiglenes adatszerkezet, amíg a karakterkészítő (1. lépés) véglegesíti:
-//   adat.tulajdonsagok: { tul_accuracy: 2, ... }   adat.fokuszok: ['fok_...']
-//   adat.egeszseg: { aktualis, max }   adat.magiapont: { aktualis, max }   adat.vedekezes, adat.sebesseg, adat.pancelertek
+// ---- Karakterlap ----
+// A karakter adatszerkezete és a számolás: web/js/karakter/ (adat.js, szamol.js). A korábbi, ideiglenes
+// szerkezetű karaktereket a számoló beolvasáskor átalakítja (atallit), így azok értékei is látszanak.
 export const TULAJDONSAGOK = [
   ['tul_accuracy', 'Pontosság'], ['tul_communication', 'Kommunikáció'], ['tul_constitution', 'Szívósság'],
   ['tul_dexterity', 'Ügyesség'], ['tul_fighting', 'Harc'], ['tul_intelligence', 'Intelligencia'],
@@ -172,39 +172,56 @@ export function KarakterFejlec({ karakter, jatekosNev }) {
   </div>`;
 }
 
-export function KarakterLap({ karakter, oszlopok }) {
+// A karakter számolt lapja (memóriában tartva, amíg az adat és a szabályadat nem változik).
+export function useKarakterSzamol(karakter) {
   const szabalyok = useApp().szabalyok.adat;
-  const adat = karakter.adat || {};
-  const tul = adat.tulajdonsagok || {};
-  const kitoltve = Object.keys(tul).length > 0;
-  const fokuszok = (adat.fokuszok || []).map((id) => szabalyElem(szabalyok, 'Fókuszok', id)).filter(Boolean);
-  const kepessegek = TULAJDONSAGOK.map(([id, nev]) => {
-    const sz = szabalyElem(szabalyok, 'Tulajdonságok', id);
-    return {
-      name: sz ? sz.nev_hu : nev,
-      value: Number(tul[id]) || 0,
-      focus: fokuszok.filter((f) => f.tulajdonsag === id).map((f) => f.nev_hu)
-    };
-  });
-  const eg = adat.egeszseg || {}, mp = adat.magiapont || {};
+  return useMemo(() => karakterSzamol((karakter && karakter.adat) || {}, (szabalyok && szabalyok.lapok) || {}), [karakter && karakter.adat, szabalyok]);
+}
+
+export function KarakterLap({ karakter, oszlopok }) {
+  const lap = useKarakterSzamol(karakter);
+  const adat = (karakter && karakter.adat) || {};
+  const ures = !lap.faj && !lap.osztaly && TULAJDONSAGOK.every(([id]) => !lap.tulajdonsagok[id].ertek);
+  const fokuszNevek = (tulId) => Object.values(lap.fokuszok).filter((f) => f.tulajdonsag === tulId)
+    .map((f) => f.nev_hu + (f.bonusz === 3 ? ' (+3)' : ''));
+  const kepessegek = TULAJDONSAGOK.map(([id, nev]) => ({ name: nev, value: lap.tulajdonsagok[id].ertek, focus: fokuszNevek(id) }));
+  const figy = lap.figyelmeztetesek.filter((f) => f.szint === 'figyelmeztetes' && !f.elfogadott);
   const nincs = html`<span className="halvany">nincs</span>`;
+  const elojelesen = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
   return html`<div className="karakterlap">
     <${K.Panel} title="Tulajdonságok">
-      ${kitoltve ? null : html`<${Uzenet} tonus="warning">A tulajdonságokat a karakterkészítő tölti ki (következő fejlesztési lépés).<//>`}
+      ${ures ? html`<${Uzenet} tonus="warning">A tulajdonságokat, a fajt és az osztályt a karakterkészítő tölti ki.<//>` : null}
+      ${adat.keszites && adat.keszites.allapot === 'piszkozat' && !ures ? html`<${Uzenet} tonus="neutral">Piszkozat: a karakterkészítés még nem fejeződött be.<//>` : null}
       <${K.AbilityGrid} abilities=${kepessegek} columns=${oszlopok || 3}/>
     <//>
     <${K.Panel} title="Erőforrások">
       <div className="verem">
-        ${eg.max ? html`<${K.ResourceBar} kind="health" value=${Number(eg.aktualis) || 0} max=${Number(eg.max)}/>`
+        ${lap.egeszseg.ertek ? html`<${K.ResourceBar} kind="health" value=${lap.egeszseg.aktualis} max=${lap.egeszseg.ertek}/>`
           : html`<p className="halvany">Az Egészség még nincs megadva.</p>`}
-        ${mp.max ? html`<${K.ResourceBar} kind="magic" value=${Number(mp.aktualis) || 0} max=${Number(mp.max)}/>` : null}
+        ${lap.magiapont && lap.magiapont.ertek ? html`<${K.ResourceBar} kind="magic" value=${lap.magiapont.aktualis} max=${lap.magiapont.ertek}/>` : null}
         <dl className="ertekek">
-          <div><dt>Védekezés</dt><dd>${adat.vedekezes ?? nincs}</dd></div>
-          <div><dt>Sebesség</dt><dd>${adat.sebesseg ?? nincs}</dd></div>
-          <div><dt>Páncélérték</dt><dd>${adat.pancelertek ?? nincs}</dd></div>
+          <div><dt>Védekezés</dt><dd>${lap.vedekezes.ertek || nincs}</dd></div>
+          <div><dt>Sebesség</dt><dd>${lap.sebesseg ? lap.sebesseg.ertek : nincs}</dd></div>
+          <div><dt>Páncélérték</dt><dd>${lap.pancelertek.ertek}</dd></div>
         </dl>
       </div>
     <//>
+    ${lap.fegyverek.length ? html`<${K.Panel} title="Fegyverek">
+      <dl className="ertekek ertekek--lista">
+        ${lap.fegyverek.map((w) => html`<div key=${w.id}>
+          <dt>${w.nev_hu}${w.ismert ? '' : ' (nem ismert csoport)'}</dt>
+          <dd>${elojelesen(w.tamadas)} · ${w.sebzes}</dd>
+        </div>`)}
+      </dl>
+    <//>` : null}
+    ${lap.talentumok.length || lap.arkanumok.length || lap.specializaciok.length ? html`<${K.Panel} title="Talentumok">
+      <dl className="ertekek ertekek--lista">
+        ${lap.specializaciok.concat(lap.talentumok, lap.arkanumok).map((t) => html`<div key=${t.id}><dt>${t.nev_hu}</dt><dd>${t.fokozat}</dd></div>`)}
+      </dl>
+    <//>` : null}
+    ${figy.length ? html`<${K.Panel} title="Figyelmeztetések">
+      <div className="verem">${figy.map((f) => html`<${Uzenet} key=${f.kulcs} tonus="warning">${f.uzenet}<//>`)}</div>
+    <//>` : null}
   </div>`;
 }
 

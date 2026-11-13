@@ -1,0 +1,5 @@
+{
+  "type": "module",
+  "private": true,
+  "description": "Csak a Node tesztekhez: a mappa .js fájljai ES modulok."
+}

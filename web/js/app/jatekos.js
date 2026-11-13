@@ -4,6 +4,7 @@ import {
   TemaKapcsolo, SzinkronJelzo, HibaVagyBetoltes, indulasLekerese
 } from './kozos.js';
 import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek } from './jatek.js';
+import { uresKarakter } from '../karakter/adat.js';
 
 export function JatekosFelulet({ ut }) {
   const { felhasznalo, kilepes } = useApp();
@@ -70,7 +71,7 @@ function UjKarakter({ onBezar }) {
   const [fut, indit] = useMuvelet();
   const ment = () => indit(async () => {
     if (!nev.trim()) throw new Error('Adj nevet a karakternek.');
-    const v = await api.hivas('character.create', { nev: nev.trim() });
+    const v = await api.hivas('character.create', { nev: nev.trim(), adat: uresKarakter({ nev: nev.trim() }) });
     onBezar();
     navigal('/jatekos/karakter/' + v.karakter.id);
   }, 'Létrejött a karakter.');
