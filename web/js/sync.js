@@ -54,6 +54,7 @@ export class AppsScriptSync {
   disconnect() {
     this._futo = false;
     clearTimeout(this._idozito);
+    if (this.kampanyId) { this.kampanyId = null; this._statusz(); }
   }
 
   subscribe(fn) {
@@ -86,6 +87,17 @@ export class AppsScriptSync {
       this._statusz();
       this._sorKuldese();
     });
+  }
+
+  // Kilépéskor: a még fel nem küldött változások eldobása, hogy a következő belépő
+  // felhasználó nevében ne menjenek fel.
+  elvetes() {
+    const varok = this._varok || {};
+    this.sor.forEach(elem => { if (varok[elem.azonosito]) varok[elem.azonosito].elutasit(new Error('A mentés kilépés miatt elmaradt.')); });
+    this.sor = [];
+    this._varok = {};
+    sorIras(this.sor);
+    this._statusz();
   }
 
   status() {

@@ -32,6 +32,13 @@ Kódváltozás után: **Telepítések kezelése**, a meglévő telepítés szerk
 3. Lépj be a választott DM névvel és jelszóval. **A legelső belépő lesz a DM**, ezért ezt rögtön a telepítés után tedd meg.
 4. A DM eszközökkel hozd létre a játékosokat, a kampányt, a karaktereket.
 
+## 4/b. A felület és a meghívó link
+
+- A felület: `https://csarnold8011.github.io/rpg_priv/`. Belépés után a DM a DM felületre, a játékos a játékos felületre kerül.
+- Ha az eszközön még nincs megadva a szerver címe, a belépésnél kéri (a tesztoldalon elmentett cím ugyanazon a böngészőn már megvan).
+- A DM a **Felhasználók** oldalon találja a **Meghívó linket**. Ezt kell elküldeni a játékosoknak: az első megnyitáskor beállítja a szerver címét a telefonjukon, utána csak a nevüket és a jelszavukat kell beírniuk. A link a háttér címét tartalmazza, ezért csak a családnak és a barátoknak küldd.
+- A DM a felületen kezeli a felhasználókat (létrehozás, jelszó, letiltás), a kampányokat (mesterjátékos, aktív források, DM jegyzet) és a karaktereket (társítás, kampányba rendelés).
+
 ## 5. Ajánlott
 
 - `importIdozitoBekapcsolasa` futtatása egyszer: óránként betölti a FantasyAge/Import mappába feltöltött szabályadat-adagokat. Kézzel: `importalas`.

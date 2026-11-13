@@ -1,0 +1,112 @@
+/* A design system (https://claude.ai/artifact/EgGDkRYHTHZB9GbX3LcCj5) components/bundle.css fájljának
+   másolata. Ne itt módosítsd: a design systemben, majd másold át újra (lásd web/kaland/README.md).
+   A betűtípusokat az oldal <link> elemmel tölti be, ezért az @import sor itt nincs. */
+
+body { margin: 0; background: var(--surface); color: var(--ink); font-family: var(--font-serif); font-size: 17px; line-height: 28px; }
+.ka-demo { padding: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.ka-demo--stack { flex-direction: column; align-items: stretch; max-width: 560px; }
+
+/* Fókusz: felületszínű rés, majd tömör gyűrű */
+.ka-btn:focus-visible, .ka-field__input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+}
+
+/* Button */
+.ka-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  font-family: var(--font-sans); font-size: 16px; line-height: 24px; font-weight: 700; letter-spacing: 0.01em;
+  height: var(--control-md); padding: 0 var(--space-4); border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink); cursor: pointer; }
+.ka-btn--sm { height: var(--control-sm); padding: 0 var(--space-3); font-size: 14px; }
+.ka-btn--lg { height: var(--control-lg); padding: 0 var(--space-5); font-size: 17px; }
+.ka-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.ka-btn--primary:hover { filter: brightness(1.08); }
+.ka-btn--secondary:hover { background: var(--accent-soft); }
+.ka-btn--quiet { background: transparent; border-color: transparent; color: var(--accent); }
+.ka-btn--quiet:hover { background: var(--accent-soft); }
+.ka-btn--danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.ka-btn--danger:hover { background: var(--danger-soft); }
+.ka-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+.ka-btn__icon { display: inline-flex; font-size: 18px; }
+
+/* Divider */
+.ka-divider { position: relative; height: 1px; background: var(--line); margin: var(--space-2) 0 var(--space-3); }
+.ka-divider__gem { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--dragon); border: 1px solid var(--dragon-ink); }
+.ka-divider--plain { margin: var(--space-2) 0; }
+
+/* Panel */
+.ka-panel { border-radius: var(--radius-md); padding: var(--space-4) var(--space-5) var(--space-5); }
+.ka-panel--raised { background: var(--surface-raised); border: 1px solid var(--line); box-shadow: var(--shadow-card); }
+.ka-panel--plain { background: transparent; border: 1px solid var(--line); }
+.ka-panel__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.ka-panel__title { margin: 0; font-family: var(--font-display); font-size: 22px; line-height: 30px; font-weight: 600; letter-spacing: 0.03em; color: var(--ink); }
+.ka-panel__actions { display: flex; gap: var(--space-2); }
+@media (max-width: 639px) { .ka-panel { padding: var(--space-3) var(--space-4) var(--space-4); } }
+
+/* AbilityGrid */
+.ka-abilities { display: grid; gap: var(--space-2); margin: 0; }
+.ka-ability { background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-2) var(--space-2); text-align: center; min-height: var(--touch-min); }
+.ka-ability__name { font-family: var(--font-sans); font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.ka-ability__value { margin: 0; font-family: var(--font-sans); font-size: 22px; line-height: 28px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ka-ability__focus { margin: 0; font-family: var(--font-sans); font-size: 13px; line-height: 16px; color: var(--accent); }
+
+/* ResourceBar */
+.ka-resource { font-family: var(--font-sans); }
+.ka-resource__row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-1); }
+.ka-resource__label { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.ka-resource__num { font-size: 15px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.ka-resource__num strong { font-size: 22px; line-height: 28px; color: var(--ink); }
+.ka-resource__track { height: 12px; border-radius: var(--radius-pill); overflow: hidden; border: 1px solid var(--line-strong); }
+.ka-resource--health .ka-resource__track { background: var(--health-soft); }
+.ka-resource--health .ka-resource__fill { background: var(--health); height: 100%; }
+.ka-resource--magic .ka-resource__track { background: var(--magic-soft); }
+.ka-resource--magic .ka-resource__fill { background: var(--magic); height: 100%; }
+.ka-resource__warn { margin-top: var(--space-1); font-size: 14px; line-height: 20px; font-weight: 700; color: var(--warning); }
+
+/* DiceRoll */
+.ka-roll { font-family: var(--font-sans); }
+.ka-roll__label { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: var(--space-2); }
+.ka-roll__row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.ka-roll__dice { display: flex; gap: var(--space-2); }
+.ka-die { display: inline-flex; align-items: center; justify-content: center; width: var(--touch-min); height: var(--touch-min);
+  border-radius: var(--radius-md); border: 2px solid var(--line-strong); background: var(--surface-raised);
+  font-size: 22px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ka-die--dragon { background: var(--dragon); border-color: var(--dragon-ink); color: var(--on-dragon); }
+.ka-roll__bonus { font-size: 22px; font-weight: 700; color: var(--ink-muted); }
+.ka-roll__eq { font-size: 22px; color: var(--ink-muted); }
+.ka-roll__total { font-size: 36px; line-height: 40px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ka-roll__target { font-size: 14px; line-height: 20px; color: var(--ink-muted); }
+.ka-roll__result { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); min-height: 24px; }
+
+/* ReadAloud */
+.ka-readaloud { background: var(--surface-sunken); border-top: 2px solid var(--dragon-ink); border-bottom: 2px solid var(--dragon-ink);
+  padding: var(--space-3) var(--space-5) var(--space-4); }
+.ka-readaloud__label { font-family: var(--font-display); font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dragon-ink); margin-bottom: var(--space-2); }
+.ka-readaloud__text { font-family: var(--font-serif); font-style: italic; font-size: 18px; line-height: 30px; color: var(--ink); }
+.ka-readaloud__text p { margin: 0 0 var(--space-3); }
+.ka-readaloud__text p:last-child { margin-bottom: 0; }
+
+/* Badge */
+.ka-badge { display: inline-flex; align-items: center; gap: var(--space-1); font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 700;
+  padding: 2px var(--space-2); border-radius: var(--radius-sm); border: 1px solid transparent; }
+.ka-badge--neutral { background: var(--surface-sunken); color: var(--ink); border-color: var(--line); }
+.ka-badge--accent { background: var(--accent-soft); color: var(--accent); }
+.ka-badge--dragon { background: var(--dragon-soft); color: var(--dragon-ink); border-color: var(--dragon-ink); }
+.ka-badge--health { background: var(--health-soft); color: var(--health); }
+.ka-badge--magic { background: var(--magic-soft); color: var(--magic); }
+.ka-badge--success { background: var(--success-soft); color: var(--success); }
+.ka-badge--warning { background: var(--warning-soft); color: var(--warning); }
+.ka-badge--danger { background: var(--danger-soft); color: var(--danger); }
+
+/* TextField */
+.ka-field { display: flex; flex-direction: column; gap: var(--space-1); font-family: var(--font-sans); }
+.ka-field__label { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.ka-field__input { font-family: var(--font-sans); font-size: 16px; line-height: 24px; color: var(--ink); background: var(--surface-raised);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 7px var(--space-3); min-height: var(--control-md); box-sizing: border-box; }
+textarea.ka-field__input { font-family: var(--font-serif); font-size: 17px; line-height: 28px; min-height: 112px; resize: vertical; }
+.ka-field__input::placeholder { color: var(--ink-muted); opacity: 1; }
+.ka-field--error .ka-field__input { border-color: var(--danger); border-width: 2px; padding: 6px 11px; }
+.ka-field__msg { font-size: 14px; line-height: 20px; color: var(--ink-muted); }
+.ka-field__msg--error { color: var(--danger); font-weight: 700; }

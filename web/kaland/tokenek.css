@@ -1,0 +1,72 @@
+/* A design system (tokens.json) tokenjei CSS változóként, mind a négy témában.
+   A téma a gyökérelem data-theme attribútumán dől el: pergamen, gyertyafeny (DM), erdo, holdfeny (játékos).
+   Az értékek a design systemből jönnek; eltérés esetén a design system dönt. */
+
+:root {
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-serif: "Alegreya", Georgia, "Times New Roman", serif;
+  --font-sans: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+
+  --radius-sm: 3px; --radius-md: 6px; --radius-lg: 12px; --radius-pill: 999px;
+
+  --control-sm: 32px; --control-md: 40px; --control-lg: 48px; --touch-min: 44px;
+}
+
+:root, [data-theme="pergamen"] {
+  color-scheme: light;
+  --surface: #f4ead6; --surface-raised: #fbf6ea; --surface-sunken: #e8d9bb;
+  --line: #d6c29e; --line-strong: #86704f;
+  --ink: #2a1c11; --ink-muted: #5a4532;
+  --accent: #7a1e22; --on-accent: #fbf6ea; --accent-soft: #efd6cf;
+  --dragon: #c6952f; --on-dragon: #2a1c11; --dragon-ink: #7a560f; --dragon-soft: #f1e0b8;
+  --health: #9b2529; --health-soft: #f2d4d0; --magic: #2b4e86; --magic-soft: #d6e1f3;
+  --success: #1c636d; --success-soft: #cfe7e8; --warning: #8a5200; --warning-soft: #f5dfbd;
+  --danger: #9b2529; --danger-soft: #f2d4d0; --focus-ring: #2b4e86;
+  --shadow-card: 0 1px 2px rgba(42, 28, 17, 0.12);
+  --shadow-overlay: 0 8px 24px rgba(42, 28, 17, 0.22);
+}
+
+[data-theme="gyertyafeny"] {
+  color-scheme: dark;
+  --surface: #1c1611; --surface-raised: #271f18; --surface-sunken: #140f0b;
+  --line: #3b2f24; --line-strong: #857059;
+  --ink: #efe4cf; --ink-muted: #c4b294;
+  --accent: #e48d82; --on-accent: #1c1611; --accent-soft: #3d1a18;
+  --dragon: #e3b75c; --on-dragon: #1c1611; --dragon-ink: #e3b75c; --dragon-soft: #3a2c12;
+  --health: #f08a80; --health-soft: #3f1717; --magic: #98b8ec; --magic-soft: #1a2640;
+  --success: #74c9c6; --success-soft: #12302f; --warning: #ecb75f; --warning-soft: #3a2810;
+  --danger: #f08a80; --danger-soft: #3f1717; --focus-ring: #98b8ec;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="erdo"] {
+  color-scheme: light;
+  --surface: #edf1e3; --surface-raised: #f7f9f0; --surface-sunken: #dde5ce;
+  --line: #c4d0b0; --line-strong: #6b7c63;
+  --ink: #1b2a1e; --ink-muted: #475845;
+  --accent: #2d5a39; --on-accent: #f7f9f0; --accent-soft: #d3e3cd;
+  --dragon: #d39c34; --on-dragon: #1b2a1e; --dragon-ink: #7f560e; --dragon-soft: #f3e2b9;
+  --health: #9b2529; --health-soft: #f2d4d0; --magic: #2b4e86; --magic-soft: #d6e1f3;
+  --success: #1c636d; --success-soft: #cfe7e8; --warning: #8a5200; --warning-soft: #f5dfbd;
+  --danger: #9b2529; --danger-soft: #f2d4d0; --focus-ring: #2b4e86;
+  --shadow-card: 0 1px 2px rgba(27, 42, 30, 0.12);
+  --shadow-overlay: 0 8px 24px rgba(27, 42, 30, 0.22);
+}
+
+[data-theme="holdfeny"] {
+  color-scheme: dark;
+  --surface: #121a14; --surface-raised: #1a251d; --surface-sunken: #0c120e;
+  --line: #2d3b30; --line-strong: #6e816a;
+  --ink: #e5ecdb; --ink-muted: #adbca5;
+  --accent: #93c9a0; --on-accent: #121a14; --accent-soft: #183322;
+  --dragon: #e7ba5c; --on-dragon: #121a14; --dragon-ink: #e7ba5c; --dragon-soft: #382a10;
+  --health: #f08a80; --health-soft: #3f1717; --magic: #98b8ec; --magic-soft: #1a2640;
+  --success: #74c9c6; --success-soft: #12302f; --warning: #ecb75f; --warning-soft: #3a2810;
+  --danger: #f08a80; --danger-soft: #3f1717; --focus-ring: #98b8ec;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
