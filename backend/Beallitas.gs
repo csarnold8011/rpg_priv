@@ -62,7 +62,7 @@ function elsoBeallitas() {
     naplo.push('Még nincs felhasználó: aki először belép, az lesz a DM.');
   }
 
-  CacheService.getScriptCache().removeAll(['szabaly_verzio', 'letiltottak']);
+  CacheService.getScriptCache().removeAll(['szabaly_verzio', 'letiltottak'].concat(GYORSITOTARAZOTT_BEALLITASOK.map(function (k) { return 'prop_' + k; })));
   naplo.push('Kész.');
   Logger.log(naplo.join('\n'));
   return naplo;

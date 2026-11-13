@@ -13,7 +13,7 @@ function hash_(jelszo, so) {
 }
 
 function titok_() {
-  const t = PropertiesService.getScriptProperties().getProperty('TOKEN_TITOK');
+  const t = beallitas_('TOKEN_TITOK');
   if (!t) throw hiba_('nincs_beallitva', 'Futtasd az elsoBeallitas függvényt.');
   return t;
 }

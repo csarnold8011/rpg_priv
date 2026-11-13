@@ -73,6 +73,7 @@ const gyoker = new Mappa('root');
 const fajlObj = (id) => ({ getId: () => id, getName: () => fajlok[id].cim, setName: (n) => { fajlok[id].cim = n; }, getMimeType: () => 'sheets', isTrashed: () => false, moveTo: (m) => { fajlok[id].szulo = m.id; } });
 function mappaKeres(m, id) { if (m.id === id) return m; for (const a of m.almappak) { const x = mappaKeres(a, id); if (x) return x; } return null; }
 const tulajdonsagok = {};
+let propOlvasas = 0; // a Properties olvasására napi kvóta van, a gyakori hívások nem olvashatják
 const gyorsitotar = {};
 
 const kornyezet = {
@@ -89,7 +90,7 @@ const kornyezet = {
   },
   MimeType: { GOOGLE_SHEETS: 'sheets' },
   PropertiesService: { getScriptProperties: () => ({
-    getProperty: k => (k in tulajdonsagok ? tulajdonsagok[k] : null),
+    getProperty: k => { propOlvasas++; return (k in tulajdonsagok ? tulajdonsagok[k] : null); },
     setProperty: (k, v) => { tulajdonsagok[k] = String(v); },
     deleteProperty: k => { delete tulajdonsagok[k]; }
   }) },
@@ -189,6 +190,10 @@ hivas('roll.log', { kampany_id: kampany.id, mire: 'Lopakodás', kockak: [3, 3, 5
 hivas('roll.log', { kampany_id: kampany.id, mire: 'Csapda (rejtett)', kockak: [1, 2, 6], modosito: 0, rejtett: true }, dm);
 hivas('roll.log', { kampany_id: kampany.id, mire: 'Próbálkozás rejtve', kockak: [1, 1, 1], rejtett: true }, bencT);
 ellenoriz(hivas('state.poll', { kampany_id: kampany.id }, bencT).verzio > verzioElotte, 'a dobás növeli a kampányverziót');
+const olvasasElotte = propOlvasas;
+for (let i = 0; i < 50; i++) hivas('state.poll', { kampany_id: kampany.id }, bencT);
+hivas('state.get', { kampany_id: kampany.id }, bencT);
+ellenoriz(propOlvasas === olvasasElotte, '50 state.poll és egy state.get nem olvassa a Script Properties tárat (napi kvóta)', propOlvasas - olvasasElotte);
 
 const bAll = hivas('state.get', { kampany_id: kampany.id }, bencT);
 ellenoriz(bAll.ok && bAll.kampany.sajat_szerep === 'jatekos' && bAll.kampany.dm_jegyzet === undefined, 'Bence látja a kampányt játékosként, DM jegyzet nélkül', bAll);

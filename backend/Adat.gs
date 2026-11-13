@@ -3,13 +3,28 @@
 // dátummá, számmá vagy képletté (a getValues() az aposztrófot nem adja vissza).
 
 const _tablazatok = {};
+
+// Script Properties olvasása gyorsítótáron keresztül. A Properties olvasására napi
+// kvóta van (ingyenes fióknál 50 000 művelet), a gyakori kérések (tokenellenőrzés a
+// 3 másodpercenkénti state.poll hívásnál, táblázat megnyitása) ezért nem olvashatják
+// minden hívásnál. Üres értéket nem tárol, így az elsoBeallitas után azonnal működik.
+const BEALLITAS_CACHE_MP = 21600; // 6 óra, a CacheService maximuma
+function beallitas_(kulcs) {
+  const c = CacheService.getScriptCache();
+  const m = c.get('prop_' + kulcs);
+  if (m !== null) return m;
+  const v = PropertiesService.getScriptProperties().getProperty(kulcs);
+  if (v !== null) c.put('prop_' + kulcs, v, BEALLITAS_CACHE_MP);
+  return v;
+}
+const GYORSITOTARAZOTT_BEALLITASOK = ['TOKEN_TITOK', 'SZABALY_ID', 'JATEK_ID'];
 function jsonOszlopok_() {
   return SEMA.json_oszlopok;
 }
 
 function tablazat_(kulcs) {
   if (!_tablazatok[kulcs]) {
-    const id = PropertiesService.getScriptProperties().getProperty(kulcs === 'szabaly' ? 'SZABALY_ID' : 'JATEK_ID');
+    const id = beallitas_(kulcs === 'szabaly' ? 'SZABALY_ID' : 'JATEK_ID');
     if (!id) throw hiba_('nincs_beallitva', 'Futtasd az elsoBeallitas függvényt az Apps Script szerkesztőben.');
     _tablazatok[kulcs] = SpreadsheetApp.openById(id);
   }
