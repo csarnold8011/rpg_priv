@@ -13,7 +13,7 @@ A háttér egy Google Apps Script web app a saját Gmail fiókban. A kód ebben 
 
 1. A felső sávban válaszd ki az `elsoBeallitas` függvényt, és **Futtatás**.
 2. Az engedélykérésnél add meg a hozzáférést (Drive, Táblázatok). A „Google nem ellenőrizte ezt az alkalmazást” figyelmeztetésnél: Speciális, majd Ugrás a projektre. Ez a saját kódod, a saját fiókodban fut.
-3. A végrehajtási naplóban megjelenik a „Fantasy AGE” mappa és a két táblázat címe. Ha a táblázatok már léteztek (például a Drive-ra feltöltve), név szerint megtalálja és kiegészíti őket.
+3. A végrehajtási naplóban megjelenik a „FantasyAge” mappa (a meglévőt használja) és a két táblázat címe. Ha a táblázatok már léteztek (például a Drive-ra feltöltve), név szerint megtalálja és kiegészíti őket.
 
 A függvény többször is futtatható, semmit nem ír felül. Ha később új oszlop vagy lap kerül a sémába, újrafuttatva pótolja.
 

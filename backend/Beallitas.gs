@@ -1,14 +1,15 @@
 // Első beállítás és karbantartás. Ezeket az Apps Script szerkesztőből kell futtatni.
 //
 // elsoBeallitas(): többször is futtatható, semmit nem ír felül.
-//   - létrehozza (vagy megkeresi) a „Fantasy AGE” mappát és almappáit,
+//   - megkeresi (vagy létrehozza) a „FantasyAge” mappát és almappáit
+//     (a szabálykönyvek szövege a meglévő „md” almappában van),
 //   - létrehozza (vagy név szerint megkeresi) a két táblázatot, és mappába teszi őket,
 //   - minden lapot és fejlécet pótol a schema szerint (új oszlopot a sor végére tesz),
 //   - beállítja a token titkos kulcsát,
 //   - ha még nincs felhasználó, engedélyezi a legelső belépést (aki először belép, az lesz a DM).
 
-const MAPPA_NEV = 'Fantasy AGE';
-const ALMAPPAK = ['Szabálykönyvek', 'Kiosztható', 'Mentések'];
+const MAPPA_NEV = 'FantasyAge';
+const ALMAPPAK = ['md', 'Kiosztható', 'Mentések']; // md: a szabálykönyvek szövege
 
 function elsoBeallitas() {
   const p = PropertiesService.getScriptProperties();
