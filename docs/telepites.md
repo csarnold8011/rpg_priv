@@ -48,6 +48,9 @@ Kódváltozás után: **Telepítések kezelése**, a meglévő telepítés szerk
 
 ## Tudnivalók
 
+- A háttér a játékadat lapjait 15 percig gyorsítótárban tartja (minden írás azonnal frissíti). Ha a Játékadat táblázatban kézzel javítasz valamit, az legkésőbb 15 perc múlva látszik a felületen.
+- Törlés: karaktert és kampányt előbb archiválni kell, csak utána törölhető véglegesen; felhasználót előbb le kell tiltani. A napi mentésből minden visszaállítható.
+
 - A token 30 napig érvényes. Letiltott felhasználó azonnal kizáródik. Szerepkör módosítása (játékos és DM között) újbóli belépés után érvényes.
 - Egy karakter adatai legfeljebb kb. 48 000 karakter JSON-t foglalhatnak (egy táblázatcella korlátja).
 - A szabálykönyvek szövege soha nem kerülhet ebbe a repóba.

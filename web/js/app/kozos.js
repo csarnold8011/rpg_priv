@@ -78,22 +78,63 @@ export function idopont(iso) {
 }
 export const SZEREP_NEV = { dm: 'DM', jatekos: 'Játékos', mester: 'Mesterjátékos' };
 
-// ---- Lekérés horog: { adat, hiba, tolt, ujra } ----
-export function useLekeres(fn, fuggosegek) {
-  const [allapot, setAllapot] = useState({ adat: null, hiba: null, tolt: true });
+// ---- Eszközön tárolt adatok (felhasználónként) ----
+// A listák és a kampányállapot az eszközön is megmaradnak, így megnyitáskor azonnal látszik
+// az előző állapot, a friss adat a háttérben érkezik. Kilépéskor törlődnek.
+export const gyorsKulcs = (felhasznaloId, kulcs) => `fage.gy.${felhasznaloId}.${kulcs}`;
+export function gyorsTorles(felhasznaloId) {
+  try {
+    const elotag = `fage.gy.${felhasznaloId}.`;
+    Object.keys(localStorage).filter((k) => k.startsWith(elotag)).forEach((k) => localStorage.removeItem(k));
+  } catch (e) { /* nem baj */ }
+}
+
+// Induló adatok egy hívással. Ha a háttér még a régi verzió (nincs init művelet),
+// a korábbi külön hívásokkal kéri le, így a felület az Apps Script frissítése előtt is működik.
+export async function indulasLekerese(api, dm) {
+  try {
+    return await api.hivas('init');
+  } catch (e) {
+    if (e.kod !== 'ismeretlen_muvelet') throw e;
+    const [k, c, f] = await Promise.all([api.hivas('campaigns.list'), api.hivas('characters.list'),
+      dm ? api.hivas('users.admin', { muvelet: 'lista' }) : Promise.resolve(null)]);
+    return { kampanyok: k.kampanyok, karakterek: c.karakterek, felhasznalok: f ? f.felhasznalok : undefined };
+  }
+}
+
+// ---- Lekérés horog: { adat, hiba, tolt, ujra, beallit } ----
+// tarKulcs esetén az utolsó eredmény az eszközön is tárolódik, és azonnal megjelenik.
+// beallit: a helyi adat módosítása (például mentés után) újabb lekérés nélkül.
+export function useLekeres(fn, fuggosegek, tarKulcs) {
+  const { felhasznalo } = useApp();
+  const kulcs = tarKulcs && felhasznalo ? gyorsKulcs(felhasznalo.id, tarKulcs) : null;
+  const [allapot, setAllapot] = useState(() => ({ adat: kulcs ? tarOlvas(kulcs, null) : null, hiba: null, tolt: true }));
   const szamlalo = useRef(0);
   const ujra = useCallback(async () => {
     const sajat = ++szamlalo.current;
     setAllapot((a) => ({ ...a, tolt: true, hiba: null }));
     try {
       const adat = await fn();
-      if (sajat === szamlalo.current) setAllapot({ adat, hiba: null, tolt: false });
+      if (sajat !== szamlalo.current) return;
+      if (kulcs) tarIr(kulcs, adat);
+      setAllapot({ adat, hiba: null, tolt: false });
     } catch (e) {
-      if (sajat === szamlalo.current) setAllapot((a) => ({ adat: a.adat, hiba: e, tolt: false }));
+      if (sajat !== szamlalo.current) return;
+      // törölt vagy már nem elérhető elem: a tárolt példány sem mutatható tovább
+      const vegleges = e.kod === 'nem_talalhato' || e.kod === 'nincs_jogosultsag';
+      if (vegleges && kulcs) { try { localStorage.removeItem(kulcs); } catch (x) { /* nem baj */ } }
+      setAllapot((a) => ({ adat: vegleges ? null : a.adat, hiba: e, tolt: false }));
     }
   }, fuggosegek); // eslint-disable-line
+  const beallit = useCallback((valtoztatas) => {
+    setAllapot((a) => {
+      const adat = typeof valtoztatas === 'function' ? valtoztatas(a.adat) : valtoztatas;
+      if (kulcs) tarIr(kulcs, adat);
+      return { ...a, adat };
+    });
+  }, [kulcs]);
   useEffect(() => { ujra(); }, [ujra]);
-  return { ...allapot, ujra };
+  return { ...allapot, ujra, beallit };
 }
 
 // Gombművelet: amíg fut, a gomb tiltott; hiba esetén üzenet.

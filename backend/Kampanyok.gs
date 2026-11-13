@@ -12,15 +12,47 @@ function kampanyNezet_(kampany, szerep) {
   return o;
 }
 
+const ARCHIVALT = 'archivált';
+
 // action: campaigns.list
-function kampanyLista_(a, felh) {
-  const k = kornyezet_();
+// Az archivált kampányokat csak a DM látja.
+function kampanyLista_(a, felh, kornyezet) {
+  const k = kornyezet || kornyezet_();
   const lista = [];
   k.kampanyok.forEach(function (kampany) {
     const szerep = kampanySzerep_(felh, kampany, k);
-    if (szerep) lista.push(kampanyNezet_(kampany, szerep));
+    if (szerep && (szerep === 'dm' || kampany.allapot !== ARCHIVALT)) lista.push(kampanyNezet_(kampany, szerep));
   });
   return { kampanyok: lista };
+}
+
+// action: init
+// Minden, ami a nyitóképernyőhöz kell, egyetlen hívásban: kampányok, karakterek, és a DM-nek a felhasználók.
+function indulas_(a, felh) {
+  const k = kornyezet_();
+  const o = {
+    kampanyok: kampanyLista_(a, felh, k).kampanyok,
+    karakterek: karakterLista_(a, felh, k).karakterek
+  };
+  if (felh.r === 'dm') o.felhasznalok = sorok_('jatek', 'Felhasználók').map(publikus_);
+  return o;
+}
+
+// action: campaign.delete (csak DM)   adat: { id }
+// Csak archivált kampány törölhető. A kampánykapcsolatok törlődnek, a karakterek megmaradnak,
+// a dobásnapló és a megosztások sorai is maradnak.
+function kampanyTorlese_(a, felh) {
+  return zarolva_(function () {
+    const k = kornyezet_();
+    const kampany = kampanyKeresese_(a.id, k);
+    if (kampany.allapot !== ARCHIVALT) throw hiba_('hibas_adat', 'Csak archivált kampány törölhető. Előbb archiváld.');
+    const kapcsolatok = k.kapcsolatok.filter(function (x) { return x.kampany_id === kampany.id; });
+    sorokTorlese_('jatek', 'Kampánykarakterek', kapcsolatok.map(function (x) { return x._sor; }));
+    sorTorlese_('jatek', 'Kampányok', kampany._sor);
+    CacheService.getScriptCache().remove('kv_' + kampany.id);
+    valtozasNaplozasa_(felh, 'kampany.torol', kampany.id, kampany.verzio, '');
+    return { torolve: kampany.id };
+  });
 }
 
 // action: campaign.create (DM)   adat: { cim, aktiv_forrasok?, mesterjatekos_id?, allapot? }
@@ -96,12 +128,13 @@ function allapotLekerese_(a, felh) {
   const kampany = kampanyKeresese_(a.kampany_id, k);
   const szerep = kampanySzerep_(felh, kampany, k);
   if (!szerep) throw hiba_('nincs_jogosultsag', 'Nem vagy tagja ennek a kampánynak.');
+  if (szerep !== 'dm' && kampany.allapot === ARCHIVALT) throw hiba_('nincs_jogosultsag', 'Ez a kampány archiválva van.');
   const mindentLat = szerep === 'dm' || szerep === 'mester';
 
   const kapcsolatok = k.kapcsolatok.filter(function (x) { return x.kampany_id === kampany.id; });
   const karakterek = kapcsolatok.map(function (x) {
     const kar = k.karakterek.find(function (c) { return c.id === x.karakter_id; });
-    if (!kar) return null;
+    if (!kar || !igaz_(kar.aktiv)) return null; // archivált karakter nem látszik a kampányban
     const irhato = karakterIrhato_(felh, kar, k);
     const o = irhato ? karakterTeljes_(kar, k, felh) : {
       // a csapattársakról csak a névsor látszik

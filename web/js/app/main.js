@@ -1,6 +1,6 @@
 // A felület belépési pontja: kontextus (api, sync, szabályok, üzenetek), belépés, és a szerep
 // szerinti nézet (DM: #/dm/..., játékos: #/jatekos/...).
-import { html, K, AppKontextus, useState, useEffect, useCallback, useUtvonal, navigal, Uzenet, Megerosites } from './kozos.js';
+import { html, K, AppKontextus, useState, useEffect, useCallback, useUtvonal, navigal, Uzenet, Megerosites, gyorsTorles } from './kozos.js';
 import { Api } from '../api.js';
 import { AppsScriptSync } from '../sync.js';
 import { szabalyokBetoltese } from '../szabalyok.js';
@@ -56,9 +56,11 @@ function App() {
     if (birodalom && ut[0] !== birodalom) navigal('/' + birodalom);
   }, [birodalom, ut[0]]);
 
+  // Kilépéskor az eszközön tárolt listák is törlődnek (közös eszközön a következő belépő ne lássa őket).
+  const kijelentkezes = () => { if (felhasznalo) gyorsTorles(felhasznalo.id); api.kijelentkezes(); };
   const kilepes = () => {
     if (sync.status().varakozo > 0) setKilepesKerdes(true);
-    else api.kijelentkezes();
+    else kijelentkezes();
   };
 
   const kontextus = { api, sync, felhasznalo, szabalyok, szabalyBetoltes, uzen, kilepes };
@@ -84,7 +86,7 @@ function App() {
     ${kilepesKerdes ? html`<${Megerosites} cim="Kilépés" veszelyes=${true}
       szoveg=${`Még ${sync.status().varakozo} mentés vár feltöltésre, mert nincs kapcsolat a szerverrel. Ha most kilépsz, ezek elvesznek. Ha várhatsz, maradj bent, amíg a kapcsolat visszatér.`}
       gomb="Kilépés mentés nélkül" onMegse=${() => setKilepesKerdes(false)}
-      onIgen=${() => { setKilepesKerdes(false); sync.elvetes(); api.kijelentkezes(); }}/>` : null}
+      onIgen=${() => { setKilepesKerdes(false); sync.elvetes(); kijelentkezes(); }}/>` : null}
   <//>`;
 }
 

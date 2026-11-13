@@ -5,6 +5,7 @@
 function muveletek_() {
   return {
     'login':                   { fn: belepes_, nyilvanos: true },
+    'init':                    { fn: indulas_ },
     'users.admin':             { fn: felhasznaloKezeles_, szerep: 'dm' },
     'rules.version':           { fn: szabalyVerzio_ },
     'rules.get':               { fn: szabalyokLekerese_ },
@@ -15,9 +16,12 @@ function muveletek_() {
     'character.create':        { fn: karakterLetrehozasa_ },
     'character.save':          { fn: karakterMentese_ },
     'character.assign':        { fn: karakterTarsitasa_, szerep: 'dm' },
+    'character.archive':       { fn: karakterArchivalasa_, szerep: 'dm' },
+    'character.delete':        { fn: karakterTorlese_, szerep: 'dm' },
     'campaigns.list':          { fn: kampanyLista_ },
     'campaign.create':         { fn: kampanyLetrehozasa_, szerep: 'dm' },
     'campaign.update':         { fn: kampanyModositasa_, szerep: 'dm' },
+    'campaign.delete':         { fn: kampanyTorlese_, szerep: 'dm' },
     'campaign.addCharacter':   { fn: kampanyhozRendeles_, szerep: 'dm' },
     'campaign.removeCharacter':{ fn: kampanybolKivetel_, szerep: 'dm' },
     'roll.log':                { fn: dobasNaplozasa_ },
@@ -80,12 +84,16 @@ function igaz_(x) {
   return x === true || x === 1 || ['true', 'igen', '1', 'i', 'x'].indexOf(String(x).toLowerCase()) >= 0;
 }
 
+// Zárolás alatt a lapok mindig a táblázatból olvasódnak (lásd Adat.gs, gyorsítótár).
 function zarolva_(fn) {
   const zar = LockService.getScriptLock();
   zar.waitLock(15000);
+  const elozo = _zarolasAlatt;
+  _zarolasAlatt = true;
   try {
     return fn();
   } finally {
+    _zarolasAlatt = elozo;
     zar.releaseLock();
   }
 }

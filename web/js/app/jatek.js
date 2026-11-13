@@ -1,19 +1,28 @@
 // A DM és a játékos felület közös játékelemei: kampány élő állapota, dobás, dobásnapló, karakterlap.
-import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Jelolo, Ikon, idopont, elojel, SZEREP_NEV } from './kozos.js';
+import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Jelolo, Ikon, idopont, elojel, SZEREP_NEV, tarOlvas, tarIr, gyorsKulcs } from './kozos.js';
 import { megjelenitettNev } from '../szabalyok.js';
 
 // ---- Kampány élő állapota a szinkronrétegen keresztül ----
 // Visszaadja: { allapot, hiba, frissit }. Megnyitáskor kapcsolódik, elhagyáskor bont.
+// Az utolsó ismert állapot az eszközön is megmarad, így a kampány azonnal megnyílik.
 export function useKampanyAllapot(kampanyId) {
-  const { sync } = useApp();
-  const [allapot, setAllapot] = useState(null);
+  const { sync, felhasznalo } = useApp();
+  const kulcs = gyorsKulcs(felhasznalo.id, 'allapot.' + kampanyId);
+  const [allapot, setAllapot] = useState(() => tarOlvas(kulcs, null));
   const [hiba, setHiba] = useState(null);
   useEffect(() => {
-    setAllapot(null); setHiba(null);
+    setHiba(null);
     const leiratkozas = sync.subscribe((e) => {
-      if (e.tipus === 'allapot' && e.allapot.kampany && e.allapot.kampany.id === kampanyId) setAllapot(e.allapot);
+      if (e.tipus === 'allapot' && e.allapot.kampany && e.allapot.kampany.id === kampanyId) {
+        setAllapot(e.allapot);
+        tarIr(kulcs, e.allapot);
+      }
     });
-    sync.connect(kampanyId).catch((e) => setHiba(e));
+    sync.connect(kampanyId).catch((e) => {
+      setHiba(e);
+      // törölt, archivált vagy elérhetetlen kampány: a tárolt állapot sem mutatható tovább
+      if (e.kod !== 'halozat') { setAllapot(null); try { localStorage.removeItem(kulcs); } catch (x) { /* nem baj */ } }
+    });
     return () => { leiratkozas(); sync.disconnect(); };
   }, [kampanyId]);
   const frissit = () => sync.pull().catch((e) => setHiba(e));

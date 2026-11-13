@@ -30,9 +30,11 @@ function meretEllenorzes_(adat) {
 }
 
 // action: characters.list
-function karakterLista_(a, felh) {
-  const k = kornyezet_();
-  const lista = k.karakterek.filter(function (kar) { return karakterIrhato_(felh, kar, k); })
+// Az archivált (aktiv = hamis) karaktereket csak a DM látja.
+function karakterLista_(a, felh, kornyezet) {
+  const k = kornyezet || kornyezet_();
+  const lista = k.karakterek
+    .filter(function (kar) { return karakterIrhato_(felh, kar, k) && (felh.r === 'dm' || igaz_(kar.aktiv)); })
     .map(function (kar) { return karakterOsszefoglalo_(kar, k, felh); });
   return { karakterek: lista };
 }
@@ -135,5 +137,37 @@ function karakterTarsitasa_(a, felh) {
     kampanyVerziokNovelese_(karakterKampanyai_(kar.id, k), k.kampanyok);
     valtozasNaplozasa_(felh, 'karakter.tarsit:' + (jatekosId || 'nincs'), kar.id, regi, kar.verzio);
     return { karakter: karakterOsszefoglalo_(kar, k, felh) };
+  });
+}
+
+// action: character.archive (csak DM)   adat: { id, aktiv }
+// Archivált karakter: a játékosok és a kampány nézete nem mutatja, a DM visszaállíthatja.
+function karakterArchivalasa_(a, felh) {
+  return zarolva_(function () {
+    const k = kornyezet_();
+    const kar = karakterKeresese_(a.id, k);
+    kar.aktiv = !!a.aktiv;
+    kar.modositva = most_();
+    kar.modositotta = felh.n;
+    sorFrissitese_('jatek', 'Karakterek', kar);
+    kampanyVerziokNovelese_(karakterKampanyai_(kar.id, k), k.kampanyok);
+    valtozasNaplozasa_(felh, kar.aktiv ? 'karakter.visszaallit' : 'karakter.archival', kar.id, '', '');
+    return { karakter: karakterOsszefoglalo_(kar, k, felh) };
+  });
+}
+
+// action: character.delete (csak DM)   adat: { id }
+// Csak archivált karakter törölhető. A kampánykapcsolatai is törlődnek, a dobásnapló marad.
+function karakterTorlese_(a, felh) {
+  return zarolva_(function () {
+    const k = kornyezet_();
+    const kar = karakterKeresese_(a.id, k);
+    if (igaz_(kar.aktiv)) throw hiba_('hibas_adat', 'Csak archivált karakter törölhető. Előbb archiváld.');
+    const kapcsolatok = k.kapcsolatok.filter(function (x) { return x.karakter_id === kar.id; });
+    kampanyVerziokNovelese_(kapcsolatok.map(function (x) { return x.kampany_id; }), k.kampanyok);
+    sorokTorlese_('jatek', 'Kampánykarakterek', kapcsolatok.map(function (x) { return x._sor; }));
+    sorTorlese_('jatek', 'Karakterek', kar._sor);
+    valtozasNaplozasa_(felh, 'karakter.torol', kar.id, kar.verzio, '');
+    return { torolve: kar.id };
   });
 }

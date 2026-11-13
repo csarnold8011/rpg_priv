@@ -343,6 +343,7 @@ const SEMA = {
 function muveletek_() {
   return {
     'login':                   { fn: belepes_, nyilvanos: true },
+    'init':                    { fn: indulas_ },
     'users.admin':             { fn: felhasznaloKezeles_, szerep: 'dm' },
     'rules.version':           { fn: szabalyVerzio_ },
     'rules.get':               { fn: szabalyokLekerese_ },
@@ -353,9 +354,12 @@ function muveletek_() {
     'character.create':        { fn: karakterLetrehozasa_ },
     'character.save':          { fn: karakterMentese_ },
     'character.assign':        { fn: karakterTarsitasa_, szerep: 'dm' },
+    'character.archive':       { fn: karakterArchivalasa_, szerep: 'dm' },
+    'character.delete':        { fn: karakterTorlese_, szerep: 'dm' },
     'campaigns.list':          { fn: kampanyLista_ },
     'campaign.create':         { fn: kampanyLetrehozasa_, szerep: 'dm' },
     'campaign.update':         { fn: kampanyModositasa_, szerep: 'dm' },
+    'campaign.delete':         { fn: kampanyTorlese_, szerep: 'dm' },
     'campaign.addCharacter':   { fn: kampanyhozRendeles_, szerep: 'dm' },
     'campaign.removeCharacter':{ fn: kampanybolKivetel_, szerep: 'dm' },
     'roll.log':                { fn: dobasNaplozasa_ },
@@ -418,12 +422,16 @@ function igaz_(x) {
   return x === true || x === 1 || ['true', 'igen', '1', 'i', 'x'].indexOf(String(x).toLowerCase()) >= 0;
 }
 
+// Zárolás alatt a lapok mindig a táblázatból olvasódnak (lásd Adat.gs, gyorsítótár).
 function zarolva_(fn) {
   const zar = LockService.getScriptLock();
   zar.waitLock(15000);
+  const elozo = _zarolasAlatt;
+  _zarolasAlatt = true;
   try {
     return fn();
   } finally {
+    _zarolasAlatt = elozo;
     zar.releaseLock();
   }
 }
@@ -490,8 +498,51 @@ function uresSor_(sor) {
   return sor.every(function (c) { return c === '' || c === null; });
 }
 
+// ---- A játékadat lapjainak gyorsítótára ----
+// A Sheets olvasása (és már a táblázat megnyitása is) lassú, ezért a játékadat lapjai rövid
+// ideig a CacheService-ben vannak. Minden laphoz generációszám tartozik: minden írás után új
+// generáció kezdődik, így a régi tartalom többé nem olvasható. Zárolás alatt (írás előtt)
+// mindig a táblázatból olvasunk, hogy a sorszámok biztosan pontosak legyenek.
+// A táblázatban kézzel végzett módosítás legkésőbb JATEK_CACHE_MP másodperc múlva látszik.
+const JATEK_CACHE_MP = 900;
+let _zarolasAlatt = false;
+
+function generacioKulcs_(kulcs, nev) {
+  return 'gen_' + kulcs + '_' + encodeURIComponent(nev);
+}
+function ujGeneracio_() {
+  return String(Date.now()) + '_' + Math.floor(Math.random() * 1e6);
+}
+function lapGeneracio_(kulcs, nev) {
+  const c = CacheService.getScriptCache();
+  const k = generacioKulcs_(kulcs, nev);
+  let g = c.get(k);
+  if (g === null) { g = ujGeneracio_(); c.put(k, g, 21600); }
+  return g;
+}
+function lapValtozott_(kulcs, nev) {
+  if (kulcs !== 'jatek') return;
+  CacheService.getScriptCache().put(generacioKulcs_(kulcs, nev), ujGeneracio_(), 21600);
+}
+// fn eredményét lapgenerációhoz kötve tárolja (csak a játékadatnál, zároláson kívül).
+function gyorsitottOlvasas_(kulcs, nev, alkulcs, fn) {
+  if (kulcs !== 'jatek' || _zarolasAlatt) return fn();
+  const ck = 'lap_' + encodeURIComponent(nev) + '_' + alkulcs + '_' + lapGeneracio_(kulcs, nev);
+  const m = gyorsitotarOlvasas_(ck);
+  if (m !== null) {
+    try { return JSON.parse(m); } catch (e) { /* olvassuk újra */ }
+  }
+  const ertek = fn();
+  gyorsitotarIras_(ck, JSON.stringify(ertek), JATEK_CACHE_MP);
+  return ertek;
+}
+
 // A lap összes sora objektumként (a _sor mező a táblázatbeli sorszám).
 function sorok_(kulcs, nev) {
+  return gyorsitottOlvasas_(kulcs, nev, 'mind', function () { return sorokTablazatbol_(kulcs, nev); });
+}
+
+function sorokTablazatbol_(kulcs, nev) {
   const l = lap_(kulcs, nev);
   const ertekek = l.getDataRange().getValues();
   if (ertekek.length < 2) return [];
@@ -506,6 +557,10 @@ function sorok_(kulcs, nev) {
 
 // Csak az utolsó n sor (a dobásnaplóhoz, ami folyamatosan nő).
 function utolsoSorok_(kulcs, nev, n) {
+  return gyorsitottOlvasas_(kulcs, nev, 'utolso' + n, function () { return utolsoSorokTablazatbol_(kulcs, nev, n); });
+}
+
+function utolsoSorokTablazatbol_(kulcs, nev, n) {
   const l = lap_(kulcs, nev);
   const utolso = l.getLastRow();
   if (utolso < 2) return [];
@@ -530,6 +585,7 @@ function sorHozzaadasa_(kulcs, nev, obj) {
   const l = lap_(kulcs, nev);
   const fej = fejlec_(l);
   l.appendRow(fej.map(function (f) { return cellaErtek_(f, obj[f]); }));
+  lapValtozott_(kulcs, nev);
 }
 
 function sorFrissitese_(kulcs, nev, obj) {
@@ -537,10 +593,19 @@ function sorFrissitese_(kulcs, nev, obj) {
   const l = lap_(kulcs, nev);
   const fej = fejlec_(l);
   l.getRange(obj._sor, 1, 1, fej.length).setValues([fej.map(function (f) { return cellaErtek_(f, obj[f]); })]);
+  lapValtozott_(kulcs, nev);
 }
 
 function sorTorlese_(kulcs, nev, sorszam) {
   lap_(kulcs, nev).deleteRow(sorszam);
+  lapValtozott_(kulcs, nev);
+}
+
+// Több sor törlése egy lapról: alulról felfelé, hogy a sorszámok érvényesek maradjanak.
+function sorokTorlese_(kulcs, nev, sorszamok) {
+  const l = lap_(kulcs, nev);
+  sorszamok.slice().sort(function (a, b) { return b - a; }).forEach(function (s) { l.deleteRow(s); });
+  if (sorszamok.length) lapValtozott_(kulcs, nev);
 }
 
 function cellaIrasa_(kulcs, nev, sorszam, oszlop, ertek) {
@@ -548,6 +613,7 @@ function cellaIrasa_(kulcs, nev, sorszam, oszlop, ertek) {
   const j = fejlec_(l).indexOf(oszlop);
   if (j < 0) throw new Error('Hiányzó oszlop: ' + oszlop);
   l.getRange(sorszam, j + 1).setValue(cellaErtek_(oszlop, ertek));
+  lapValtozott_(kulcs, nev);
 }
 
 function valtozasNaplozasa_(felh, mit, elemId, regi, uj) {
@@ -691,6 +757,7 @@ function belepes_(a) {
 //       { muvelet: 'jelszo', id, jelszo }
 //       { muvelet: 'letilt' | 'engedelyez', id }
 //       { muvelet: 'szerep', id, szerep }
+//       { muvelet: 'torol', id }   csak letiltott, karakter nélküli felhasználó; mesterjátékosi szerepei törlődnek
 function felhasznaloKezeles_(a, felh) {
   if (a.muvelet === 'lista') {
     return { felhasznalok: sorok_('jatek', 'Felhasználók').map(publikus_) };
@@ -710,6 +777,22 @@ function felhasznaloKezeles_(a, felh) {
     } else if (a.muvelet === 'letilt' || a.muvelet === 'engedelyez') {
       if (f.id === felh.u) throw hiba_('hibas_adat', 'Saját magadat nem tilthatod le.');
       f.aktiv = a.muvelet === 'engedelyez';
+    } else if (a.muvelet === 'torol') {
+      if (f.id === felh.u) throw hiba_('hibas_adat', 'Saját magadat nem törölheted.');
+      if (igaz_(f.aktiv)) throw hiba_('hibas_adat', 'Csak letiltott felhasználó törölhető. Előbb tiltsd le.');
+      const k = kornyezet_();
+      const karakterei = k.karakterek.filter(function (c) { return c.jatekos_id === f.id; });
+      if (karakterei.length) {
+        throw hiba_('hibas_adat', 'Előbb társítsd másnak vagy tedd játékos nélkülivé a karaktereit: ' +
+          karakterei.map(function (c) { return c.nev; }).join(', ') + '.');
+      }
+      const mesterkent = k.kampanyok.filter(function (x) { return x.mesterjatekos_id === f.id; });
+      mesterkent.forEach(function (x) { x.mesterjatekos_id = ''; sorFrissitese_('jatek', 'Kampányok', x); });
+      kampanyVerziokNovelese_(mesterkent.map(function (x) { return x.id; }), k.kampanyok);
+      sorTorlese_('jatek', 'Felhasználók', f._sor);
+      CacheService.getScriptCache().remove('letiltottak');
+      valtozasNaplozasa_(felh, 'felhasznalo.torol', f.id, '', '');
+      return { torolve: f.id };
     } else if (a.muvelet === 'szerep') {
       if (['dm', 'jatekos'].indexOf(a.szerep) < 0) throw hiba_('hibas_adat', 'A szerep dm vagy jatekos lehet.');
       f.szerep = a.szerep;
@@ -853,9 +936,11 @@ function meretEllenorzes_(adat) {
 }
 
 // action: characters.list
-function karakterLista_(a, felh) {
-  const k = kornyezet_();
-  const lista = k.karakterek.filter(function (kar) { return karakterIrhato_(felh, kar, k); })
+// Az archivált (aktiv = hamis) karaktereket csak a DM látja.
+function karakterLista_(a, felh, kornyezet) {
+  const k = kornyezet || kornyezet_();
+  const lista = k.karakterek
+    .filter(function (kar) { return karakterIrhato_(felh, kar, k) && (felh.r === 'dm' || igaz_(kar.aktiv)); })
     .map(function (kar) { return karakterOsszefoglalo_(kar, k, felh); });
   return { karakterek: lista };
 }
@@ -961,6 +1046,38 @@ function karakterTarsitasa_(a, felh) {
   });
 }
 
+// action: character.archive (csak DM)   adat: { id, aktiv }
+// Archivált karakter: a játékosok és a kampány nézete nem mutatja, a DM visszaállíthatja.
+function karakterArchivalasa_(a, felh) {
+  return zarolva_(function () {
+    const k = kornyezet_();
+    const kar = karakterKeresese_(a.id, k);
+    kar.aktiv = !!a.aktiv;
+    kar.modositva = most_();
+    kar.modositotta = felh.n;
+    sorFrissitese_('jatek', 'Karakterek', kar);
+    kampanyVerziokNovelese_(karakterKampanyai_(kar.id, k), k.kampanyok);
+    valtozasNaplozasa_(felh, kar.aktiv ? 'karakter.visszaallit' : 'karakter.archival', kar.id, '', '');
+    return { karakter: karakterOsszefoglalo_(kar, k, felh) };
+  });
+}
+
+// action: character.delete (csak DM)   adat: { id }
+// Csak archivált karakter törölhető. A kampánykapcsolatai is törlődnek, a dobásnapló marad.
+function karakterTorlese_(a, felh) {
+  return zarolva_(function () {
+    const k = kornyezet_();
+    const kar = karakterKeresese_(a.id, k);
+    if (igaz_(kar.aktiv)) throw hiba_('hibas_adat', 'Csak archivált karakter törölhető. Előbb archiváld.');
+    const kapcsolatok = k.kapcsolatok.filter(function (x) { return x.karakter_id === kar.id; });
+    kampanyVerziokNovelese_(kapcsolatok.map(function (x) { return x.kampany_id; }), k.kampanyok);
+    sorokTorlese_('jatek', 'Kampánykarakterek', kapcsolatok.map(function (x) { return x._sor; }));
+    sorTorlese_('jatek', 'Karakterek', kar._sor);
+    valtozasNaplozasa_(felh, 'karakter.torol', kar.id, kar.verzio, '');
+    return { torolve: kar.id };
+  });
+}
+
 // ===== Kampanyok.gs =====
 
 // Kampányok, karakterek kampányhoz rendelése, és a kampány élő állapota (state.get).
@@ -977,15 +1094,47 @@ function kampanyNezet_(kampany, szerep) {
   return o;
 }
 
+const ARCHIVALT = 'archivált';
+
 // action: campaigns.list
-function kampanyLista_(a, felh) {
-  const k = kornyezet_();
+// Az archivált kampányokat csak a DM látja.
+function kampanyLista_(a, felh, kornyezet) {
+  const k = kornyezet || kornyezet_();
   const lista = [];
   k.kampanyok.forEach(function (kampany) {
     const szerep = kampanySzerep_(felh, kampany, k);
-    if (szerep) lista.push(kampanyNezet_(kampany, szerep));
+    if (szerep && (szerep === 'dm' || kampany.allapot !== ARCHIVALT)) lista.push(kampanyNezet_(kampany, szerep));
   });
   return { kampanyok: lista };
+}
+
+// action: init
+// Minden, ami a nyitóképernyőhöz kell, egyetlen hívásban: kampányok, karakterek, és a DM-nek a felhasználók.
+function indulas_(a, felh) {
+  const k = kornyezet_();
+  const o = {
+    kampanyok: kampanyLista_(a, felh, k).kampanyok,
+    karakterek: karakterLista_(a, felh, k).karakterek
+  };
+  if (felh.r === 'dm') o.felhasznalok = sorok_('jatek', 'Felhasználók').map(publikus_);
+  return o;
+}
+
+// action: campaign.delete (csak DM)   adat: { id }
+// Csak archivált kampány törölhető. A kampánykapcsolatok törlődnek, a karakterek megmaradnak,
+// a dobásnapló és a megosztások sorai is maradnak.
+function kampanyTorlese_(a, felh) {
+  return zarolva_(function () {
+    const k = kornyezet_();
+    const kampany = kampanyKeresese_(a.id, k);
+    if (kampany.allapot !== ARCHIVALT) throw hiba_('hibas_adat', 'Csak archivált kampány törölhető. Előbb archiváld.');
+    const kapcsolatok = k.kapcsolatok.filter(function (x) { return x.kampany_id === kampany.id; });
+    sorokTorlese_('jatek', 'Kampánykarakterek', kapcsolatok.map(function (x) { return x._sor; }));
+    sorTorlese_('jatek', 'Kampányok', kampany._sor);
+    CacheService.getScriptCache().remove('kv_' + kampany.id);
+    valtozasNaplozasa_(felh, 'kampany.torol', kampany.id, kampany.verzio, '');
+    return { torolve: kampany.id };
+  });
 }
 
 // action: campaign.create (DM)   adat: { cim, aktiv_forrasok?, mesterjatekos_id?, allapot? }
@@ -1061,12 +1210,13 @@ function allapotLekerese_(a, felh) {
   const kampany = kampanyKeresese_(a.kampany_id, k);
   const szerep = kampanySzerep_(felh, kampany, k);
   if (!szerep) throw hiba_('nincs_jogosultsag', 'Nem vagy tagja ennek a kampánynak.');
+  if (szerep !== 'dm' && kampany.allapot === ARCHIVALT) throw hiba_('nincs_jogosultsag', 'Ez a kampány archiválva van.');
   const mindentLat = szerep === 'dm' || szerep === 'mester';
 
   const kapcsolatok = k.kapcsolatok.filter(function (x) { return x.kampany_id === kampany.id; });
   const karakterek = kapcsolatok.map(function (x) {
     const kar = k.karakterek.find(function (c) { return c.id === x.karakter_id; });
-    if (!kar) return null;
+    if (!kar || !igaz_(kar.aktiv)) return null; // archivált karakter nem látszik a kampányban
     const irhato = karakterIrhato_(felh, kar, k);
     const o = irhato ? karakterTeljes_(kar, k, felh) : {
       // a csapattársakról csak a névsor látszik

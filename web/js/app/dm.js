@@ -2,7 +2,7 @@
 import {
   html, K, useApp, useState, useEffect, useMemo, createContext, useContext, useLekeres, useMuvelet,
   navigal, Ikon, Betoltes, Uzenet, Valaszto, Jelolo, Parbeszed, Megerosites, TemaKapcsolo, SzinkronJelzo,
-  HibaVagyBetoltes, SZEREP_NEV, idopont, temaBeallitasa
+  HibaVagyBetoltes, SZEREP_NEV, idopont, temaBeallitasa, gyorsKulcs, indulasLekerese
 } from './kozos.js';
 import {
   useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, megjelenitettNev
@@ -10,6 +10,8 @@ import {
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
+const ARCHIVALT = 'archivált';
+const futo = (k) => k.allapot !== 'lezárva' && k.allapot !== ARCHIVALT;
 const KARAKTER_ALLAPOTOK = ['aktív', 'távol', 'kilépett', 'elhunyt'];
 
 // A DM nézetek közös adatai: kampányok, karakterek, felhasználók.
@@ -20,17 +22,39 @@ export function DmFelulet({ ut }) {
   const { api, felhasznalo, kilepes } = useApp();
   const [menu, setMenu] = useState(false);
   useEffect(() => { temaBeallitasa('dm'); }, []);
-  const kampanyok = useLekeres(async () => (await api.hivas('campaigns.list')).kampanyok, []);
-  const karakterek = useLekeres(async () => (await api.hivas('characters.list')).karakterek, []);
-  const felhasznalok = useLekeres(async () => (await api.hivas('users.admin', { muvelet: 'lista' })).felhasznalok, []);
+  // Egyetlen induló hívás; az előző eredmény az eszközről azonnal látszik.
+  const init = useLekeres(() => indulasLekerese(api, true), [], 'init');
   useEffect(() => { setMenu(false); }, [ut.join('/')]);
 
+  const adat = init.adat || {};
+  // Helyi módosítás mentés után: csak a változott elem frissül, újabb lekérés nélkül.
+  const listaModositas = (lista, elem, torles) => init.beallit((a) => {
+    const regi = (a && a[lista]) || [];
+    const tobbi = regi.filter((x) => x.id !== (torles || elem.id));
+    if (torles) return { ...a, [lista]: tobbi };
+    const helye = regi.findIndex((x) => x.id === elem.id);
+    const uj = helye >= 0 ? regi.map((x) => (x.id === elem.id ? { ...x, ...elem } : x)) : regi.concat([elem]);
+    return { ...a, [lista]: uj };
+  });
+  const osszefoglalo = (c) => { const o = { ...c }; delete o.adat; return o; };
   const dm = {
-    kampanyok: kampanyok.adat || [], karakterek: karakterek.adat || [], felhasznalok: felhasznalok.adat || [],
-    frissitKampanyok: kampanyok.ujra, frissitKarakterek: karakterek.ujra, frissitFelhasznalok: felhasznalok.ujra,
-    betoltve: !!(kampanyok.adat && karakterek.adat && felhasznalok.adat),
-    hiba: kampanyok.hiba || karakterek.hiba || felhasznalok.hiba,
-    felhasznaloNev: (id) => { const f = (felhasznalok.adat || []).find((x) => x.id === id); return f ? f.nev : ''; }
+    kampanyok: adat.kampanyok || [], karakterek: adat.karakterek || [], felhasznalok: adat.felhasznalok || [],
+    betoltve: !!init.adat,
+    hiba: init.hiba,
+    ujratolt: init.ujra,
+    kampanyFrissit: (k) => listaModositas('kampanyok', k),
+    kampanyTorol: (id) => listaModositas('kampanyok', null, id),
+    karakterFrissit: (c) => listaModositas('karakterek', osszefoglalo(c)),
+    karakterTorol: (id) => listaModositas('karakterek', null, id),
+    felhasznaloFrissit: (f) => listaModositas('felhasznalok', f),
+    felhasznaloTorol: (id) => listaModositas('felhasznalok', null, id),
+    // karakter kampányba kerülése vagy kikerülése
+    karakterKampany: (karakterId, kampanyId, bent) => init.beallit((a) => ({
+      ...a, karakterek: ((a && a.karakterek) || []).map((c) => c.id !== karakterId ? c : {
+        ...c, kampanyok: bent ? Array.from(new Set((c.kampanyok || []).concat([kampanyId]))) : (c.kampanyok || []).filter((x) => x !== kampanyId)
+      })
+    })),
+    felhasznaloNev: (id) => { const f = (adat.felhasznalok || []).find((x) => x.id === id); return f ? f.nev : ''; }
   };
 
   const [oldal, azon] = ut;
@@ -70,9 +94,9 @@ export function DmFelulet({ ut }) {
           ${menupont('/szabalyok', 'konyv', 'Szabályok', oldal === 'szabalyok')}
           <${K.Divider} ornament=${false}/>
           <div className="oldalsav__cim">Kampányok</div>
-          ${dm.kampanyok.filter((k) => k.allapot !== 'lezárva').map((k) => html`<a key=${k.id} href=${'#/dm/kampany/' + k.id}
+          ${dm.kampanyok.filter(futo).map((k) => html`<a key=${k.id} href=${'#/dm/kampany/' + k.id}
             className=${'menupont menupont--kampany' + (oldal === 'kampany' && azon === k.id ? ' menupont--aktiv' : '')}>${k.cim}</a>`)}
-          ${kampanyok.adat && !dm.kampanyok.length ? html`<p className="halvany kicsi oldalsav__ures">Még nincs kampány.</p>` : null}
+          ${dm.betoltve && !dm.kampanyok.filter(futo).length ? html`<p className="halvany kicsi oldalsav__ures">Még nincs kampány.</p>` : null}
           <div className="oldalsav__lab">
             <${K.Divider} ornament=${false}/>
             <span className="fejlec__felh oldalsav__felh">${felhasznalo.nev}</span>
@@ -106,7 +130,7 @@ function Attekintes() {
   const dm = useDm();
   const { szabalyok } = useApp();
   const [uj, setUj] = useState(false);
-  const aktiv = dm.kampanyok.filter((k) => k.allapot !== 'lezárva');
+  const aktiv = dm.kampanyok.filter(futo);
   return html`<div>
     <${Oldalfej} cim="Áttekintés">
       <${K.Button} variant="primary" onClick=${() => setUj(true)} icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Új kampány<//>
@@ -157,15 +181,19 @@ function SzabalyAllapot({ szabalyok }) {
 function KampanyokOldal() {
   const dm = useDm();
   const [uj, setUj] = useState(false);
+  const [archivaltak, setArchivaltak] = useState(false);
+  const archivDb = dm.kampanyok.filter((k) => k.allapot === ARCHIVALT).length;
+  const lista = dm.kampanyok.filter((k) => archivaltak || k.allapot !== ARCHIVALT);
   return html`<div>
     <${Oldalfej} cim="Kampányok">
       <${K.Button} variant="primary" onClick=${() => setUj(true)} icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Új kampány<//>
     <//>
     <${K.Panel}>
-      ${!dm.betoltve ? html`<${Betoltes}/>` : !dm.kampanyok.length ? html`<p className="halvany">Még nincs kampány.</p>` : html`
+      ${archivDb ? html`<${Jelolo} checked=${archivaltak} onChange=${setArchivaltak}>Archivált kampányok mutatása (${archivDb})<//>` : null}
+      ${!dm.betoltve ? html`<${Betoltes}/>` : !lista.length ? html`<p className="halvany">Még nincs kampány.</p>` : html`
       <div className="tablazat-keret"><table className="tablazat">
         <thead><tr><th>Cím</th><th>Állapot</th><th>Mesterjátékos</th><th>Aktív források</th><th><span className="lathatatlan">Művelet</span></th></tr></thead>
-        <tbody>${dm.kampanyok.map((k) => html`<tr key=${k.id}>
+        <tbody>${lista.map((k) => html`<tr key=${k.id} className=${k.allapot === ARCHIVALT ? 'tablazat__sor--halvany' : ''}>
           <td><a href=${'#/dm/kampany/' + k.id}>${k.cim}</a></td>
           <td>${k.allapot}</td>
           <td>${k.mesterjatekos_id ? dm.felhasznaloNev(k.mesterjatekos_id) : html`<span className="halvany">nincs</span>`}</td>
@@ -186,7 +214,7 @@ function KampanyMezok({ ertek, set, jegyzettel }) {
     <${Valaszto} label="Mesterjátékos" hint="Közös eszközös játéknál ő kezeli a kampány összes karakterét."
       value=${ertek.mesterjatekos_id} onChange=${valt('mesterjatekos_id')} ures="nincs"
       opciok=${dm.felhasznalok.filter((f) => f.aktiv && f.szerep !== 'dm').map((f) => ({ value: f.id, label: f.nev }))}/>
-    <${Valaszto} label="Állapot" value=${ertek.allapot} onChange=${valt('allapot')} opciok=${ALLAPOTOK.map((a) => ({ value: a, label: a }))}/>
+    <${Valaszto} label="Állapot" value=${ertek.allapot} onChange=${valt('allapot')} opciok=${(ertek.allapot === ARCHIVALT ? ALLAPOTOK.concat([ARCHIVALT]) : ALLAPOTOK).map((a) => ({ value: a, label: a }))}/>
     <fieldset className="mezocsoport">
       <legend className="ka-field__label">Aktív források</legend>
       ${FORRASOK.map((f) => html`<${Jelolo} key=${f} checked=${ertek.aktiv_forrasok.includes(f)}
@@ -206,7 +234,7 @@ function KampanyParbeszed({ onBezar }) {
   const ment = () => indit(async () => {
     if (!ertek.cim.trim()) throw new Error('Adj címet a kampánynak.');
     const v = await api.hivas('campaign.create', ertek);
-    await dm.frissitKampanyok();
+    dm.kampanyFrissit(v.kampany);
     onBezar();
     navigal('/dm/kampany/' + v.kampany.id);
   }, 'Létrejött a kampány.');
@@ -227,10 +255,12 @@ function KampanyOldal({ id }) {
   const k = allapot.kampany;
   return html`<div>
     <${Oldalfej} cim=${k.cim} vissza=${['#/dm/kampanyok', 'Kampányok']}><${KampanyCimkek} kampany=${k}/><//>
+    ${k.allapot === ARCHIVALT ? html`<div className="oldalfej__uzenet"><${Uzenet} tonus="warning">Archivált kampány: a játékosok nem látják.<//></div>` : null}
     <div className="ket-hasab">
       <div className="verem">
         <${CsapatPanel} allapot=${allapot} frissit=${frissit}/>
         <${KampanyBeallitasok} kampany=${k} frissit=${frissit}/>
+        <${KampanyArchivPanel} kampany=${k} frissit=${frissit}/>
       </div>
       <div className="verem">
         <${K.Panel} title="Dobás"><${DobasPanel} allapot=${allapot} naploz=${naploz} dm=${true}/><//>
@@ -249,17 +279,16 @@ function CsapatPanel({ allapot, frissit }) {
   const kampanyId = allapot.kampany.id;
   const bent = new Set(allapot.karakterek.map((c) => c.id));
   const szabad = dm.karakterek.filter((c) => !bent.has(c.id) && c.aktiv);
-  const utana = async () => { await frissit(); dm.frissitKarakterek(); };
-
   const hozzaad = () => indit(async () => {
     if (!ujKarakter) throw new Error('Válassz karaktert.');
     await api.hivas('campaign.addCharacter', { kampany_id: kampanyId, karakter_id: ujKarakter });
+    dm.karakterKampany(ujKarakter, kampanyId, true);
     setUjKarakter('');
-    await utana();
+    await frissit();
   }, 'A karakter a kampányba került.');
   const allapotValtas = (c, a) => indit(async () => {
     await api.hivas('campaign.addCharacter', { kampany_id: kampanyId, karakter_id: c.id, allapot: a });
-    await utana();
+    await frissit();
   });
 
   return html`<${K.Panel} title="Csapat">
@@ -287,7 +316,7 @@ function CsapatPanel({ allapot, frissit }) {
     ${kivesz ? html`<${Megerosites} cim="Kivétel a kampányból" gomb="Kivétel" veszelyes=${true}
       szoveg=${kivesz.nev + ' kikerül ebből a kampányból. A karakter megmarad, később visszarendelheted. Ha csak elment vagy meghalt, inkább az állapotát állítsd át.'}
       onMegse=${() => setKivesz(null)}
-      onIgen=${() => { const c = kivesz; setKivesz(null); indit(async () => { await api.hivas('campaign.removeCharacter', { kampany_id: kampanyId, karakter_id: c.id }); await utana(); }, 'A karakter kikerült a kampányból.'); }}/>` : null}
+      onIgen=${() => { const c = kivesz; setKivesz(null); indit(async () => { await api.hivas('campaign.removeCharacter', { kampany_id: kampanyId, karakter_id: c.id }); dm.karakterKampany(c.id, kampanyId, false); await frissit(); }, 'A karakter kikerült a kampányból.'); }}/>` : null}
   <//>`;
 }
 
@@ -297,12 +326,19 @@ function KampanyBeallitasok({ kampany, frissit }) {
   const kiindulo = () => ({ cim: kampany.cim, mesterjatekos_id: kampany.mesterjatekos_id || '', allapot: kampany.allapot || 'előkészítés',
     aktiv_forrasok: kampany.aktiv_forrasok || [], dm_jegyzet: kampany.dm_jegyzet || '' });
   const [ertek, set] = useState(kiindulo);
+  const [alap, setAlap] = useState(kiindulo);
   const [fut, indit] = useMuvelet();
-  const valtozott = JSON.stringify(ertek) !== JSON.stringify(kiindulo());
+  // ha a kampány máshol változott (archiválás, másik eszköz), a még nem szerkesztett űrlap követi
+  const friss = JSON.stringify(kiindulo());
+  useEffect(() => {
+    if (JSON.stringify(ertek) === JSON.stringify(alap)) set(kiindulo());
+    setAlap(kiindulo());
+  }, [friss]);
+  const valtozott = JSON.stringify(ertek) !== JSON.stringify(alap);
   const ment = () => indit(async () => {
-    await api.hivas('campaign.update', { id: kampany.id, ...ertek });
+    const v = await api.hivas('campaign.update', { id: kampany.id, ...ertek });
+    dm.kampanyFrissit(v.kampany);
     await frissit();
-    dm.frissitKampanyok();
   }, 'Kampány mentve.');
   return html`<${K.Panel} title="Beállítások">
     <details className="lenyilo" open=${valtozott || undefined}>
@@ -310,9 +346,44 @@ function KampanyBeallitasok({ kampany, frissit }) {
       <${KampanyMezok} ertek=${ertek} set=${set} jegyzettel=${true}/>
       <div className="gombsor">
         <${K.Button} disabled=${fut || !valtozott} onClick=${ment}>Mentés<//>
-        ${valtozott ? html`<${K.Button} variant="quiet" onClick=${() => set(kiindulo())}>Visszaállítás<//>` : null}
+        ${valtozott ? html`<${K.Button} variant="quiet" onClick=${() => set(alap)}>Visszaállítás<//>` : null}
       </div>
     </details>
+  <//>`;
+}
+
+function KampanyArchivPanel({ kampany, frissit }) {
+  const { api } = useApp();
+  const dm = useDm();
+  const [kerdes, setKerdes] = useState(null);
+  const [fut, indit] = useMuvelet();
+  const archivalt = kampany.allapot === ARCHIVALT;
+  const allapot = (uj, siker) => indit(async () => {
+    const v = await api.hivas('campaign.update', { id: kampany.id, allapot: uj });
+    dm.kampanyFrissit(v.kampany);
+    await frissit();
+  }, siker);
+  const torol = () => indit(async () => {
+    await api.hivas('campaign.delete', { id: kampany.id });
+    dm.kampanyTorol(kampany.id);
+    dm.karakterek.forEach((c) => { if ((c.kampanyok || []).includes(kampany.id)) dm.karakterKampany(c.id, kampany.id, false); });
+    navigal('/dm/kampanyok');
+  }, kampany.cim + ' véglegesen törölve.');
+  return html`<${K.Panel} title="Archiválás és törlés">
+    ${archivalt
+      ? html`<p className="szoveg">A kampány archivált. Visszaállítva lezárt állapotba kerül, véglegesen törölve a karakterek megmaradnak.</p>
+        <div className="gombsor">
+          <${K.Button} disabled=${fut} onClick=${() => allapot('lezárva', 'A kampány visszaállítva (lezárva).')}>Visszaállítás<//>
+          <${K.Button} variant="danger" disabled=${fut} onClick=${() => setKerdes('torol')}>Végleges törlés<//>
+        </div>`
+      : html`<p className="szoveg">Archiválva eltűnik a játékosok elől és a menüből, de megmarad, és visszaállítható. Véglegesen csak archivált kampányt lehet törölni.</p>
+        <div className="gombsor"><${K.Button} disabled=${fut} onClick=${() => setKerdes('archival')}>Archiválás<//></div>`}
+    ${kerdes === 'archival' ? html`<${Megerosites} cim="Archiválás" gomb="Archiválás"
+      szoveg=${kampany.cim + ' eltűnik a játékosok nézetéből és a menüből. Később visszaállíthatod.'}
+      onMegse=${() => setKerdes(null)} onIgen=${() => { setKerdes(null); allapot(ARCHIVALT, 'A kampány archiválva.'); }}/>` : null}
+    ${kerdes === 'torol' ? html`<${Megerosites} cim="Végleges törlés" gomb="Végleges törlés" veszelyes=${true}
+      szoveg=${kampany.cim + ' véglegesen törlődik. A karakterek megmaradnak, csak kikerülnek belőle. A dobásnapló bejegyzései a táblázatban maradnak. Ezt nem lehet visszavonni (csak a napi mentésből).'}
+      onMegse=${() => setKerdes(null)} onIgen=${() => { setKerdes(null); torol(); }}/>` : null}
   <//>`;
 }
 
@@ -324,14 +395,18 @@ function KarakterekOldal() {
   const [kereses, setKereses] = useState('');
   const [uj, setUj] = useState(false);
   const kampanyCim = (id) => { const k = dm.kampanyok.find((x) => x.id === id); return k ? k.cim : ''; };
+  const [archivaltak, setArchivaltak] = useState(false);
   const szo = kereses.trim().toLowerCase();
-  const lista = dm.karakterek.filter((c) => !szo || [c.nev, dm.felhasznaloNev(c.jatekos_id)].join(' ').toLowerCase().includes(szo));
+  const archivDb = dm.karakterek.filter((c) => !c.aktiv).length;
+  const lista = dm.karakterek.filter((c) => (archivaltak || c.aktiv) &&
+    (!szo || [c.nev, dm.felhasznaloNev(c.jatekos_id)].join(' ').toLowerCase().includes(szo)));
   return html`<div>
     <${Oldalfej} cim="Karakterek">
       <${K.Button} variant="primary" onClick=${() => setUj(true)} icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Új karakter<//>
     <//>
     <${K.Panel}>
       <div className="szuro"><${K.TextField} label="Keresés" placeholder="Karakter vagy játékos neve" value=${kereses} onChange=${(e) => setKereses(e.target.value)}/></div>
+      ${archivDb ? html`<${Jelolo} checked=${archivaltak} onChange=${setArchivaltak}>Archivált karakterek mutatása (${archivDb})<//>` : null}
       ${!dm.betoltve ? html`<${Betoltes}/>` : !lista.length ? html`<p className="halvany">${dm.karakterek.length ? 'Nincs találat.' : 'Még nincs karakter.'}</p>` : html`
       <div className="tablazat-keret"><table className="tablazat">
         <thead><tr><th>Név</th><th>Faj és osztály</th><th>Játékos</th><th>Kampányok</th></tr></thead>
@@ -357,7 +432,7 @@ function UjKarakterParbeszed({ onBezar }) {
   const ment = () => indit(async () => {
     if (!nev.trim()) throw new Error('Adj nevet a karakternek.');
     const v = await api.hivas('character.create', { nev: nev.trim(), jatekos_id: jatekos, kampany_id: kampany || undefined });
-    await dm.frissitKarakterek();
+    dm.karakterFrissit(v.karakter);
     onBezar();
     navigal('/dm/karakter/' + v.karakter.id);
   }, 'Létrejött a karakter.');
@@ -376,40 +451,77 @@ function UjKarakterParbeszed({ onBezar }) {
 }
 
 function KarakterOldal({ id }) {
-  const { api, sync, szabalyok, uzen } = useApp();
+  const { api } = useApp();
   const dm = useDm();
-  const lekeres = useLekeres(async () => (await api.hivas('character.get', { id })).karakter, [id]);
+  const lekeres = useLekeres(async () => (await api.hivas('character.get', { id })).karakter, [id], 'kar.' + id);
+  // a karakter változása (mentés, társítás, archiválás) a listában is látszódjon
+  const valtozott = (uj) => { lekeres.beallit((c) => ({ ...c, ...uj })); dm.karakterFrissit({ ...lekeres.adat, ...uj }); };
   return html`<div>
     <${HibaVagyBetoltes} lekeres=${lekeres}>${(c) => html`
       <${Oldalfej} cim=${c.nev} vissza=${['#/dm/karakterek', 'Karakterek']}>
         <${KarakterFejlec} karakter=${c}/>
+        ${c.aktiv === false ? html`<${K.Badge} tone="warning">⚠ Archivált<//>` : null}
       <//>
       <div className="ket-hasab">
         <${KarakterLap} karakter=${c}/>
         <div className="verem">
-          <${TarsitasPanel} karakter=${c} ujra=${lekeres.ujra}/>
-          <${NyersAdatPanel} karakter=${c} ujra=${lekeres.ujra}/>
+          <${TarsitasPanel} karakter=${c} valtozott=${valtozott}/>
+          <${NyersAdatPanel} karakter=${c} valtozott=${valtozott} ujra=${lekeres.ujra}/>
+          <${KarakterArchivPanel} karakter=${c} valtozott=${valtozott}/>
         </div>
       </div>`}
     <//>
   </div>`;
 }
 
-function TarsitasPanel({ karakter, ujra }) {
+function KarakterArchivPanel({ karakter, valtozott }) {
+  const { api } = useApp();
+  const dm = useDm();
+  const [kerdes, setKerdes] = useState(null);
+  const [fut, indit] = useMuvelet();
+  const archival = (aktiv) => indit(async () => {
+    const v = await api.hivas('character.archive', { id: karakter.id, aktiv });
+    valtozott(v.karakter);
+  }, aktiv ? 'A karakter visszaállítva.' : 'A karakter archiválva.');
+  const torol = () => indit(async () => {
+    await api.hivas('character.delete', { id: karakter.id });
+    dm.karakterTorol(karakter.id);
+    try { localStorage.removeItem(gyorsKulcs(api.felhasznalo.id, 'kar.' + karakter.id)); } catch (e) { /* nem baj */ }
+    navigal('/dm/karakterek');
+  }, karakter.nev + ' véglegesen törölve.');
+  const archivalt = karakter.aktiv === false;
+  return html`<${K.Panel} title="Archiválás és törlés">
+    ${archivalt
+      ? html`<p className="szoveg">A karakter archivált: a játékosok és a kampányok nézete nem mutatja. Visszaállíthatod, vagy véglegesen törölheted.</p>
+        <div className="gombsor">
+          <${K.Button} disabled=${fut} onClick=${() => archival(true)}>Visszaállítás<//>
+          <${K.Button} variant="danger" disabled=${fut} onClick=${() => setKerdes('torol')}>Végleges törlés<//>
+        </div>`
+      : html`<p className="szoveg">Archiválva eltűnik a játékosok és a kampányok nézetéből, de megmarad, és bármikor visszaállítható. Véglegesen csak archivált karaktert lehet törölni.</p>
+        <div className="gombsor"><${K.Button} disabled=${fut} onClick=${() => setKerdes('archival')}>Archiválás<//></div>`}
+    ${kerdes === 'archival' ? html`<${Megerosites} cim="Archiválás" gomb="Archiválás"
+      szoveg=${karakter.nev + ' eltűnik a játékosok és a kampányok nézetéből. Később visszaállíthatod.'}
+      onMegse=${() => setKerdes(null)} onIgen=${() => { setKerdes(null); archival(false); }}/>` : null}
+    ${kerdes === 'torol' ? html`<${Megerosites} cim="Végleges törlés" gomb="Végleges törlés" veszelyes=${true}
+      szoveg=${karakter.nev + ' véglegesen törlődik, a kampánykapcsolataival együtt. A dobásnapló bejegyzései megmaradnak. Ezt nem lehet visszavonni (csak a napi mentésből).'}
+      onMegse=${() => setKerdes(null)} onIgen=${() => { setKerdes(null); torol(); }}/>` : null}
+  <//>`;
+}
+
+function TarsitasPanel({ karakter, valtozott }) {
   const { api } = useApp();
   const dm = useDm();
   const [jatekos, setJatekos] = useState(karakter.jatekos_id || '');
   const [kampany, setKampany] = useState('');
   const [fut, indit] = useMuvelet();
-  const utana = async () => { await ujra(); dm.frissitKarakterek(); };
   const tarsit = () => indit(async () => {
-    await api.hivas('character.assign', { karakter_id: karakter.id, jatekos_id: jatekos });
-    await utana();
+    const v = await api.hivas('character.assign', { karakter_id: karakter.id, jatekos_id: jatekos });
+    valtozott(v.karakter);
   }, jatekos ? 'Társítás kész.' : 'A karakter játékos nélküli lett.');
   const kampanyba = () => indit(async () => {
     await api.hivas('campaign.addCharacter', { kampany_id: kampany, karakter_id: karakter.id });
+    valtozott({ kampanyok: Array.from(new Set((karakter.kampanyok || []).concat([kampany]))) });
     setKampany('');
-    await utana();
   }, 'A karakter a kampányba került.');
   const kampanyai = karakter.kampanyok || [];
   return html`<${K.Panel} title="Játékos és kampányok">
@@ -436,7 +548,7 @@ function TarsitasPanel({ karakter, ujra }) {
 }
 
 // Átmeneti eszköz a karakterkészítő elkészültéig: a karakter adatai JSON-ban.
-function NyersAdatPanel({ karakter, ujra }) {
+function NyersAdatPanel({ karakter, valtozott, ujra }) {
   const { sync } = useApp();
   const [szoveg, setSzoveg] = useState(() => JSON.stringify(karakter.adat || {}, null, 2));
   const [hiba, setHiba] = useState(null);
@@ -448,13 +560,16 @@ function NyersAdatPanel({ karakter, ujra }) {
     if (!adat || typeof adat !== 'object' || Array.isArray(adat)) { setHiba('Az adat egy { } közé zárt objektum legyen.'); return; }
     setHiba(null);
     indit(async () => {
+      let v;
       try {
-        await sync.push({ action: 'character.save', adat: { id: karakter.id, verzio: karakter.verzio, adat } });
+        v = await sync.push({ action: 'character.save', adat: { id: karakter.id, verzio: karakter.verzio, adat } });
       } catch (e) {
         if (e.kod === 'utkozes') { await ujra(); throw new Error('Közben más is módosította a karaktert. Betöltöttem a frisset, nézd át, és mentsd újra.'); }
         throw e;
       }
-      await ujra();
+      valtozott({ adat, verzio: v.verzio, modositva: v.modositva, nev: adat.nev || karakter.nev,
+        faj: adat.faj !== undefined ? adat.faj : karakter.faj, osztaly: adat.osztaly !== undefined ? adat.osztaly : karakter.osztaly,
+        szint: adat.szint !== undefined ? adat.szint : karakter.szint });
     }, 'Karakter mentve.');
   };
   return html`<${K.Panel} title="Adatok (haladó)">
@@ -476,10 +591,11 @@ function FelhasznalokOldal() {
   const [uj, setUj] = useState(false);
   const [jelszoNeki, setJelszoNeki] = useState(null);
   const [tiltas, setTiltas] = useState(null);
+  const [torles, setTorles] = useState(null);
   const [fut, indit] = useMuvelet();
   const allit = (f, muvelet, siker) => indit(async () => {
-    await api.hivas('users.admin', { muvelet, id: f.id });
-    await dm.frissitFelhasznalok();
+    const v = await api.hivas('users.admin', { muvelet, id: f.id });
+    if (v.torolve) dm.felhasznaloTorol(f.id); else dm.felhasznaloFrissit(v.felhasznalo);
   }, siker);
   return html`<div>
     <${Oldalfej} cim="Felhasználók">
@@ -497,7 +613,8 @@ function FelhasznalokOldal() {
               <${K.Button} size="sm" onClick=${() => setJelszoNeki(f)}>Jelszó beállítása<//>
               ${f.id === felhasznalo.id ? null : f.aktiv
                 ? html`<${K.Button} size="sm" variant="quiet" disabled=${fut} onClick=${() => setTiltas(f)}>Letiltás<//>`
-                : html`<${K.Button} size="sm" variant="quiet" disabled=${fut} onClick=${() => allit(f, 'engedelyez', f.nev + ' újra beléphet.')}>Engedélyezés<//>`}
+                : html`<${K.Button} size="sm" variant="quiet" disabled=${fut} onClick=${() => allit(f, 'engedelyez', f.nev + ' újra beléphet.')}>Engedélyezés<//>
+                  <${K.Button} size="sm" variant="danger" disabled=${fut} onClick=${() => setTorles(f)}>Törlés<//>`}
             </div></td>
           </tr>`)}</tbody>
         </table></div>`}
@@ -509,6 +626,9 @@ function FelhasznalokOldal() {
     ${tiltas ? html`<${Megerosites} cim="Letiltás" gomb="Letiltás" veszelyes=${true}
       szoveg=${tiltas.nev + ' azonnal kijelentkezik minden eszközén, és nem léphet be, amíg újra nem engedélyezed. A karakterei megmaradnak.'}
       onMegse=${() => setTiltas(null)} onIgen=${() => { const f = tiltas; setTiltas(null); allit(f, 'letilt', f.nev + ' letiltva.'); }}/>` : null}
+    ${torles ? html`<${Megerosites} cim="Felhasználó törlése" gomb="Végleges törlés" veszelyes=${true}
+      szoveg=${torles.nev + ' fiókja véglegesen törlődik. Ha mesterjátékos volt, a kampányai mesterjátékos nélkül maradnak. Ha még vannak karakterei, előbb társítsd őket másnak, vagy tedd őket játékos nélkülivé.'}
+      onMegse=${() => setTorles(null)} onIgen=${() => { const f = torles; setTorles(null); allit(f, 'torol', f.nev + ' törölve.'); }}/>` : null}
   </div>`;
 }
 
@@ -522,8 +642,8 @@ function UjFelhasznaloParbeszed({ onBezar }) {
   const ment = () => indit(async () => {
     if (!nev.trim()) throw new Error('Add meg a nevet.');
     if (jelszo.length < 4) throw new Error('A jelszó legalább 4 karakter legyen.');
-    await api.hivas('users.admin', { muvelet: 'letrehoz', nev: nev.trim(), jelszo, szerep });
-    await dm.frissitFelhasznalok();
+    const v = await api.hivas('users.admin', { muvelet: 'letrehoz', nev: nev.trim(), jelszo, szerep });
+    dm.felhasznaloFrissit(v.felhasznalo);
     onBezar();
   }, 'Létrejött a felhasználó.');
   return html`<${Parbeszed} cim="Új felhasználó" onBezar=${onBezar} lab=${html`

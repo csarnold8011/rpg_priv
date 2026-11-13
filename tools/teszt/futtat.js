@@ -127,5 +127,52 @@ ellenoriz(hivas('characters.list', {}, 'hamis.token').hiba === 'nincs_bejelentke
 const kar = jatek.getSheetByName('Karakterek').getDataRange().getValues();
 ellenoriz(typeof kar[1][kar[0].indexOf('modositva')] === 'string', 'időbélyeg szövegként tárolódik');
 
+// ---------- Gyorsítótár, induló hívás, archiválás és törlés ----------
+const dm2 = hivas('login', { nev: 'Arnold', jelszo: 'sarkany1' }).token;
+const karLap = jatek.getSheetByName('Karakterek');
+let lapOlvasas = 0;
+const eredetiOlvasas = karLap.getDataRange.bind(karLap);
+karLap.getDataRange = () => { lapOlvasas++; return eredetiOlvasas(); };
+hivas('characters.list', {}, dm2);
+const olvasasUtan = lapOlvasas;
+hivas('characters.list', {}, dm2);
+hivas('state.get', { kampany_id: kampany.id }, dm2);
+ellenoriz(lapOlvasas === olvasasUtan, 'ismételt olvasás a gyorsítótárból jön (nem olvassa újra a lapot)', lapOlvasas - olvasasUtan);
+const pAktualis = hivas('character.get', { id: pottom.id }, dm2).karakter;
+hivas('character.save', { id: pottom.id, verzio: pAktualis.verzio, adat: { nev: 'Pöttöm', szint: 7 } }, dm2);
+const pFriss = hivas('state.get', { kampany_id: kampany.id }, dm2).karakterek.find(c => c.id === pottom.id);
+ellenoriz(pFriss && pFriss.adat.szint === 7 && pFriss.verzio === pAktualis.verzio + 1, 'írás után a gyorsítótár azonnal az új adatot adja', pFriss);
+karLap.getDataRange = eredetiOlvasas;
+
+v = hivas('init', {}, dm2);
+ellenoriz(v.ok && v.kampanyok.length === 1 && v.karakterek.length >= 3 && v.felhasznalok.length === 3, 'init: kampányok, karakterek, felhasználók egy hívásban (DM)', v);
+v = hivas('init', {}, annaT);
+ellenoriz(v.ok && v.kampanyok.length === 1 && v.felhasznalok === undefined, 'init: játékos nem kapja meg a felhasználókat', v);
+
+ellenoriz(hivas('character.delete', { id: morg.id }, dm2).hiba === 'hibas_adat', 'aktív karakter nem törölhető');
+ellenoriz(hivas('character.archive', { id: morg.id, aktiv: false }, annaT).hiba === 'nincs_jogosultsag', 'archiválni csak a DM tud');
+ellenoriz(hivas('character.archive', { id: morg.id, aktiv: false }, dm2).ok, 'DM archiválja Morgot');
+ellenoriz(!hivas('state.get', { kampany_id: kampany.id }, annaT).karakterek.some(c => c.id === morg.id), 'archivált karakter nem látszik a kampányban');
+ellenoriz(!hivas('characters.list', {}, annaT).karakterek.some(c => c.id === morg.id), 'archivált karakter nincs a mesterjátékos listájában');
+ellenoriz(hivas('characters.list', {}, dm2).karakterek.some(c => c.id === morg.id && !c.aktiv), 'a DM listájában archiváltként szerepel');
+ellenoriz(hivas('character.delete', { id: morg.id }, dm2).ok, 'archivált karakter törölhető');
+ellenoriz(!jatek.getSheetByName('Kampánykarakterek').adat.some(sor => sor.includes(morg.id)), 'a törölt karakter kampánykapcsolata is törlődött');
+ellenoriz(hivas('character.get', { id: morg.id }, dm2).hiba === 'nem_talalhato', 'a törölt karakter nem kérhető le');
+
+ellenoriz(hivas('users.admin', { muvelet: 'torol', id: anna.id }, dm2).hiba === 'hibas_adat', 'aktív felhasználó nem törölhető');
+ellenoriz(/Bence önálló hőse/.test(hivas('users.admin', { muvelet: 'torol', id: bence.id }, dm2).uzenet), 'karakteres felhasználó nem törölhető, az üzenet megnevezi a karaktert');
+hivas('character.assign', { karakter_id: bhos.id, jatekos_id: '' }, dm2);
+ellenoriz(hivas('users.admin', { muvelet: 'torol', id: bence.id }, dm2).ok, 'letiltott, karakter nélküli felhasználó törölhető');
+ellenoriz(!hivas('init', {}, dm2).felhasznalok.some(f => f.id === bence.id), 'a törölt felhasználó eltűnt');
+ellenoriz(hivas('login', { nev: 'Bence', jelszo: 'bence1' }).hiba === 'hibas_belepes', 'a törölt felhasználó nem léphet be');
+
+ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).hiba === 'hibas_adat', 'nem archivált kampány nem törölhető');
+hivas('campaign.update', { id: kampany.id, allapot: 'archivált' }, dm2);
+ellenoriz(hivas('campaigns.list', {}, annaT).kampanyok.length === 0, 'archivált kampányt a mesterjátékos nem látja');
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).hiba === 'nincs_jogosultsag', 'archivált kampány állapota nem kérhető le játékosként');
+ellenoriz(hivas('campaigns.list', {}, dm2).kampanyok.length === 1, 'a DM látja az archivált kampányt');
+ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).ok, 'archivált kampány törölhető');
+ellenoriz(hivas('campaigns.list', {}, dm2).kampanyok.length === 0 && hivas('character.get', { id: pottom.id }, dm2).ok, 'a kampány törlődött, a karakter megmaradt');
+
 console.log(hibak ? `\n${hibak} HIBA` : '\nMinden teszt sikeres.');
 process.exit(hibak ? 1 : 0);

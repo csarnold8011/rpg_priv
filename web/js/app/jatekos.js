@@ -1,7 +1,7 @@
 // Játékos felület (telefon az elsődleges): egy hasáb, nagy gombok, erdő vagy holdfény téma.
 import {
   html, K, useApp, useState, useEffect, temaBeallitasa, useLekeres, useMuvelet, navigal, Ikon, Betoltes, Uzenet, Parbeszed,
-  TemaKapcsolo, SzinkronJelzo, HibaVagyBetoltes
+  TemaKapcsolo, SzinkronJelzo, HibaVagyBetoltes, indulasLekerese
 } from './kozos.js';
 import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek } from './jatek.js';
 
@@ -36,8 +36,10 @@ export function JatekosFelulet({ ut }) {
 
 function Kezdolap() {
   const { api, felhasznalo } = useApp();
-  const kampanyok = useLekeres(async () => (await api.hivas('campaigns.list')).kampanyok, []);
-  const karakterek = useLekeres(async () => (await api.hivas('characters.list')).karakterek, []);
+  // egyetlen hívás; az előző eredmény az eszközről azonnal látszik
+  const init = useLekeres(() => indulasLekerese(api, false), [], 'init');
+  const kampanyok = { ...init, adat: init.adat && init.adat.kampanyok };
+  const karakterek = { ...init, adat: init.adat && init.adat.karakterek };
   const [uj, setUj] = useState(false);
   return html`<div className="verem verem--nagy">
     <h1 className="oldalcim">Szia, ${felhasznalo.nev}!</h1>
@@ -119,7 +121,7 @@ function KampanyOldal({ id }) {
 
 function KarakterOldal({ id }) {
   const { api, szabalyok } = useApp();
-  const lekeres = useLekeres(async () => (await api.hivas('character.get', { id })).karakter, [id]);
+  const lekeres = useLekeres(async () => (await api.hivas('character.get', { id })).karakter, [id], 'kar.' + id);
   return html`<div className="verem verem--nagy">
     <a className="visszalink" href="#/jatekos"><${Ikon} nev="vissza" meret=${20}/>Kezdőlap</a>
     <${HibaVagyBetoltes} lekeres=${lekeres}>${(c) => html`

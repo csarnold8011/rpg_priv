@@ -58,8 +58,51 @@ function uresSor_(sor) {
   return sor.every(function (c) { return c === '' || c === null; });
 }
 
+// ---- A játékadat lapjainak gyorsítótára ----
+// A Sheets olvasása (és már a táblázat megnyitása is) lassú, ezért a játékadat lapjai rövid
+// ideig a CacheService-ben vannak. Minden laphoz generációszám tartozik: minden írás után új
+// generáció kezdődik, így a régi tartalom többé nem olvasható. Zárolás alatt (írás előtt)
+// mindig a táblázatból olvasunk, hogy a sorszámok biztosan pontosak legyenek.
+// A táblázatban kézzel végzett módosítás legkésőbb JATEK_CACHE_MP másodperc múlva látszik.
+const JATEK_CACHE_MP = 900;
+let _zarolasAlatt = false;
+
+function generacioKulcs_(kulcs, nev) {
+  return 'gen_' + kulcs + '_' + encodeURIComponent(nev);
+}
+function ujGeneracio_() {
+  return String(Date.now()) + '_' + Math.floor(Math.random() * 1e6);
+}
+function lapGeneracio_(kulcs, nev) {
+  const c = CacheService.getScriptCache();
+  const k = generacioKulcs_(kulcs, nev);
+  let g = c.get(k);
+  if (g === null) { g = ujGeneracio_(); c.put(k, g, 21600); }
+  return g;
+}
+function lapValtozott_(kulcs, nev) {
+  if (kulcs !== 'jatek') return;
+  CacheService.getScriptCache().put(generacioKulcs_(kulcs, nev), ujGeneracio_(), 21600);
+}
+// fn eredményét lapgenerációhoz kötve tárolja (csak a játékadatnál, zároláson kívül).
+function gyorsitottOlvasas_(kulcs, nev, alkulcs, fn) {
+  if (kulcs !== 'jatek' || _zarolasAlatt) return fn();
+  const ck = 'lap_' + encodeURIComponent(nev) + '_' + alkulcs + '_' + lapGeneracio_(kulcs, nev);
+  const m = gyorsitotarOlvasas_(ck);
+  if (m !== null) {
+    try { return JSON.parse(m); } catch (e) { /* olvassuk újra */ }
+  }
+  const ertek = fn();
+  gyorsitotarIras_(ck, JSON.stringify(ertek), JATEK_CACHE_MP);
+  return ertek;
+}
+
 // A lap összes sora objektumként (a _sor mező a táblázatbeli sorszám).
 function sorok_(kulcs, nev) {
+  return gyorsitottOlvasas_(kulcs, nev, 'mind', function () { return sorokTablazatbol_(kulcs, nev); });
+}
+
+function sorokTablazatbol_(kulcs, nev) {
   const l = lap_(kulcs, nev);
   const ertekek = l.getDataRange().getValues();
   if (ertekek.length < 2) return [];
@@ -74,6 +117,10 @@ function sorok_(kulcs, nev) {
 
 // Csak az utolsó n sor (a dobásnaplóhoz, ami folyamatosan nő).
 function utolsoSorok_(kulcs, nev, n) {
+  return gyorsitottOlvasas_(kulcs, nev, 'utolso' + n, function () { return utolsoSorokTablazatbol_(kulcs, nev, n); });
+}
+
+function utolsoSorokTablazatbol_(kulcs, nev, n) {
   const l = lap_(kulcs, nev);
   const utolso = l.getLastRow();
   if (utolso < 2) return [];
@@ -98,6 +145,7 @@ function sorHozzaadasa_(kulcs, nev, obj) {
   const l = lap_(kulcs, nev);
   const fej = fejlec_(l);
   l.appendRow(fej.map(function (f) { return cellaErtek_(f, obj[f]); }));
+  lapValtozott_(kulcs, nev);
 }
 
 function sorFrissitese_(kulcs, nev, obj) {
@@ -105,10 +153,19 @@ function sorFrissitese_(kulcs, nev, obj) {
   const l = lap_(kulcs, nev);
   const fej = fejlec_(l);
   l.getRange(obj._sor, 1, 1, fej.length).setValues([fej.map(function (f) { return cellaErtek_(f, obj[f]); })]);
+  lapValtozott_(kulcs, nev);
 }
 
 function sorTorlese_(kulcs, nev, sorszam) {
   lap_(kulcs, nev).deleteRow(sorszam);
+  lapValtozott_(kulcs, nev);
+}
+
+// Több sor törlése egy lapról: alulról felfelé, hogy a sorszámok érvényesek maradjanak.
+function sorokTorlese_(kulcs, nev, sorszamok) {
+  const l = lap_(kulcs, nev);
+  sorszamok.slice().sort(function (a, b) { return b - a; }).forEach(function (s) { l.deleteRow(s); });
+  if (sorszamok.length) lapValtozott_(kulcs, nev);
 }
 
 function cellaIrasa_(kulcs, nev, sorszam, oszlop, ertek) {
@@ -116,6 +173,7 @@ function cellaIrasa_(kulcs, nev, sorszam, oszlop, ertek) {
   const j = fejlec_(l).indexOf(oszlop);
   if (j < 0) throw new Error('Hiányzó oszlop: ' + oszlop);
   l.getRange(sorszam, j + 1).setValue(cellaErtek_(oszlop, ertek));
+  lapValtozott_(kulcs, nev);
 }
 
 function valtozasNaplozasa_(felh, mit, elemId, regi, uj) {

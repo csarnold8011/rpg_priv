@@ -26,7 +26,7 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 ```bash
 python3 tools/sema_general.py      # schema/sema.json -> backend/Sema.gs
 python3 tools/backend_osszefuz.py  # backend/*.gs -> dist/Kod.gs
-node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával)
+node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 63 ellenőrzés)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 

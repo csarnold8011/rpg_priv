@@ -108,6 +108,7 @@ function belepes_(a) {
 //       { muvelet: 'jelszo', id, jelszo }
 //       { muvelet: 'letilt' | 'engedelyez', id }
 //       { muvelet: 'szerep', id, szerep }
+//       { muvelet: 'torol', id }   csak letiltott, karakter nélküli felhasználó; mesterjátékosi szerepei törlődnek
 function felhasznaloKezeles_(a, felh) {
   if (a.muvelet === 'lista') {
     return { felhasznalok: sorok_('jatek', 'Felhasználók').map(publikus_) };
@@ -127,6 +128,22 @@ function felhasznaloKezeles_(a, felh) {
     } else if (a.muvelet === 'letilt' || a.muvelet === 'engedelyez') {
       if (f.id === felh.u) throw hiba_('hibas_adat', 'Saját magadat nem tilthatod le.');
       f.aktiv = a.muvelet === 'engedelyez';
+    } else if (a.muvelet === 'torol') {
+      if (f.id === felh.u) throw hiba_('hibas_adat', 'Saját magadat nem törölheted.');
+      if (igaz_(f.aktiv)) throw hiba_('hibas_adat', 'Csak letiltott felhasználó törölhető. Előbb tiltsd le.');
+      const k = kornyezet_();
+      const karakterei = k.karakterek.filter(function (c) { return c.jatekos_id === f.id; });
+      if (karakterei.length) {
+        throw hiba_('hibas_adat', 'Előbb társítsd másnak vagy tedd játékos nélkülivé a karaktereit: ' +
+          karakterei.map(function (c) { return c.nev; }).join(', ') + '.');
+      }
+      const mesterkent = k.kampanyok.filter(function (x) { return x.mesterjatekos_id === f.id; });
+      mesterkent.forEach(function (x) { x.mesterjatekos_id = ''; sorFrissitese_('jatek', 'Kampányok', x); });
+      kampanyVerziokNovelese_(mesterkent.map(function (x) { return x.id; }), k.kampanyok);
+      sorTorlese_('jatek', 'Felhasználók', f._sor);
+      CacheService.getScriptCache().remove('letiltottak');
+      valtozasNaplozasa_(felh, 'felhasznalo.torol', f.id, '', '');
+      return { torolve: f.id };
     } else if (a.muvelet === 'szerep') {
       if (['dm', 'jatekos'].indexOf(a.szerep) < 0) throw hiba_('hibas_adat', 'A szerep dm vagy jatekos lehet.');
       f.szerep = a.szerep;
