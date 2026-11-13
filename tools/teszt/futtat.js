@@ -65,10 +65,13 @@ class Mappa {
   constructor(nev) { this.id = ujId(); this.nev = nev; this.almappak = []; }
   getId() { return this.id; }
   getUrl() { return 'https://drive/' + this.id; }
+  getFilesByType() { const t = Object.entries(fajlok).filter(([, f]) => f.szulo === this.id).map(([id, f]) => fajlObj(id)); let i = 0; return { hasNext: () => i < t.length, next: () => t[i++] }; }
   getFoldersByName(n) { const t = this.almappak.filter(m => m.nev === n); let i = 0; return { hasNext: () => i < t.length, next: () => t[i++] }; }
   createFolder(n) { const m = new Mappa(n); this.almappak.push(m); return m; }
 }
 const gyoker = new Mappa('root');
+const fajlObj = (id) => ({ getId: () => id, getName: () => fajlok[id].cim, setName: (n) => { fajlok[id].cim = n; }, getMimeType: () => 'sheets', isTrashed: () => false, moveTo: (m) => { fajlok[id].szulo = m.id; } });
+function mappaKeres(m, id) { if (m.id === id) return m; for (const a of m.almappak) { const x = mappaKeres(a, id); if (x) return x; } return null; }
 const tulajdonsagok = {};
 const gyorsitotar = {};
 
@@ -80,9 +83,9 @@ const kornyezet = {
   },
   DriveApp: {
     getRootFolder: () => gyoker,
-    getFilesByName: (n) => { const t = Object.entries(fajlok).filter(([, f]) => f.cim === n).map(([id, f]) => ({ getId: () => id, getMimeType: () => 'sheets', isTrashed: () => false })); let i = 0; return { hasNext: () => i < t.length, next: () => t[i++] }; },
-    getFileById: (id) => ({ moveTo: () => {}, makeCopy: () => ({ getUrl: () => 'x' }) }),
-    getFolderById: () => gyoker
+    getFilesByName: (n) => { const t = Object.entries(fajlok).filter(([, f]) => f.cim === n).map(([id]) => fajlObj(id)); let i = 0; return { hasNext: () => i < t.length, next: () => t[i++] }; },
+    getFileById: (id) => Object.assign(fajlObj(id), { makeCopy: () => ({ getUrl: () => 'x' }) }),
+    getFolderById: (id) => mappaKeres(gyoker, id)
   },
   MimeType: { GOOGLE_SHEETS: 'sheets' },
   PropertiesService: { getScriptProperties: () => ({
@@ -209,6 +212,23 @@ szabaly.getSheetByName('Fajok').appendRow(['faj_torpe', "'Törp", 'Dwarf', 'Alap
 kornyezet.szabalyVerzioNovelese();
 v = hivas('rules.get', {}, bencT);
 ellenoriz(v.verzio === 2 && v.lapok.Fajok[0].reszletek.x === 1 && v.lapok.Fajok[0].leiras_hu === '+1 Szívósság', 'verzióváltás után az új adat jön, a JSON mező feldolgozva', v.lapok && v.lapok.Fajok);
+
+// import táblázatból betöltés
+const imp = kornyezet.SpreadsheetApp.create('Import 01 teszt');
+const fajLap = imp.getSheets()[0]; fajLap.nev = 'Fajok';
+fajLap.appendRow(['id', 'nev_hu', 'nev_en', 'forras', 'oldal', 'leiras_hu', 'reszletek', 'aktiv']);
+fajLap.appendRow(['faj_torpe', 'Törp (javított)', 'Dwarf', 'Alapkönyv', 12, '+1 Szívósság', '{"x":2}', true]);
+fajLap.appendRow(['faj_elf', 'Elf', 'Elf', 'Alapkönyv', 13, '3-4 dobás', '{}', true]);
+const szot = imp.insertSheet('Szótár'); szot.appendRow(['eredeti', 'projektben', 'megjegyzes']); szot.appendRow(['Dwarf', 'Törp', 'faj']);
+const importMappa = mappaKeres(gyoker, tulajdonsagok.MAPPA_ID).almappak.find(m => m.nev === 'Import');
+fajlok[imp.id].szulo = importMappa.id;
+kornyezet.importalas();
+v = hivas('rules.get', {}, bencT);
+ellenoriz(v.verzio === 3 && v.lapok.Fajok.length === 2 && v.lapok.Fajok[0].nev_hu === 'Törp (javított)' && v.lapok.Fajok[1].leiras_hu === '3-4 dobás' && v.lapok.Szótár.length === 1,
+  'import: azonosító szerint frissít, újat hozzáfűz, verziót növel, a „3-4” szöveg marad', v.lapok && v.lapok.Fajok);
+ellenoriz(fajlok[imp.id].cim.startsWith('Betöltve: '), 'import után a fájl Betöltve előtagot kap');
+kornyezet.importalas();
+ellenoriz(hivas('rules.version', {}, bencT).verzio === 3, 'betöltött fájlt nem tölt be újra');
 
 hivas('users.admin', { muvelet: 'letilt', id: bence.id }, dm);
 ellenoriz(hivas('characters.list', {}, bencT).hiba === 'nincs_bejelentkezve', 'letiltott felhasználó tokenje azonnal érvénytelen');

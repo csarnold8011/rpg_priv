@@ -9,7 +9,7 @@
 //   - ha még nincs felhasználó, engedélyezi a legelső belépést (aki először belép, az lesz a DM).
 
 const MAPPA_NEV = 'FantasyAge';
-const ALMAPPAK = ['md', 'Kiosztható', 'Mentések']; // md: a szabálykönyvek szövege
+const ALMAPPAK = ['md', 'Import', 'Kiosztható', 'Mentések']; // md: a szabálykönyvek szövege, Import: szabályadat-adagok
 
 function elsoBeallitas() {
   const p = PropertiesService.getScriptProperties();

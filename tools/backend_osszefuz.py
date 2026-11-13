@@ -7,7 +7,7 @@ from pathlib import Path
 
 GYOKER = Path(__file__).resolve().parent.parent
 SORREND = ["Sema.gs", "Main.gs", "Adat.gs", "Belepes.gs", "Jogosultsag.gs", "Verzio.gs",
-           "Karakterek.gs", "Kampanyok.gs", "Dobasok.gs", "Szabalyok.gs", "Beallitas.gs"]
+           "Karakterek.gs", "Kampanyok.gs", "Dobasok.gs", "Szabalyok.gs", "Import.gs", "Beallitas.gs"]
 
 fajlok = sorted((GYOKER / "backend").glob("*.gs"), key=lambda p: (SORREND.index(p.name) if p.name in SORREND else 99, p.name))
 reszek = ["// GENERÁLT FÁJL: a backend/*.gs fájlok összefűzése (tools/backend_osszefuz.py).\n"

@@ -34,6 +34,8 @@ Kódváltozás után: **Telepítések kezelése**, a meglévő telepítés szerk
 
 ## 5. Ajánlott
 
+- `importIdozitoBekapcsolasa` futtatása egyszer: óránként betölti a FantasyAge/Import mappába feltöltött szabályadat-adagokat. Kézzel: `importalas`.
+
 - `napiMentesBekapcsolasa` futtatása egyszer: hajnali 4-kor másolat készül a Játékadat táblázatról a Mentések mappába.
 - A szabályadat kézi módosítása után `szabalyVerzioNovelese` futtatása, hogy a böngészők újratöltsék.
 
