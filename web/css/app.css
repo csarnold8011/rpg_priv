@@ -510,3 +510,8 @@ a.kartya .kartya__cim { color: var(--accent); }
 @media (min-width: 1024px) { .dm-eszkozok__racs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .xpkiosztas__sor { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-2); padding: var(--space-1) 0;
   border-bottom: 1px solid var(--line); }
+
+/* ---- Próbák (2. fejlesztési lépés): a közös Próba lap ---- */
+.proba__hova { margin: 0; }
+.proba__eredmeny { display: flex; flex-direction: column; gap: var(--space-2); background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-md); padding: var(--space-4); }

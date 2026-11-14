@@ -259,7 +259,8 @@ const SEMA = {
           "allapot",
           "verzio",
           "dm_jegyzet",
-          "letrehozva"
+          "letrehozva",
+          "beallitasok"
         ],
         "Kampánykarakterek": [
           "kampany_id",
@@ -279,7 +280,37 @@ const SEMA = {
           "celertek",
           "eredmeny",
           "mutatvanypont",
-          "rejtett"
+          "rejtett",
+          "proba_id",
+          "tipus",
+          "tulajdonsag",
+          "fokusz",
+          "kezi",
+          "felfedve",
+          "reszletek"
+        ],
+        "Próbák": [
+          "id",
+          "kampany_id",
+          "letrehozva",
+          "letrehozta",
+          "tipus",
+          "cim",
+          "tulajdonsag",
+          "fokuszok",
+          "fokusz_kotelezo",
+          "celertek",
+          "celertek_rejtett",
+          "kuszob",
+          "haladas",
+          "idoegyseg",
+          "cimzettek",
+          "modositok",
+          "mutatvany",
+          "ellenfel",
+          "allas",
+          "allapot",
+          "lezarva"
         ],
         "Megosztások": [
           "id",
@@ -325,6 +356,13 @@ const SEMA = {
     "reszletek",
     "adat",
     "aktiv_forrasok",
-    "kockak"
+    "kockak",
+    "beallitasok",
+    "fokuszok",
+    "cimzettek",
+    "modositok",
+    "mutatvany",
+    "ellenfel",
+    "allas"
   ]
 };

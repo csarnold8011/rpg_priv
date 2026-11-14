@@ -95,6 +95,99 @@ hivas('share.send', { kampany_id: kampany.id, cimzett: 'mindenki', tipus: 'kep',
 ellenoriz(hivas('state.get', { kampany_id: kampany.id }, bencT).megosztasok.length === 1, 'Bence csak a mindenkinek szóló megosztást látja');
 ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).megosztasok.length === 2, 'a mesterjátékos mindkettőt látja');
 
+// ---- Próbák (2. fejlesztési lépés) ----
+let kall = hivas('state.get', { kampany_id: kampany.id }, bencT);
+ellenoriz(kall.kampany.beallitasok && kall.kampany.beallitasok.celertek_rejtett === true && kall.kampany.beallitasok.mutatvanyok.felfedezes === true && kall.kampany.beallitasok.mutatvanyok.isteni === false,
+  'kampány alapbeállításai: rejtett Célérték, felfedezési mutatványok be, isteni ki', kall.kampany.beallitasok);
+ellenoriz(Array.isArray(kall.probak) && kall.probak.length === 0, 'az állapotban van próbalista');
+v = hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, mire: 'Ügyesség (Lopakodás)', kockak: [4, 4, 3], modosito: 3, tipus: 'alap',
+  tulajdonsag: 'tul_dexterity', fokusz: 'fok_dexterity_stealth', kezi: true, reszletek: { osszetevok: [{ ertek: 3, eredet: 'Ügyesség' }] }, id: 'dobas-2' }, bencT);
+ellenoriz(v.ok && v.dobas.tulajdonsag === 'tul_dexterity' && v.dobas.kezi === true && v.dobas.reszletek.osszetevok.length === 1, 'a dobás új mezői (tulajdonság, fókusz, beírt, részletek) mentődnek', v);
+ellenoriz(hivas('roll.log', { kampany_id: kampany.id, karakter_id: pottom.id, mire: 'X', kockak: [1, 2, 3] }, bencT).hiba === 'nincs_jogosultsag', 'más karaktere nevében nem lehet dobni');
+v = hivas('roll.log', { karakter_id: bhos.id, mire: 'Erő próba', kockak: [2, 5, 6], modosito: 1, id: 'dobas-onallo' }, bencT);
+ellenoriz(v.ok && v.dobas.kampany_id === '', 'kampány nélküli karakter dobása naplózható');
+ellenoriz(hivas('roll.log', { karakter_id: bhos.id, mire: 'X', kockak: [1, 1, 1] }, annaT).hiba === 'nincs_jogosultsag', 'kampány nélküli dobás csak a karakter szerkesztőjétől');
+v = hivas('roll.list', { karakter_id: bhos.id }, bencT);
+ellenoriz(v.ok && v.dobasok.length === 1 && v.dobasok[0].id === 'dobas-onallo', 'roll.list: a karakter dobásai', v);
+ellenoriz(hivas('roll.list', { karakter_id: bhos.id }, annaT).hiba === 'nincs_jogosultsag', 'roll.list: más karakterét nem láthatja');
+ellenoriz(hivas('roll.list', { karakter_id: morg.id }, annaT).dobasok.some(d => d.id === 'dobas-2'), 'roll.list: a mesterjátékos látja a kampány karakterének dobásait');
+
+v = hivas('roll.update', { id: 'dobas-2', mutatvanyok: [{ id: 'mut_skirmish', mp: 2, db: 1 }, { id: 'mut_threaten', mp: 1 }] }, bencT);
+ellenoriz(v.ok && v.dobas.reszletek.mutatvanyok.length === 2 && v.dobas.reszletek.osszetevok.length === 1, 'roll.update: mutatványok a dobáshoz, a többi részlet marad', v);
+ellenoriz(hivas('roll.update', { id: 'dobas-2', mutatvanyok: [] }, annaT).ok, 'a mesterjátékos is rögzíthet mutatványt');
+ellenoriz(hivas('roll.update', { id: 'dobas-2', felfedve: true }, bencT).hiba === 'nincs_jogosultsag', 'felfedni csak a DM tud');
+v = hivas('roll.log', { kampany_id: kampany.id, mire: 'Őr észlelése', kockak: [5, 5, 5], rejtett: true, id: 'dobas-rejtett' }, dm);
+ellenoriz(!hivas('state.get', { kampany_id: kampany.id }, bencT).dobasok.some(d => d.id === 'dobas-rejtett'), 'rejtett dobás a játékosnak nem látszik');
+ellenoriz(hivas('roll.update', { id: 'dobas-rejtett', felfedve: true }, dm).ok, 'a DM felfedi a rejtett dobást');
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, bencT).dobasok.some(d => d.id === 'dobas-rejtett' && d.felfedve && !d.rejtett), 'felfedés után a játékos is látja');
+
+ellenoriz(hivas('test.request', { kampany_id: kampany.id, tipus: 'alap', cim: 'Keresés' }, bencT).hiba === 'nincs_jogosultsag', 'játékos nem kérhet próbát');
+ellenoriz(hivas('test.request', { kampany_id: kampany.id, tipus: 'titkos' }, annaT).hiba === 'nincs_jogosultsag', 'titkos próbát a mesterjátékos sem kérhet');
+v = hivas('test.request', { kampany_id: kampany.id, tipus: 'alap', cim: 'Keresés a romokban', tulajdonsag: 'tul_perception',
+  fokuszok: ['fok_perception_searching'], celertek: 13 }, dm);
+const pAlap = v.proba;
+ellenoriz(v.ok && pAlap.celertek_rejtett === true && pAlap.allapot === 'nyitott', 'alap próba kérése, a Célérték alapból rejtett', v);
+kall = hivas('state.get', { kampany_id: kampany.id }, bencT);
+const bProba = kall.probak.find(p => p.id === pAlap.id);
+ellenoriz(bProba && bProba.celertek === '' && bProba.cim === 'Keresés a romokban', 'a játékos látja a kérést, de a rejtett Célértéket nem', bProba);
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).probak.find(p => p.id === pAlap.id).celertek === 13, 'a mesterjátékos látja a Célértéket');
+v = hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pAlap.id, mire: 'Észlelés (Keresés)', kockak: [3, 3, 4], modosito: 4,
+  fokusz: 'fok_perception_searching', id: 'dobas-p1' }, bencT);
+ellenoriz(v.ok && v.dobas.eredmeny === 'siker' && v.dobas.mutatvanypont === 4 && v.dobas.tipus === 'alap', 'a szerver értékeli a rejtett Célértékű próbát (14 ≥ 13, dupla: 4 pont)', v);
+kall = hivas('state.get', { kampany_id: kampany.id }, bencT);
+ellenoriz(kall.dobasok.find(d => d.id === 'dobas-p1').celertek === '' && kall.dobasok.find(d => d.id === 'dobas-p1').eredmeny === 'siker', 'a naplóban a játékos a sikert látja, a Célértéket nem');
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, dm).probak.find(p => p.id === pAlap.id).allas[morg.id].utolso.eredmeny === 'siker', 'a DM az állásban látja Morg eredményét');
+v = hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pAlap.id, mire: 'Észlelés', kockak: [6, 6, 6], modosito: 9, celertek: 1, eredmeny: 'siker', id: 'dobas-p2' }, bencT);
+ellenoriz(v.dobas.celertek === 13 && v.dobas.eredmeny === 'siker', 'a kliens által küldött Célérték nem írja felül a kérését');
+
+v = hivas('test.request', { kampany_id: kampany.id, tipus: 'alap', cim: 'Tudás', fokuszok: ['fok_intelligence_arcane_lore'], fokusz_kotelezo: true, celertek: 9,
+  mutatvany: { engedett: false }, cimzettek: [morg.id] }, annaT);
+const pKot = v.proba;
+ellenoriz(v.ok, 'a mesterjátékos kérhet próbát');
+v = hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pKot.id, mire: 'Intelligencia', kockak: [6, 6, 6], modosito: 2, id: 'dobas-p3' }, bencT);
+ellenoriz(v.dobas.eredmeny === 'kudarc' && v.dobas.mutatvanypont === 0, 'kötelező fókusz nélkül automatikus kudarc', v.dobas);
+v = hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pKot.id, mire: 'Intelligencia', kockak: [5, 5, 2], modosito: 4, fokusz: 'fok_intelligence_arcane_lore', id: 'dobas-p4' }, bencT);
+ellenoriz(v.dobas.eredmeny === 'siker' && v.dobas.mutatvanypont === 0, 'a fókusszal sikerül, de a DM tiltotta a Mutatványpontot', v.dobas);
+
+v = hivas('test.request', { kampany_id: kampany.id, tipus: 'osszetett', cim: 'Kutatás', celertek: 11, kuszob: 8, idoegyseg: 'egy óra', celertek_rejtett: false }, dm);
+const pOssz = v.proba;
+ellenoriz(v.ok && pOssz.kuszob === 8, 'összetett próba Sikerküszöbbel');
+ellenoriz(hivas('test.request', { kampany_id: kampany.id, tipus: 'osszetett' }, dm).hiba === 'hianyzo_adat', 'összetett próba küszöb nélkül nem kérhető');
+[[[1, 2, 5], 5], [[1, 1, 2], 2], [[3, 4, 6], 5]].forEach(([k, m], i) => hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pOssz.id, mire: 'Kutatás', kockak: k, modosito: m, id: 'dobas-o' + i }, bencT));
+let allas = hivas('state.get', { kampany_id: kampany.id }, bencT).probak.find(p => p.id === pOssz.id).allas[morg.id];
+ellenoriz(allas.osszeg === 11 && allas.kesz && allas.probak_szama === 3 && allas.dobasok.length === 3, 'összetett próba: a sikeres dobások sárkánykockái (5 + 6, a 2-es kudarc nem számít), 3 próba alatt kész', allas);
+
+v = hivas('test.request', { kampany_id: kampany.id, tipus: 'ellen', cim: 'Lopakodás az őr mellett', ellenfel: { nev: 'Őr', bonusz: 3 } }, dm);
+const pEllen = v.proba;
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, bencT).probak.find(p => p.id === pEllen.id).ellenfel.bonusz === undefined, 'ellenpróbánál a játékos az ellenfél nevét látja, a bónuszát nem');
+hivas('roll.log', { kampany_id: kampany.id, proba_id: pEllen.id, mire: 'Őr: Észlelés', kockak: [2, 3, 4], modosito: 3, ellenfel: true, rejtett: true, id: 'dobas-e1' }, dm);
+hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pEllen.id, mire: 'Lopakodás', kockak: [4, 4, 5], modosito: 3, id: 'dobas-e2' }, bencT);
+allas = hivas('state.get', { kampany_id: kampany.id }, dm).probak.find(p => p.id === pEllen.id).allas;
+ellenoriz(allas._ellenfel.utolso.osszeg === 12 && allas[morg.id].utolso.osszeg === 16, 'ellenpróba: az ellenfél és a karakter eredménye is az állásban', allas);
+
+v = hivas('test.request', { kampany_id: kampany.id, tipus: 'titkos', cim: 'Csapda észlelése', tulajdonsag: 'tul_perception', celertek: 15 }, dm);
+const pTitok = v.proba;
+const verzioTitok = hivas('state.poll', { kampany_id: kampany.id }, bencT).verzio;
+hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pTitok.id, mire: 'Észlelés', kockak: [6, 5, 4], modosito: 1, id: 'dobas-t1' }, dm);
+ellenoriz(hivas('state.poll', { kampany_id: kampany.id }, bencT).verzio === verzioTitok, 'a titkos próba dobása nem jelez a játékosoknak');
+kall = hivas('state.get', { kampany_id: kampany.id }, bencT);
+ellenoriz(!kall.probak.some(p => p.id === pTitok.id) && !kall.dobasok.some(d => d.id === 'dobas-t1'), 'a titkos próbát és a dobását a játékos nem látja');
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, dm).dobasok.some(d => d.id === 'dobas-t1' && d.rejtett && d.eredmeny === 'siker'), 'a DM látja a titkos dobást (rejtett, siker)');
+
+ellenoriz(hivas('test.update', { id: pAlap.id, celertek: 15 }, bencT).hiba === 'nincs_jogosultsag', 'játékos nem módosíthat próbát');
+v = hivas('test.update', { id: pAlap.id, celertek_rejtett: false }, dm);
+ellenoriz(v.ok && hivas('state.get', { kampany_id: kampany.id }, bencT).probak.find(p => p.id === pAlap.id).celertek === 13, 'a DM felfedi a Célértéket');
+ellenoriz(hivas('test.close', { id: pAlap.id }, dm).proba.allapot === 'lezart', 'a DM lezárja a próbát');
+ellenoriz(hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pAlap.id, mire: 'Késő', kockak: [1, 2, 3] }, bencT).hiba === 'hibas_adat', 'lezárt próbához nem lehet dobni');
+ellenoriz(hivas('test.close', { id: pAlap.id, ujranyit: true }, dm).proba.allapot === 'nyitott', 'lezárt próba újranyitható');
+const pCimzett = hivas('test.request', { kampany_id: kampany.id, tipus: 'alap', cim: 'Csak Pöttöm', cimzettek: [pottom.id] }, dm).proba;
+ellenoriz(!hivas('state.get', { kampany_id: kampany.id }, bencT).probak.some(p => p.id === pCimzett.id), 'a nem neki szóló kérést a játékos nem látja');
+
+v = hivas('campaign.update', { id: kampany.id, beallitasok: { mutatvanyok: { felfedezes: false, szerepjatek: true }, celertek_rejtett: false } }, dm);
+ellenoriz(v.ok && v.kampany.beallitasok.mutatvanyok.felfedezes === false && v.kampany.beallitasok.celertek_rejtett === false, 'a DM módosítja a kampány beállításait', v.kampany);
+ellenoriz(hivas('test.request', { kampany_id: kampany.id, tipus: 'alap', cim: 'Új' }, dm).proba.celertek_rejtett === false, 'az új kérés a kampány beállítását veszi alapul');
+ellenoriz(hivas('campaign.update', { id: kampany.id, beallitasok: { celertek_rejtett: true } }, bencT).hiba === 'nincs_jogosultsag', 'beállítást csak a DM módosíthat');
+
 v = hivas('rules.get', {}, bencT);
 ellenoriz(v.ok && v.verzio === 1 && Array.isArray(v.lapok.Fajok), 'szabályadat letölthető');
 const szabaly = tablazatok[tulajdonsagok.SZABALY_ID];

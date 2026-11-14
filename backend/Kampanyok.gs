@@ -6,7 +6,8 @@ function kampanyNezet_(kampany, szerep) {
   const o = {
     id: kampany.id, cim: kampany.cim, mesterjatekos_id: kampany.mesterjatekos_id || '',
     aktiv_forrasok: Array.isArray(kampany.aktiv_forrasok) ? kampany.aktiv_forrasok : [],
-    allapot: kampany.allapot, verzio: Number(kampany.verzio) || 0, sajat_szerep: szerep
+    allapot: kampany.allapot, verzio: Number(kampany.verzio) || 0, sajat_szerep: szerep,
+    beallitasok: kampanyBeallitasai_(kampany)
   };
   if (szerep === 'dm') o.dm_jegyzet = kampany.dm_jegyzet || '';
   return o;
@@ -71,7 +72,7 @@ function kampanyLetrehozasa_(a, felh) {
   });
 }
 
-// action: campaign.update (DM)   adat: { id, cim?, aktiv_forrasok?, mesterjatekos_id?, allapot?, dm_jegyzet? }
+// action: campaign.update (DM)   adat: { id, cim?, aktiv_forrasok?, mesterjatekos_id?, allapot?, dm_jegyzet?, beallitasok? }
 function kampanyModositasa_(a, felh) {
   return zarolva_(function () {
     const kampanyok = sorok_('jatek', 'Kampányok');
@@ -80,6 +81,10 @@ function kampanyModositasa_(a, felh) {
     ['cim', 'aktiv_forrasok', 'mesterjatekos_id', 'allapot', 'dm_jegyzet'].forEach(function (m) {
       if (a[m] !== undefined) kampany[m] = a[m];
     });
+    if (a.beallitasok && typeof a.beallitasok === 'object') {
+      const regi = kampany.beallitasok && typeof kampany.beallitasok === 'object' ? kampany.beallitasok : {};
+      kampany.beallitasok = Object.assign({}, regi, a.beallitasok);
+    }
     sorFrissitese_('jatek', 'Kampányok', kampany);
     kampanyVerziokNovelese_([kampany.id], kampanyok);
     valtozasNaplozasa_(felh, 'kampany.modosit', kampany.id, '', kampany.verzio);
@@ -146,11 +151,24 @@ function allapotLekerese_(a, felh) {
 
   const sajatKarakterek = karakterek.filter(function (c) { return c.irhato; }).map(function (c) { return c.id; });
 
+  const probak = kampanyProbai_(kampany, szerep, sajatKarakterek);
+  // rejtett Célértékű próbakérés dobásainál a játékos nem látja a Célértéket (csak a sikert)
+  const rejtettCel = {};
+  if (!mindentLat) probaSorok_().forEach(function (p) {
+    if (p.kampany_id === kampany.id && igaz_rejtett_(p.celertek_rejtett)) rejtettCel[p.id] = true;
+  });
   const dobasok = utolsoSorok_('jatek', 'Dobásnapló', DOBASNAPLO_HOSSZ * 3)
     .filter(function (d) { return d.kampany_id === kampany.id; })
     .filter(function (d) { return szerep === 'dm' || !igaz_rejtett_(d.rejtett); })
     .slice(-DOBASNAPLO_HOSSZ)
-    .map(function (d) { delete d._sor; d.rejtett = igaz_rejtett_(d.rejtett); return d; });
+    .map(function (d) {
+      delete d._sor;
+      d.rejtett = igaz_rejtett_(d.rejtett);
+      d.kezi = igaz_rejtett_(d.kezi);
+      d.felfedve = igaz_rejtett_(d.felfedve);
+      if (d.proba_id && rejtettCel[d.proba_id]) d.celertek = '';
+      return d;
+    });
 
   const megosztasok = sorok_('jatek', 'Megosztások')
     .filter(function (m) { return m.kampany_id === kampany.id; })
@@ -162,6 +180,7 @@ function allapotLekerese_(a, felh) {
     kampany: kampanyNezet_(kampany, szerep),
     karakterek: karakterek,
     dobasok: dobasok,
+    probak: probak,
     megosztasok: megosztasok
   };
 }

@@ -12,7 +12,7 @@ import * as L from '../karakter/leltar.js';
 import { xpTipusNev } from '../karakter/xp.js';
 import { felkeszSzint } from '../karakter/szintlepes.js';
 import { useVarazsloAdat, MentesJel } from './varazslo.js';
-import { Kockadobo } from './kockadobo.js';
+import { ProbaLap, useKarakterKampanya, useProbaNaplo } from './proba.js';
 import { KarakterKep, KepFeltolto } from './kepek.js';
 import { XpKiosztas } from './xpkiosztas.js';
 import { fokuszNev, Kapcsolo } from './varazslo_lepesek.js';
@@ -182,42 +182,18 @@ function Eroforrasok({ lap, valtoztat, irhato }) {
   <//>`;
 }
 
-// ---- Próba előkészítése (a dobás a kampány naplójába a 2. fejlesztési lépésben kerül) ----
-function ProbaAblak({ lap, ix, kezdet, onBezar }) {
-  const [tul, setTul] = useState(kezdet.tul || 'tul_accuracy');
-  const fokuszok = Object.values(lap.fokuszok).filter((f) => f.tulajdonsag === tul);
-  const [fok, setFok] = useState(kezdet.fokusz && lap.fokuszok[kezdet.fokusz] ? kezdet.fokusz : '');
-  const [modosito, setModosito] = useState(String(kezdet.modosito || 0));
-  const [cel, setCel] = useState(kezdet.celertek ? String(kezdet.celertek) : '');
-  const [kockak, setKockak] = useState(null);
-  const [hosszu, setHosszu] = useState(false);
-  const fokBonusz = fok && lap.fokuszok[fok] ? lap.fokuszok[fok].bonusz : 0;
-  const tavBunt = kezdet.hosszuTav && hosszu ? kezdet.hosszuBuntetes : 0;
-  const bonusz = lap.tulajdonsagok[tul].ertek + fokBonusz + szam(modosito) + tavBunt;
-  const celSzam = parseInt(cel, 10);
-  return html`<${Parbeszed} cim=${kezdet.cim || 'Próba'} onBezar=${onBezar}>
-    <div className="verem">
-      <${Valaszto} label="Tulajdonság" value=${tul} onChange=${(x) => { setTul(x); setFok(''); setKockak(null); }}
-        opciok=${TULAJDONSAGOK.map((t) => ({ value: t, label: `${TUL_NEV[t]} (${elojel(lap.tulajdonsagok[t].ertek)})` }))}/>
-      <${Valaszto} label="Fókusz" value=${fok} onChange=${(x) => { setFok(x); setKockak(null); }} ures="nincs fókusz"
-        opciok=${fokuszok.map((f) => ({ value: f.id, label: `${f.nev_hu} (+${f.bonusz})` }))}/>
-      ${kezdet.hosszuTav ? html`<${Kapcsolo} cimke="Távolság" teljes ertek=${hosszu ? 'h' : 'r'} onValt=${(x) => { setHosszu(x === 'h'); setKockak(null); }}
-        opciok=${[{ value: 'r', label: 'Rövid táv' }, { value: 'h', label: `Hosszú táv (${elojel(kezdet.hosszuBuntetes)})` }]}/>` : null}
-      <div className="sorban">
-        <${K.TextField} label="Módosító" inputMode="numeric" value=${modosito} onChange=${(e) => setModosito(e.target.value.replace(/[^0-9−-]/g, '').replace('−', '-').slice(0, 3))}/>
-        <${K.TextField} label="Célérték (ha tudod)" inputMode="numeric" value=${cel} onChange=${(e) => setCel(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}/>
-      </div>
-      ${kezdet.megjegyzes ? html`<p className="sugo">${kezdet.megjegyzes}</p>` : null}
-      <div className="osszegsor"><span>3d6 ${elojel(lap.tulajdonsagok[tul].ertek)} (${TUL_NEV[tul]})${fokBonusz ? ` + ${fokBonusz} (fókusz)` : ''}${szam(modosito) ? ` ${elojel(szam(modosito))} (módosító)` : ''}${tavBunt ? ` ${elojel(tavBunt)} (hosszú táv)` : ''}</span>
-        <span className="osszegsor__ertek">${elojel(bonusz)}</span></div>
-      <${Kockadobo} db=${3} kockak=${null} felirat="Dobj 3d6-tal" onDobas=${(k) => setKockak(k)}/>
-      ${kockak ? html`<${K.DiceRoll} dice=${kockak} bonus=${bonusz} target=${Number.isFinite(celSzam) ? celSzam : undefined}/>` : null}
-      <p className="sugo kicsi">A harmadik kocka a sárkánykocka: dupla esetén annyi mutatványpont jár, amennyit mutat. A dobás egyelőre nem kerül a kampány dobásnaplójába.</p>
-    </div>
-  <//>`;
+// ---- Próba: a közös Próba lap (web/js/app/proba.js), a dobás a karakter kampányának naplójába kerül ----
+function ProbaAblak({ lap, kezdet, onBezar, karakter, adat, irhato, dm, valtoztat }) {
+  const kampany = useKarakterKampanya(karakter);
+  const naploz = useProbaNaplo();
+  const mpLevon = valtoztat && lap.magiapont ? (ar) => valtoztat((d) => { d.allapot.magiapont = Math.max(0, lap.magiapont.aktualis - ar); }) : null;
+  return html`<${ProbaLap} lap=${lap} kezdet=${kezdet} onBezar=${onBezar}
+    karakter=${{ id: karakter.id, nev: adat.nev || karakter.nev }} kampany=${kampany}
+    naploz=${irhato ? naploz : null} rejtettLehet=${dm && !!kampany} onMpLevon=${mpLevon}/>`;
 }
 
-function Tulajdonsagok({ lap, ix }) {
+function Tulajdonsagok(p) {
+  const { lap } = p;
   const [proba, setProba] = useState(null);
   return html`<${K.Panel} title="Tulajdonságok">
     <p className="sugo kicsi" style=${{ margin: '0 0 8px' }}>Koppints egy tulajdonságra a próbához.</p>
@@ -225,7 +201,7 @@ function Tulajdonsagok({ lap, ix }) {
       const fok = Object.values(lap.fokuszok).filter((f) => f.tulajdonsag === t);
       const x = lap.tulajdonsagok[t];
       return html`<div key=${t} className="ka-ability">
-        <button type="button" className="tul-gomb" onClick=${() => setProba({ tul: t, cim: TUL_NEV[t] + ' próba' })}>
+        <button type="button" className="tul-gomb" onClick=${() => setProba({ tul: t })}>
           <dt className="ka-ability__name">${TUL_NEV[t]}</dt>
           <dd className="ka-ability__value">${elojel(x.ertek)}</dd>
           ${fok.length ? html`<dd className="ka-ability__focus">${fok.map((f) => f.nev_hu + (f.bonusz === 3 ? ' (+3)' : '')).join(', ')}</dd>` : null}
@@ -233,16 +209,18 @@ function Tulajdonsagok({ lap, ix }) {
         </button>
       </div>`;
     })}</dl>
-    ${proba ? html`<${ProbaAblak} lap=${lap} ix=${ix} kezdet=${proba} onBezar=${() => setProba(null)}/>` : null}
+    ${proba ? html`<${ProbaAblak} ...${p} kezdet=${proba} onBezar=${() => setProba(null)}/>` : null}
   <//>`;
 }
 
-function Fegyverek({ lap, ix, adat, valtoztat }) {
+function Fegyverek(p) {
+  const { lap } = p;
   const [proba, setProba] = useState(null);
   const felszerelt = lap.fegyverek.filter((w) => w.felszerelve);
   const tobbi = lap.fegyverek.filter((w) => !w.felszerelve);
   const sor = (w) => html`<li key=${w.id} className="sorlista__sor">
-    <button type="button" className="sorgomb-teljes" onClick=${() => setProba({ tul: w.tulajdonsag, fokusz: w.fokusz, modosito: w.ismert ? 0 : -2,
+    <button type="button" className="sorgomb-teljes" onClick=${() => setProba({ tul: w.tulajdonsag, fokusz: w.fokusz, tipus: 'tamadas',
+      modositok: w.ismert ? [] : [{ ertek: -2, eredet: 'Nem ismert fegyvercsoport' }],
       hosszuTav: w.hosszu_tav, hosszuBuntetes: w.hosszu_buntetes,
       cim: 'Támadás: ' + w.nev_hu, megjegyzes: `Sebzés: ${w.sebzes}${w.hatotav ? ', hatótáv ' + w.hatotav : ''}.`
         + (w.ismert ? '' : ` Nem ismert fegyvercsoport: −2 a támadásra, fél sebzés${w.tavolsagi ? ' és fél hatótáv' : ''}.`)
@@ -256,11 +234,12 @@ function Fegyverek({ lap, ix, adat, valtoztat }) {
     <ul className="sorlista">${felszerelt.map(sor)}</ul>
     ${tobbi.length ? html`<details className="lenyilo"><summary>Nincs a kezében (${tobbi.length})</summary><ul className="sorlista">${tobbi.map(sor)}</ul></details>` : null}
     <p className="sugo kicsi" style=${{ margin: '8px 0 0' }}>Koppints egy fegyverre a támadópróbához. A kézben lévőket a Felszerelésnél állíthatod.</p>
-    ${proba ? html`<${ProbaAblak} lap=${lap} ix=${ix} kezdet=${proba} onBezar=${() => setProba(null)}/>` : null}
+    ${proba ? html`<${ProbaAblak} ...${p} kezdet=${proba} onBezar=${() => setProba(null)}/>` : null}
   <//>`;
 }
 
-function Varazslatok({ lap, ix, valtoztat, irhato }) {
+function Varazslatok(p) {
+  const { lap, valtoztat, irhato } = p;
   const [proba, setProba] = useState(null);
   const [nyitott, setNyitott] = useState(null);
   const mp = lap.magiapont ? lap.magiapont.aktualis : 0;
@@ -285,7 +264,7 @@ function Varazslatok({ lap, ix, valtoztat, irhato }) {
               ${nyitott === x.id ? html`<div className="verem">
                 ${x.elem && x.elem.leiras_hu ? html`<p className="kicsi" style=${{ margin: 0 }}>${x.elem.leiras_hu}</p>` : null}
                 <div className="gombsor">
-                  <${K.Button} size="sm" variant="secondary" onClick=${() => setProba({ tul: 'tul_intelligence', fokusz: fokId, celertek: cel, cim: 'Varázslás: ' + x.nev_hu, megjegyzes: ar ? `Ára ${ar} Mágiapont (sikertelen próbánál is).` : '' })}>Varázslási próba<//>
+                  <${K.Button} size="sm" variant="secondary" onClick=${() => setProba({ tul: 'tul_intelligence', fokusz: fokId, celertek: cel, tipus: 'varazslas', mp_ar: ar || 0, cim: 'Varázslás: ' + x.nev_hu, megjegyzes: ar ? `Ára ${ar} Mágiapont (sikertelen próbánál is).` : '' })}>Varázslási próba<//>
                   ${irhato && ar ? html`<${K.Button} size="sm" variant=${mp >= ar ? 'primary' : 'quiet'} onClick=${() => valtoztat((d) => { d.allapot.magiapont = Math.max(0, mp - ar); })}>−${ar} MP${mp < ar ? ' (nincs elég)' : ''}<//>` : null}
                 </div>
               </div>` : null}
@@ -294,7 +273,7 @@ function Varazslatok({ lap, ix, valtoztat, irhato }) {
         </div>`;
       })}
     </div>
-    ${proba ? html`<${ProbaAblak} lap=${lap} ix=${ix} kezdet=${proba} onBezar=${() => setProba(null)}/>` : null}
+    ${proba ? html`<${ProbaAblak} ...${p} kezdet=${proba} onBezar=${() => setProba(null)}/>` : null}
   <//>`;
 }
 

@@ -2,6 +2,9 @@
 import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Jelolo, Ikon, idopont, elojel, SZEREP_NEV, tarOlvas, tarIr, gyorsKulcs, navigal, Parbeszed, useMuvelet } from './kozos.js';
 import { uresKarakter, atallit, kulcsmezok } from '../karakter/adat.js';
 import { megjelenitettNev } from '../szabalyok.js';
+import { karakterSzamol } from '../karakter/szamol.js';
+import { probaKiertekel, naploDobas } from '../jatek/proba.js';
+import { ProbaUrlap } from './proba.js';
 
 // ---- Kampány élő állapota a szinkronrétegen keresztül ----
 // Visszaadja: { allapot, hiba, frissit }. Megnyitáskor kapcsolódik, elhagyáskor bont.
@@ -62,14 +65,32 @@ export function useDobasok(allapot) {
   return [osszes, naploz];
 }
 
-// Dobás űrlap és eredmény. karakterek: akikért a felhasználó dobhat.
+// Dobás a kampány nézetéből. Karakter választásakor a közös Próba lap (a karakter lapjának értékeivel),
+// karakter nélkül (DM: nem játékos karakter) szabad dobás kézzel beírt módosítóval.
 export function DobasPanel({ allapot, naploz, dm, nagy }) {
+  const { szabalyok } = useApp();
+  const dobhato = (allapot.karakterek || []).filter((c) => c.irhato && c.adat);
+  const [karakterId, setKarakterId] = useState(dobhato.length === 1 && !dm ? dobhato[0].id : '');
+  const kar = dobhato.find((c) => c.id === karakterId) || null;
+  const lapok = szabalyok && szabalyok.adat && szabalyok.adat.lapok;
+  const lap = useMemo(() => (kar && lapok ? karakterSzamol(atallit(kar.adat || {}), lapok) : null), [kar, lapok]);
+  const kampany = { id: allapot.kampany.id, cim: allapot.kampany.cim };
+  const opciok = dobhato.map((c) => ({ value: c.id, label: c.nev }));
+  return html`<div className="dobas verem">
+    ${opciok.length ? html`<${Valaszto} label="Ki dob" value=${karakterId} onChange=${setKarakterId}
+      opciok=${opciok} ures=${dm ? 'A DM (szabad dobás)' : 'Szabad dobás'}/>` : null}
+    ${lap ? html`<${ProbaUrlap} key=${kar.id} lap=${lap} karakter=${{ id: kar.id, nev: kar.nev }} kampany=${kampany}
+        naploz=${naploz} rejtettLehet=${dm}/>`
+      : html`<${SzabadDobas} allapot=${allapot} naploz=${naploz} dm=${dm} nagy=${nagy}/>`}
+  </div>`;
+}
+
+// Szabad dobás: kézzel beírt név, módosító és Célérték (a DM nem játékos karaktereihez is).
+function SzabadDobas({ allapot, naploz, dm, nagy }) {
   const { felhasznalo } = useApp();
-  const sajat = (allapot.karakterek || []).filter((c) => c.irhato);
   const [mire, setMire] = useState('');
   const [mod, setMod] = useState('0');
   const [cel, setCel] = useState('');
-  const [karakterId, setKarakterId] = useState(sajat.length === 1 && !dm ? sajat[0].id : '');
   const [rejtett, setRejtett] = useState(false);
   const [eredmeny, setEredmeny] = useState(null);
   const [sorszam, setSorszam] = useState(0);
@@ -78,26 +99,21 @@ export function DobasPanel({ allapot, naploz, dm, nagy }) {
     const kockak = [kocka(), kocka(), kocka()];
     const modosito = parseInt(String(mod).replace('−', '-'), 10) || 0;
     const celertek = cel === '' ? undefined : parseInt(cel, 10);
-    const osszeg = kockak[0] + kockak[1] + kockak[2] + modosito;
-    const vegeredmeny = celertek === undefined || isNaN(celertek) ? '' : osszeg >= celertek ? 'siker' : 'kudarc';
-    const mutatvanypont = dupla(kockak) && vegeredmeny !== 'kudarc' ? kockak[2] : 0;
-    const dobas = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(),
-      kampany_id: allapot.kampany.id, karakter_id: karakterId, mire: mire.trim() || 'Próba',
-      kockak, modosito, celertek: vegeredmeny ? celertek : undefined, eredmeny: vegeredmeny, mutatvanypont,
-      rejtett: dm && rejtett, dobta: felhasznalo.nev, idopont: new Date().toISOString()
-    };
+    const ert = probaKiertekel(kockak, modosito, { celertek });
+    const dobas = naploDobas({
+      kampany_id: allapot.kampany.id, mire: mire.trim() || 'Próba', kockak, tipus: 'szabad',
+      osszeallitas: { bonusz: modosito, reszek: modosito ? [{ ertek: modosito, eredet: 'Módosító' }] : [] },
+      kiertekeles: ert, celertek, rejtett: dm && rejtett
+    });
+    dobas.dobta = felhasznalo.nev;
     setEredmeny(dobas);
     setSorszam((s) => s + 1);
     naploz(dobas);
   };
 
-  const karakterOpciok = (dm ? allapot.karakterek || [] : sajat).map((c) => ({ value: c.id, label: c.nev }));
-  return html`<div className="dobas">
+  return html`<div className="verem">
     <div className="urlap-racs">
       <${K.TextField} label="Próba" placeholder="például Észlelés (Keresés)" value=${mire} onChange=${(e) => setMire(e.target.value)}/>
-      ${karakterOpciok.length ? html`<${Valaszto} label="Ki dob" value=${karakterId} onChange=${setKarakterId}
-        opciok=${karakterOpciok} ures=${dm ? 'A DM (nincs karakter)' : 'Nincs karakter'}/>` : null}
       <${K.TextField} label="Módosító" hint="Tulajdonság és fókusz" inputMode="numeric" value=${mod} onChange=${(e) => setMod(e.target.value)}/>
       <${K.TextField} label="Célérték" hint="Üresen nincs siker vagy kudarc" inputMode="numeric" value=${cel} onChange=${(e) => setCel(e.target.value)}/>
     </div>

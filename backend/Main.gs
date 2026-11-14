@@ -28,6 +28,11 @@ function muveletek_() {
     'campaign.addCharacter':   { fn: kampanyhozRendeles_, szerep: 'dm' },
     'campaign.removeCharacter':{ fn: kampanybolKivetel_, szerep: 'dm' },
     'roll.log':                { fn: dobasNaplozasa_ },
+    'roll.update':             { fn: dobasModositasa_ },
+    'roll.list':               { fn: dobasLista_ },
+    'test.request':            { fn: probaKerese_ },
+    'test.update':             { fn: probaModositasa_ },
+    'test.close':              { fn: probaLezarasa_ },
     'share.send':              { fn: megosztasKuldese_, szerep: 'dm' }
     // 'ai.ask': a 4. fejlesztési lépésben
   };
