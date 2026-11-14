@@ -109,7 +109,7 @@ function Fokusz({ adat, valtoztat, n, lapElotte, ixMind, figy }) {
   const { sajat, tobbi } = S.szintTulajdonsagok(ixMind, adat.osztaly, n);
   const paros = n % 2 === 0;
   const dupla = n >= 11;
-  const fokuszok = ixMind.lista('Fókuszok').filter((f) => keresIllik(f, kereso));
+  const fokuszok = ixMind.lista('Fókuszok').filter((f) => !reszletek(f).csak_ellenfel && keresIllik(f, kereso));
   const kartya = (f, idegen) => {
     const megvan = lapElotte.fokuszok[f.id];
     const meta = megvan ? (dupla && megvan.bonusz < 3 ? `megvan: +2 → +3` : `megvan (+${megvan.bonusz})`) : forrasMeta(f);

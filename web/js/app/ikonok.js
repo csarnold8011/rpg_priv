@@ -27,7 +27,8 @@ const UTAK = {
   tovabb: html`<path d="M9.5 6l6 6-6 6"/>`,
   lepesek: html`<path d="M9 7h11M9 12h11M9 17h11"/><circle cx="4.5" cy="7" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="17" r="1"/>`,
   csere: html`<path d="M7 4 4 7l3 3M4 7h12M17 20l3-3-3-3M20 17H8"/>`,
-  pipa: html`<path d="M5 12.5 10 17.5 19 7"/>`
+  pipa: html`<path d="M5 12.5 10 17.5 19 7"/>`,
+  karom: html`<path d="M6 4.5c3.5 3 5 7.5 4 15M11.5 4c3 3.5 4.2 8 3.2 15.5M17 4.5c2.3 3.5 3 7.5 2 13"/>`
 };
 
 // Ikon. Felirat nélkül dekoráció (aria-hidden); ha önmagában áll, adj cimke-t.

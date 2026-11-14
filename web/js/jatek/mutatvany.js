@@ -118,12 +118,42 @@ const ar0 = (m) => { const mp = reszletek(m).mp || {}; return { min: szam(mp.min
 //   valasztasok: a karakter választásai (Előadóművészet, Mulatozás, Totemharcos, Legendás)
 //   kapcsolok:  { [hatás kulcsa]: true } a nem eldönthető feltételekhez (a játékos jelöli)
 // Visszaad: { csoportok: [{ tipus, nev, egyeb, mutatvanyok: [kártya] }], plusz: [...], valasztandok: [...], elso: típus }
-export function mutatvanyKinalat(lapok, lap, { forrasok, beallitas, kontextus = {}, valasztasok = {}, kapcsolok = {} } = {}) {
+// A lény (statblokk, web/js/jatek/leny.js) mutatványhatásai: kedvelt mutatványok saját ára, ár-módosítók.
+// kinek: 'sajat' (a lény maga hajtja végre) vagy 'ellene' (a célpont: őt érő mutatványok ára).
+export function lenyHatasai(leny, kinek) {
+  const ki = [];
+  if (!leny) return ki;
+  // A statblokk kedvelt mutatványainál megadott ár (például „Hatalmas csapás (1 MP)”) már tartalmazza a lény
+  // feltétel nélküli kedvezményeit, ezért ezekre a feltétel nélküli módosító nem vonódik le még egyszer.
+  const sajatAr = new Set();
+  if (kinek === 'sajat') {
+    (leny.kedvelt_mutatvanyok || []).forEach((k) => {
+      const ar = k.ar === undefined ? null : k.ar;
+      if (k.id && ar !== null) { sajatAr.add(k.id); ki.push({ hatas: { tipus: 'ar', mutatvany: k.id, koltseg: Number(ar) }, eredet: 'Kedvelt mutatvány', kulcs: 'kedvelt:' + k.id }); }
+    });
+  }
+  (leny.mutatvany_ar_modositok || []).forEach((m, i) => {
+    const irany = m.kinek || (m.mod === 'immunis' || Number(m.mod) > 0 ? 'ellene' : 'sajat');
+    if (irany !== kinek || m.mod === 'immunis') return;
+    const eredet = (kinek === 'ellene' ? 'Célpont: ' : '') + (m.eredet || (leny.nev ? leny.nev : 'Lény képessége'));
+    const mutatvanyok = (m.mutatvanyok || []).filter((id) => m.feltetel || !sajatAr.has(id));
+    if (!mutatvanyok.length) return;
+    ki.push({ hatas: { tipus: 'csokkent', mutatvanyok, mertek: -Number(m.mod), feltetel: m.feltetel || undefined }, eredet, kulcs: `${kinek}:${i}` });
+  });
+  return ki;
+}
+
+// opciok.celpont: a célpont lény-nézete (csatában); az ő ár-módosítói és immunitásai a kártyákon jelennek meg.
+export function mutatvanyKinalat(lapok, lap, { forrasok, beallitas, kontextus = {}, valasztasok = {}, kapcsolok = {}, celpont = null } = {}) {
   const ix = index(lapok);
   const b = (beallitas && beallitas.mutatvanyok) || {};
   const engedett = { felfedezes: b.felfedezes !== false, szerepjatek: b.szerepjatek !== false, isteni: b.isteni === true, nyomozas: b.nyomozas === true };
   const forrasOk = (e) => !forrasok || !forrasok.length || forrasok.includes(e.forras);
-  const { hatasok, valasztandok } = karakterHatasai(lapok, lap, valasztasok);
+  const kh = karakterHatasai(lapok, lap, valasztasok);
+  const valasztandok = kh.valasztandok;
+  const hatasok = kh.hatasok.concat(lenyHatasai(lap, 'sajat'), lenyHatasai(celpont, 'ellene'));
+  const kedveltek = new Set(((lap && lap.kedvelt_mutatvanyok) || []).map((k) => k.id || 'sajat:' + k.kulcs));
+  const immunitasok = ((celpont && celpont.mutatvany_ar_modositok) || []).filter((m) => m.mod === 'immunis');
   const ujak = new Set(hatasok.filter((h) => h.hatas.tipus === 'uj_mutatvany').map((h) => h.hatas.mutatvany));
   const elso = kontextusTipus(kontextus);
 
@@ -133,19 +163,20 @@ export function mutatvanyKinalat(lapok, lap, { forrasok, beallitas, kontextus = 
     const kedvezmenyek = []; const feltetelesek = []; const megjegyzesek = [];
     let beallitott = null; let csokkentes = 0; let minimum = 0;
     hatasok.forEach(({ hatas: h, eredet, kulcs }) => {
-      const erinti = (h.mutatvany && h.mutatvany === m.id) || (h.mutatvanyok && h.mutatvanyok.includes(m.id)) ||
+      const erinti = (h.mutatvany && h.mutatvany === m.id) || (h.mutatvanyok && (h.mutatvanyok.includes(m.id) || h.mutatvanyok.includes('*'))) ||
         (h.mutatvany_tipus && h.tipus === 'csokkent' && h.mutatvany_tipus === m.tipus);
       if (!erinti || !['ar', 'csokkent', 'szoveg'].includes(h.tipus)) return;
       const gepi = feltetelTeljesul(h.feltetel_gepi, kontextus);
       const vanFeltetel = !!(h.feltetel || h.feltetel_gepi);
       const teljesul = !vanFeltetel ? true : gepi === null ? !!kapcsolok[kulcs] : gepi;
-      const leiras = h.tipus === 'ar' ? `${h.koltseg} pont` : h.tipus === 'csokkent' ? `−${h.mertek || 1} pont` : h.szoveg;
+      const mertek = h.mertek === undefined ? 1 : h.mertek;
+      const leiras = h.tipus === 'ar' ? `${h.koltseg} pont` : h.tipus === 'csokkent' ? (mertek >= 0 ? `−${mertek} pont` : `+${-mertek} pont`) : h.szoveg;
       if (vanFeltetel && gepi === null) feltetelesek.push({ kulcs, feltetel: h.feltetel || 'ha teljesül', eredet, leiras, be: !!kapcsolok[kulcs] });
       if (!teljesul) return;
       if (h.tipus === 'szoveg') { megjegyzesek.push({ szoveg: h.szoveg, eredet }); return; }
       if (h.szoveg) megjegyzesek.push({ szoveg: h.szoveg, eredet });
       if (h.tipus === 'ar') { beallitott = beallitott === null ? h.koltseg : Math.min(beallitott, h.koltseg); kedvezmenyek.push({ eredet, leiras }); }
-      if (h.tipus === 'csokkent') { csokkentes += h.mertek || 1; minimum = Math.max(minimum, h.min || 0); kedvezmenyek.push({ eredet, leiras }); }
+      if (h.tipus === 'csokkent') { csokkentes += mertek; minimum = Math.max(minimum, h.min || 0); kedvezmenyek.push({ eredet, leiras }); }
     });
     let uj = beallitott === null ? alap.min : Math.min(beallitott, alap.min);
     if (csokkentes) uj = Math.max(minimum, uj - csokkentes);
@@ -156,7 +187,19 @@ export function mutatvanyKinalat(lapok, lap, { forrasok, beallitas, kontextus = 
       alap_ar: alap, ar, valtozo: ar.plusz || (ar.max !== null && ar.max > ar.min),
       ismetelheto: !!r.ismetelheto, osszetevok: r.osszetevok || null, csomag_tipus: r.csomag_tipus || null,
       kedvezmenyek, feltetelesek, megjegyzesek, sajat: ujak.has(m.id) || !!(r.feltetel && typeof r.feltetel === 'object'),
-      feltetel_szoveg: typeof r.feltetel === 'string' ? r.feltetel : ''
+      feltetel_szoveg: typeof r.feltetel === 'string' ? r.feltetel : '',
+      kedvelt: kedveltek.has(m.id),
+      immunis: immunitasok.filter((x) => (x.mutatvanyok || []).includes(m.id) || (x.mutatvanyok || []).includes('*')).map((x) => x.feltetel || 'a célpont immunis rá')
+    };
+  };
+  // A lény saját (statblokkban leírt) mutatványai: fix vagy változó ár, a leírásuk a statblokkból.
+  const sajatKartya = (s) => {
+    const mp = s.mp === null || s.mp === undefined ? null : Number(s.mp);
+    const ar = { min: mp || 1, max: mp, plusz: mp === null };
+    return {
+      id: 'sajat:' + s.kulcs, nev_hu: s.nev_hu, nev_en: s.nev_en, tipus: 'sajat', forras: (lap && lap.forras_cimke) || '', oldal: (lap && lap.oldal) || null,
+      leiras: s.leiras || '', alap_ar: ar, ar, valtozo: mp === null, ismetelheto: false, osszetevok: null, csomag_tipus: null,
+      kedvezmenyek: [], feltetelesek: [], megjegyzesek: [], sajat: true, feltetel_szoveg: '', kedvelt: kedveltek.has('sajat:' + s.kulcs), immunis: []
     };
   };
 
@@ -180,11 +223,14 @@ export function mutatvanyKinalat(lapok, lap, { forrasok, beallitas, kontextus = 
   const csoportok = sorrend.map((tipus) => {
     const t = TIPUSOK.find((x) => x.tipus === tipus);
     const mutatvanyok = lista.filter((m) => m.tipus === tipus).map(kartya)
-      .sort((a, c) => (c.sajat - a.sajat) || (a.ar.min - c.ar.min) || a.nev_hu.localeCompare(c.nev_hu, 'hu'));
+      .sort((a, c) => (c.kedvelt - a.kedvelt) || (c.sajat - a.sajat) || (a.ar.min - c.ar.min) || a.nev_hu.localeCompare(c.nev_hu, 'hu'));
     return { tipus, nev: t.nev, egyeb: !!t.egyeb, mutatvanyok };
   }).filter((cs) => cs.mutatvanyok.length);
+  const sajatok = ((lap && lap.sajat_mutatvanyok) || []).map(sajatKartya);
+  // Támadásnál a lény saját mutatványai elöl, egyébként a helyzethez illő típus után.
+  if (sajatok.length) csoportok.splice(elso === 'harc' ? 0 : Math.min(1, csoportok.length), 0, { tipus: 'sajat', nev: 'Saját', egyeb: false, mutatvanyok: sajatok });
 
-  return { csoportok, plusz: pluszPontok(lapok, lap, { kontextus, valasztasok, kapcsolok, hatasok }), valasztandok, elso };
+  return { csoportok, plusz: pluszPontok(lapok, lap, { kontextus, valasztasok, kapcsolok, hatasok }), valasztandok, elso: sajatok.length && elso === 'harc' ? 'sajat' : elso };
 }
 
 // További Mutatványpontok a karakter képességeiből: [{ kulcs, ertek, eredet, feltetel, be, kapcsolhato }].

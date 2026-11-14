@@ -366,7 +366,7 @@ function ValasztasMezo({ jelleg, ertek, onValt, ixMind, lap, sorrend, cimke }) {
       opciok=${ixMind.lista('Fegyvercsoportok').map((c) => ({ value: c.id, label: c.nev_hu }))}/>`;
   }
   return html`<${Valaszto} label=${cimke || 'Fókusz'} value=${ertek || ''} onChange=${onValt} ures="Válassz…"
-    opciok=${ixMind.lista('Fókuszok').map((f) => ({ value: f.id, label: fokuszNev(ixMind, f.id) })).sort((a, b) => a.label.localeCompare(b.label, 'hu'))}/>`;
+    opciok=${ixMind.lista('Fókuszok').filter((f) => !reszletek(f).csak_ellenfel).map((f) => ({ value: f.id, label: fokuszNev(ixMind, f.id) })).sort((a, b) => a.label.localeCompare(b.label, 'hu'))}/>`;
 }
 function FelverAlap({ fr, adat, valtoztat, ixMind, lap }) {
   return html`<${Szakasz} cim="Származási lény szerinti választások" segit="felver" sugo="A DM-mel egyeztesd, melyik lény a karakter őse.">

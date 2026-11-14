@@ -582,3 +582,19 @@ a.kartya .kartya__cim { color: var(--accent); }
 .probatabla__halad .csik { margin-top: 0; }
 .probakeres .szakasz { display: grid; gap: var(--space-2); }
 .probakeres__modositok { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-2); }
+/* Bestiárium (3. lépés, 1. ütem) */
+a.sorgomb-teljes { text-decoration: none; }
+.sorgomb-teljes:disabled { cursor: default; color: var(--ink); }
+.bestiarium__sor--aktiv { background: var(--accent-soft); }
+.bestiarium__sor--aktiv .sorgomb-teljes { padding-left: var(--space-2); padding-right: var(--space-2); }
+.bestiarium__kivonat { text-align: right; white-space: nowrap; }
+.csip--statikus { cursor: default; }
+.statblokk h3.cimke { margin-bottom: var(--space-2); }
+.statblokk__en { margin: 0; }
+.statblokk__megj { margin: calc(-1 * var(--space-2)) 0 0; }
+.statblokk__felsorolas { margin: 0; padding-left: 1.2em; }
+.statblokk .ertekek dd.kicsi { font-size: 14px; line-height: 20px; font-weight: 400; }
+@media (min-width: 1024px) {
+  .bestiarium__talalatok { max-height: calc(100vh - 360px); overflow-y: auto; padding-right: var(--space-2); }
+}
+@media (max-width: 1023px) { .bestiarium__lista--rejtheto { display: none; } }

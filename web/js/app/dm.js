@@ -16,6 +16,7 @@ import { KarakterLap } from './karakterlap.js';
 import { KarakterKep } from './kepek.js';
 import { XpKiosztas } from './xpkiosztas.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
+import { BestiariumOldal } from './bestiarium.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -92,6 +93,7 @@ export function DmFelulet({ ut }) {
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;
   else if (oldal === 'felhasznalok') tartalom = html`<${FelhasznalokOldal}/>`;
   else if (oldal === 'szabalyok') tartalom = html`<${SzabalyokOldal}/>`;
+  else if (oldal === 'bestiarium') tartalom = html`<${BestiariumOldal} key="bestiarium" azon=${azon} Oldalfej=${Oldalfej}/>`;
   else tartalom = html`<${Attekintes}/>`;
 
   const menupont = (cel, ikon, felirat, aktiv) => html`<a href=${'#/dm' + cel} className=${'menupont' + (aktiv ? ' menupont--aktiv' : '')}
@@ -118,6 +120,7 @@ export function DmFelulet({ ut }) {
           ${menupont('/kampanyok', 'terkep', 'Kampányok', oldal === 'kampanyok')}
           ${menupont('/karakterek', 'kard', 'Karakterek', oldal === 'karakterek' || oldal === 'karakter')}
           ${menupont('/felhasznalok', 'felhasznalo', 'Felhasználók', oldal === 'felhasznalok')}
+          ${menupont('/bestiarium', 'karom', 'Bestiárium', oldal === 'bestiarium')}
           ${menupont('/szabalyok', 'konyv', 'Szabályok', oldal === 'szabalyok')}
           <${K.Divider} ornament=${false}/>
           <div className="oldalsav__cim">Kampányok</div>

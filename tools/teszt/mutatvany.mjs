@@ -140,6 +140,45 @@ ellenoriz(e.hibak.some((h) => h.includes('Hasító csapás')), 'a csomag és a b
 e = M.kosarEllenoriz([{ id: 'mut_skirmish', mp: 0 }], 3, k);
 ellenoriz(e.hibak.some((h) => h.includes('legalább')), 'változó árú mutatványnál a legkisebb ár');
 
+// ---------- Lény (statblokk) mutatványai és a célpont ár-módosítói ----------
+{
+  const leny = {
+    tulajdonsagok: {}, fokuszok: {}, talentumok: [], forras_cimke: 'Bestiárium',
+    kedvelt_mutatvanyok: [{ id: 'mut_mighty_blow', mp: 1, ar: 1 }, { id: 'mut_lethal_blow' }, { kulcs: 'farok' }],
+    sajat_mutatvanyok: [{ kulcs: 'farok', nev_hu: 'Farokcsapás', nev_en: 'Tail', mp: 2, leiras: 'Teszt.' }, { kulcs: 'atok', nev_hu: 'Átok', mp: null, leiras: 'Teszt.' }],
+    mutatvany_ar_modositok: [
+      { mutatvanyok: ['mut_lightning_attack'], mod: -1, kinek: 'sajat', eredet: 'Őrjöngés' },
+      { mutatvanyok: ['*'], mod: -1, kinek: 'sajat', eredet: 'Falkataktika', feltetel: 'ha legalább három társával támad' }
+    ]
+  };
+  let k = M.mutatvanyKinalat(LAPOK, leny, { kontextus: { tipus: 'tamadas' } });
+  ellenoriz(k.csoportok[0].tipus === 'sajat' && k.elso === 'sajat' && k.csoportok[0].mutatvanyok.length === 2, 'támadásnál a lény saját mutatványai elöl', k.csoportok.map((c) => c.tipus));
+  ellenoriz(kartya(k, 'sajat:farok').ar.min === 2 && kartya(k, 'sajat:farok').kedvelt && kartya(k, 'sajat:atok').valtozo, 'saját mutatvány ára, kedvelt jelölés, változó ár');
+  ellenoriz(kartya(k, 'mut_mighty_blow').ar.min === 1 && kartya(k, 'mut_mighty_blow').kedvelt, 'kedvelt mutatvány saját ára (1)');
+  ellenoriz(kartya(k, 'mut_lightning_attack').ar.min === 2, 'saját ár-módosító (Villámtámadás −1)');
+  const harc = k.csoportok.find((c) => c.tipus === 'harc').mutatvanyok;
+  ellenoriz(harc[0].kedvelt && harc[1].kedvelt, 'a kedvelt mutatványok elöl', harc.slice(0, 3).map((m) => m.id));
+  ellenoriz(kartya(k, 'mut_pierce_armor').feltetelesek.length === 1 && kartya(k, 'mut_pierce_armor').ar.min === 2, 'a feltételes (falka) módosító kapcsolóval jelenik meg');
+  k = M.mutatvanyKinalat(LAPOK, leny, { kontextus: { tipus: 'tamadas' }, kapcsolok: { 'sajat:1': true } });
+  ellenoriz(kartya(k, 'mut_pierce_armor').ar.min === 1 && kartya(k, 'mut_lightning_attack').ar.min === 1, 'bekapcsolt falkataktika: minden mutatvány −1');
+  k = M.mutatvanyKinalat(LAPOK, leny, { kontextus: { tipus: 'alap', tul: 'tul_perception' } });
+  ellenoriz(k.elso === 'felfedezés' && k.csoportok[1].tipus === 'sajat', 'nem támadásnál a saját csoport a helyzethez illő után');
+  const celpont = { nev: 'Ogre', mutatvany_ar_modositok: [
+    { mutatvanyok: ['mut_knock_prone', 'mut_skirmish'], mod: 1, kinek: 'ellene', eredet: 'Nagy termet' },
+    { mutatvanyok: ['mut_threaten'], mod: 'immunis', kinek: 'ellene', feltetel: 'kivéve más óriás részéről' }] };
+  const harcos = { osztaly: { id: 'osz_warrior', nev_hu: 'Harcos' }, szint: 1, talentumok: [] };
+  k = M.mutatvanyKinalat(LAPOK, harcos, { kontextus: { tipus: 'tamadas' }, celpont });
+  ellenoriz(kartya(k, 'mut_knock_prone').ar.min === 3 && kartya(k, 'mut_knock_prone').kedvezmenyek.some((x) => x.leiras === '+1 pont' && /Nagy termet/.test(x.eredet)), 'a célpont ellen drágább mutatvány (+1)', kartya(k, 'mut_knock_prone').kedvezmenyek);
+  ellenoriz(kartya(k, 'mut_skirmish').ar.min === 2 && kartya(k, 'mut_threaten').immunis.length === 1 && !kartya(k, 'mut_mighty_blow').immunis.length, 'változó árnál is, és az immunitás jelölése');
+  ellenoriz(!k.csoportok.some((c) => c.tipus === 'sajat'), 'karakternél nincs saját csoport');
+  const ogre = { tulajdonsagok: {}, fokuszok: {}, talentumok: [], kedvelt_mutatvanyok: [{ id: 'mut_mighty_blow', ar: 1 }, { id: 'mut_lethal_blow', ar: 4 }],
+    mutatvany_ar_modositok: [{ mutatvanyok: ['mut_mighty_blow', 'mut_lethal_blow', 'mut_knock_prone'], mod: -1, kinek: 'sajat', eredet: 'Vérszomjas' }] };
+  k = M.mutatvanyKinalat(LAPOK, ogre, { kontextus: { tipus: 'tamadas' } });
+  ellenoriz(kartya(k, 'mut_mighty_blow').ar.min === 1 && kartya(k, 'mut_lethal_blow').ar.min === 4 && kartya(k, 'mut_knock_prone').ar.min === 1,
+    'a kedvelt mutatvány megadott ára nem csökken tovább, a többi igen', [kartya(k, 'mut_mighty_blow').ar, kartya(k, 'mut_lethal_blow').ar, kartya(k, 'mut_knock_prone').ar]);
+  ellenoriz(!kartya(k, 'mut_threaten').kedvezmenyek.length, 'ár nélküli kedvelt mutatványnál nincs kedvezménysor');
+}
+
 // ---------- Valódi szabályadattal (ha meg van adva) ----------
 const fajl = process.env.FAGE_SZABALYOK;
 if (fajl && fs.existsSync(fajl)) {
