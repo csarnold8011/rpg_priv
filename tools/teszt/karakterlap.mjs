@@ -84,5 +84,17 @@ ellenoriz(p.felszereles.targyak.find((t) => t.nev === 'Ezüst serleg'), 'az öss
 lap = karakterSzamol(p, LAPOK);
 ellenoriz(lap.penz_rez === p.felszereles.penz_rez && lap.fegyverek.length === 1, 'a számoló a játék tételeivel együtt dolgozik');
 
+// Fegyverpróba: hosszú hatótáv, képzetlen csoport fél hatótávja, fókusz nélküli csoport.
+const f = harcos();
+f.felszereles.targyak.push({ id: 'fgy_long_bow', db: 1 }, { id: 'fgy_blunderbuss', db: 1 }, { id: 'fgy_fighting_flail', db: 1 });
+const fl = karakterSzamol(f, LAPOK).fegyverek;
+const ij = fl.find((w) => w.id === 'fgy_long_bow');
+const muskéta = fl.find((w) => w.id === 'fgy_blunderbuss');
+const lanc = fl.find((w) => w.id === 'fgy_fighting_flail');
+ellenoriz(ij && ij.hosszu_tav && ij.hosszu_buntetes === -2, 'a hosszú íjnál van hosszú táv, −2 büntetéssel', ij);
+ellenoriz(muskéta && !muskéta.hosszu_tav, 'egyetlen hatótávú fegyvernél nincs hosszú táv', muskéta);
+ellenoriz(ij && (ij.ismert || ij.hatotav === '13 yard / 26 yard'), 'képzetlen csoportban a hatótáv feleződik', ij && ij.hatotav);
+ellenoriz(lanc && lanc.csoport_fokusz_nelkul && !ij.csoport_fokusz_nelkul, 'a harcművészeti fegyvereknél jelzi, hogy nincs hozzájuk fókusz', lanc);
+
 console.log(`\n${db - hibak}/${db} ellenőrzés rendben.`);
 if (hibak) process.exit(1);

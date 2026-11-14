@@ -356,12 +356,18 @@ export function karakterSzamol(nyers, lapok, opciok = {}) {
     let sebzes = sebzesSzoveg(e.sebzes, tulErtek(sebzesTul));
     if (!ismert) sebzes = `(${sebzes}) / 2`;
     const minEro = e.min_ero === '' || e.min_ero === null || e.min_ero === undefined ? null : szam(e.min_ero);
+    // Képzetlen csoportban a hatótáv is feleződik (lefelé kerekítve).
+    let hatotav = e.hatotav || null;
+    if (!ismert && r.rovid) hatotav = [r.rovid, r.hosszu].filter(Boolean).map((x) => Math.floor(szam(x) / 2) + ' yard').join(' / ');
     return {
       id: t.id, nev_hu: nevE(e), csoport: e.csoport, csoport_nev: nevE(cs, e.csoport), felszerelve: !!t.felszerelve,
       tulajdonsag: tulId, fokusz: csr.fokusz && fokuszLista[csr.fokusz] ? csr.fokusz : null,
       tamadas, sebzes, sebzes_tulajdonsag: sebzesTul, ismert, min_ero: minEro,
       min_ero_alatt: minEro !== null && tulErtek('tul_strength') < minEro,
-      hatotav: e.hatotav || null, ketkezes: !!r.ketkezes, tavolsagi: !!r.tavolsagi
+      hatotav, ketkezes: !!r.ketkezes, tavolsagi: !!r.tavolsagi,
+      // Van-e hosszú hatótáv (ott a támadás büntetést kap), és a csoporthoz tartozik-e fókusz a szabályokban.
+      hosszu_tav: !!r.hosszu, hosszu_buntetes: szam(fegyverAlt.hosszu_hatotav_buntetes, -2),
+      csoport_fokusz_nelkul: !!cs && !csr.fokusz
     };
   });
 

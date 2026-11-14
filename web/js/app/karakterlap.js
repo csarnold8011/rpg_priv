@@ -15,7 +15,7 @@ import { useVarazsloAdat, MentesJel } from './varazslo.js';
 import { Kockadobo } from './kockadobo.js';
 import { KarakterKep, KepFeltolto } from './kepek.js';
 import { XpKiosztas } from './xpkiosztas.js';
-import { fokuszNev } from './varazslo_lepesek.js';
+import { fokuszNev, Kapcsolo } from './varazslo_lepesek.js';
 import { KeszitesGomb, SzintlepesGomb, KarakterFejlec } from './jatek.js';
 
 const TUL_NEV = {
@@ -190,8 +190,10 @@ function ProbaAblak({ lap, ix, kezdet, onBezar }) {
   const [modosito, setModosito] = useState(String(kezdet.modosito || 0));
   const [cel, setCel] = useState(kezdet.celertek ? String(kezdet.celertek) : '');
   const [kockak, setKockak] = useState(null);
+  const [hosszu, setHosszu] = useState(false);
   const fokBonusz = fok && lap.fokuszok[fok] ? lap.fokuszok[fok].bonusz : 0;
-  const bonusz = lap.tulajdonsagok[tul].ertek + fokBonusz + szam(modosito);
+  const tavBunt = kezdet.hosszuTav && hosszu ? kezdet.hosszuBuntetes : 0;
+  const bonusz = lap.tulajdonsagok[tul].ertek + fokBonusz + szam(modosito) + tavBunt;
   const celSzam = parseInt(cel, 10);
   return html`<${Parbeszed} cim=${kezdet.cim || 'Próba'} onBezar=${onBezar}>
     <div className="verem">
@@ -199,12 +201,14 @@ function ProbaAblak({ lap, ix, kezdet, onBezar }) {
         opciok=${TULAJDONSAGOK.map((t) => ({ value: t, label: `${TUL_NEV[t]} (${elojel(lap.tulajdonsagok[t].ertek)})` }))}/>
       <${Valaszto} label="Fókusz" value=${fok} onChange=${(x) => { setFok(x); setKockak(null); }} ures="nincs fókusz"
         opciok=${fokuszok.map((f) => ({ value: f.id, label: `${f.nev_hu} (+${f.bonusz})` }))}/>
+      ${kezdet.hosszuTav ? html`<${Kapcsolo} cimke="Távolság" teljes ertek=${hosszu ? 'h' : 'r'} onValt=${(x) => { setHosszu(x === 'h'); setKockak(null); }}
+        opciok=${[{ value: 'r', label: 'Rövid táv' }, { value: 'h', label: `Hosszú táv (${elojel(kezdet.hosszuBuntetes)})` }]}/>` : null}
       <div className="sorban">
         <${K.TextField} label="Módosító" inputMode="numeric" value=${modosito} onChange=${(e) => setModosito(e.target.value.replace(/[^0-9−-]/g, '').replace('−', '-').slice(0, 3))}/>
         <${K.TextField} label="Célérték (ha tudod)" inputMode="numeric" value=${cel} onChange=${(e) => setCel(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}/>
       </div>
       ${kezdet.megjegyzes ? html`<p className="sugo">${kezdet.megjegyzes}</p>` : null}
-      <div className="osszegsor"><span>3d6 ${elojel(lap.tulajdonsagok[tul].ertek)} (${TUL_NEV[tul]})${fokBonusz ? ` + ${fokBonusz} (fókusz)` : ''}${szam(modosito) ? ` ${elojel(szam(modosito))} (módosító)` : ''}</span>
+      <div className="osszegsor"><span>3d6 ${elojel(lap.tulajdonsagok[tul].ertek)} (${TUL_NEV[tul]})${fokBonusz ? ` + ${fokBonusz} (fókusz)` : ''}${szam(modosito) ? ` ${elojel(szam(modosito))} (módosító)` : ''}${tavBunt ? ` ${elojel(tavBunt)} (hosszú táv)` : ''}</span>
         <span className="osszegsor__ertek">${elojel(bonusz)}</span></div>
       <${Kockadobo} db=${3} kockak=${null} felirat="Dobj 3d6-tal" onDobas=${(k) => setKockak(k)}/>
       ${kockak ? html`<${K.DiceRoll} dice=${kockak} bonus=${bonusz} target=${Number.isFinite(celSzam) ? celSzam : undefined}/>` : null}
@@ -239,7 +243,10 @@ function Fegyverek({ lap, ix, adat, valtoztat }) {
   const tobbi = lap.fegyverek.filter((w) => !w.felszerelve);
   const sor = (w) => html`<li key=${w.id} className="sorlista__sor">
     <button type="button" className="sorgomb-teljes" onClick=${() => setProba({ tul: w.tulajdonsag, fokusz: w.fokusz, modosito: w.ismert ? 0 : -2,
-      cim: 'Támadás: ' + w.nev_hu, megjegyzes: `Sebzés: ${w.sebzes}${w.hatotav ? ', hatótáv ' + w.hatotav : ''}.${w.ismert ? '' : ' Nem ismert fegyvercsoport: −2 a támadásra, fél sebzés.'}` })}>
+      hosszuTav: w.hosszu_tav, hosszuBuntetes: w.hosszu_buntetes,
+      cim: 'Támadás: ' + w.nev_hu, megjegyzes: `Sebzés: ${w.sebzes}${w.hatotav ? ', hatótáv ' + w.hatotav : ''}.`
+        + (w.ismert ? '' : ` Nem ismert fegyvercsoport: −2 a támadásra, fél sebzés${w.tavolsagi ? ' és fél hatótáv' : ''}.`)
+        + (w.csoport_fokusz_nelkul ? ' Ehhez a fegyvercsoporthoz a könyv nem ad fókuszt. Ha a DM megengedi, fent választhatsz egy hasonlót (például Verekedés vagy Botok).' : '') })}>
       <span><strong>${w.nev_hu}</strong><br/><span className="halvany kicsi">${w.csoport_nev}${w.hatotav ? ' · ' + w.hatotav : ''}${w.ismert ? '' : ' · nem ismert csoport'}</span></span>
       <span className="fegyver-ertek"><span>${elojel(w.tamadas)}</span><span className="halvany kicsi">${w.sebzes}</span></span>
     </button>

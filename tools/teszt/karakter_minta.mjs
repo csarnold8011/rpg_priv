@@ -97,14 +97,18 @@ export const LAPOK = {
   ],
   'Fegyvercsoportok': [
     fcs('axes', 'Fejszék', 'fighting'), fcs('bludgeons', 'Zúzófegyverek', 'fighting'), fcs('bows', 'Íjak', 'accuracy'),
-    fcs('brawling', 'Verekedés', 'accuracy'), fcs('staves', 'Botok', 'accuracy'), fcs('heavy_blades', 'Nehéz pengék', 'fighting'), fcs('lances', 'Kopják', 'fighting')
+    fcs('brawling', 'Verekedés', 'accuracy'), fcs('staves', 'Botok', 'accuracy'), fcs('heavy_blades', 'Nehéz pengék', 'fighting'), fcs('lances', 'Kopják', 'fighting'),
+    fcs('black_powder', 'Lőpor', 'accuracy'),
+    { id: 'fcs_martial_arts_weapons', nev_hu: 'Harcművészeti fegyverek', forras: 'Companion', reszletek: { tulajdonsag: 'tul_accuracy', fokusz: null } }
   ],
   'Fegyverek': [
-    { id: 'fgy_altalanos', nev_hu: 'Fegyverhasználat', reszletek: { kepzetlen: { tamadas: -2, sebzes: 'fele' }, eszleles_sebzes_csoportok: ['fcs_black_powder', 'fcs_bows'] } },
+    { id: 'fgy_altalanos', nev_hu: 'Fegyverhasználat', reszletek: { kepzetlen: { tamadas: -2, sebzes: 'fele', hatotav: 'fele' }, hosszu_hatotav_buntetes: -2, eszleles_sebzes_csoportok: ['fcs_black_powder', 'fcs_bows'] } },
     { id: 'fgy_two_handed_axe', nev_hu: 'Kétkezes fejsze', forras: 'Alapkönyv', csoport: 'fcs_axes', sebzes: '3d6', min_ero: '3', reszletek: { tulajdonsag: 'Harc', sebzes_tulajdonsag: 'Erő', ketkezes: true } },
     { id: 'fgy_mace', nev_hu: 'Buzogány', forras: 'Alapkönyv', csoport: 'fcs_bludgeons', sebzes: '2d6', min_ero: '1', reszletek: { tulajdonsag: 'Harc', sebzes_tulajdonsag: 'Erő' } },
     { id: 'fgy_crossbow', nev_hu: 'Számszeríj', forras: 'Alapkönyv', csoport: 'fcs_bows', sebzes: '2d6+1', min_ero: '1', reszletek: { tulajdonsag: 'Pontosság', sebzes_tulajdonsag: 'Észlelés', tavolsagi: true } },
-    { id: 'fgy_long_bow', nev_hu: 'Hosszú íj', forras: 'Alapkönyv', csoport: 'fcs_bows', sebzes: '1d6+3', min_ero: '1', reszletek: { tulajdonsag: 'Pontosság', sebzes_tulajdonsag: 'Észlelés', tavolsagi: true } },
+    { id: 'fgy_long_bow', nev_hu: 'Hosszú íj', forras: 'Alapkönyv', csoport: 'fcs_bows', sebzes: '1d6+3', min_ero: '1', hatotav: '26 yard / 52 yard', reszletek: { tulajdonsag: 'Pontosság', sebzes_tulajdonsag: 'Észlelés', tavolsagi: true, rovid: 26, hosszu: 52 } },
+    { id: 'fgy_blunderbuss', nev_hu: 'Mordály', forras: 'Alapkönyv', csoport: 'fcs_black_powder', sebzes: '1d6+2', min_ero: '', hatotav: '6 yard', reszletek: { tulajdonsag: 'Pontosság', sebzes_tulajdonsag: 'Észlelés', tavolsagi: true, rovid: 6 } },
+    { id: 'fgy_fighting_flail', nev_hu: 'Harci cséphadaró', forras: 'Companion', csoport: 'fcs_martial_arts_weapons', sebzes: '1d6+3', min_ero: '1', reszletek: {} },
     { id: 'fgy_long_sword', nev_hu: 'Hosszú kard', forras: 'Alapkönyv', csoport: 'fcs_heavy_blades', sebzes: '2d6', min_ero: '1', reszletek: { tulajdonsag: 'Harc', sebzes_tulajdonsag: 'Erő' } }
   ],
   'Páncélok': [
