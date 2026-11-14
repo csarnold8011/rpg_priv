@@ -173,10 +173,11 @@ function ProbaKeresUrlap({ u, setU, karakterek, lapok, fokuszNev, fokLap }) {
     </fieldset>` : null}
     <fieldset className="szakasz">
       <legend className="cimke">Kiknek</legend>
-      <div className="csipek">
+      ${!karakterek.length ? html`<p className="kicsi" style=${{ margin: 0, color: 'var(--warning)' }}>⚠ Ebben a kampányban nincs aktív karakter (az archivált és a nem aktív állapotú karakterek nem kapnak próbát). A Csapat panelen a „Karakter hozzáadása” résznél rendelhetsz karaktert a kampányhoz.</p>` : null}
+      ${karakterek.length ? html`<div className="csipek">
         <${Csip} be=${!kivalasztott} onClick=${() => m('cimzettek')('mindenki')}>Mindenki<//>
         ${karakterek.map((c) => html`<${Csip} key=${c.id} be=${!!kivalasztott && kivalasztott.includes(c.id)} onClick=${() => cimzettValt(c.id)}>${c.nev}<//>`)}
-      </div>
+      </div>` : null}
       ${titkosLap.length ? html`<p className="kicsi" style=${{ color: 'var(--warning)' }}>⚠ ${titkosLap.map((id) => (karakterek.find((c) => c.id === id) || {}).nev).join(', ')}: a karakterlap még hiányos, értük nem tudok dobni.</p>` : null}
     </fieldset>
     ${u.tipus !== 'titkos' ? html`<${Jelolo} checked=${u.mutatvany_engedett} onChange=${m('mutatvany_engedett')}>Mutatványpont engedélyezve<//>` : null}
