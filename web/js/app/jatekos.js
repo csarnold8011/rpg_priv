@@ -3,7 +3,8 @@ import {
   html, K, useApp, useState, useEffect, temaBeallitasa, useLekeres, useMuvelet, navigal, Ikon, Betoltes, Uzenet, Parbeszed,
   TemaKapcsolo, SzinkronJelzo, HibaVagyBetoltes, indulasLekerese
 } from './kozos.js';
-import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterFejlec, KampanyCimkek, UjKampanyKarakter } from './jatek.js';
+import { KampanyNaplo } from './dobasnaplo.js';
+import { useKampanyAllapot, useDobasok, DobasPanel, KarakterFejlec, KampanyCimkek, UjKampanyKarakter } from './jatek.js';
 import { KarakterLap } from './karakterlap.js';
 import { KarakterKep } from './kepek.js';
 import { uresKarakter } from '../karakter/adat.js';
@@ -123,7 +124,7 @@ function KampanyOldal({ id }) {
       </ul>` : html`<p className="halvany">Még nincs karakter a kampányban.</p>`}
     <//>
     ${k.sajat_szerep === 'mester' ? html`<${UjKampanyKarakter} kampanyId=${k.id} nagy=${true} onLetrejott=${(c) => navigal('/jatekos/karakter/' + c.id + '/keszites')}/>` : null}
-    <${K.Panel} title="Dobásnapló"><${DobasNaplo} dobasok=${dobasok} karakterek=${allapot.karakterek}/><//>
+    <${K.Panel} title="Dobásnapló"><${KampanyNaplo} allapot=${allapot} dobasok=${dobasok}/><//>
     <div className="alsosav">
       <${K.Button} variant="primary" size="lg" onClick=${() => setDobasNyitva(true)} icon=${html`<${Ikon} nev="kocka" meret=${20}/>`}>Dobás<//>
     </div>

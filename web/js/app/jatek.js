@@ -131,43 +131,7 @@ function SzabadDobas({ allapot, naploz, dm, nagy }) {
   </div>`;
 }
 
-// Az elköltött mutatványok a dobás alatt: „Hatalmas csapás (1), Helyezkedés (2) · +1 Gengszter (Haladó)”.
-function mutatvanyokSzoveg(d) {
-  const r = d && d.reszletek && typeof d.reszletek === 'object' ? d.reszletek : {};
-  const m = (r.mutatvanyok || []).map((x) => `${x.nev || x.id}${x.db > 1 ? ' × ' + x.db : ''} (${x.mp})`).join(', ');
-  const p = (r.mp_plusz || []).map((x) => `+${x.ertek} ${x.eredet}`).join(', ');
-  return [m, p].filter(Boolean).join(' · ');
-}
-
-export function DobasNaplo({ dobasok, karakterek, dm, max = 30 }) {
-  const nevek = {};
-  (karakterek || []).forEach((c) => { nevek[c.id] = c.nev; });
-  if (!dobasok.length) return html`<p className="halvany">Még nincs dobás ebben a kampányban.</p>`;
-  return html`<ol className="naplo">
-    ${dobasok.slice(0, max).map((d) => {
-      const kockak = d.kockak || [];
-      return html`<li key=${d.id} className=${'naplo__sor' + (d._fuggo ? ' naplo__sor--fuggo' : '')}>
-        <div className="naplo__fej">
-          <span className="naplo__ki">${nevek[d.karakter_id] || d.dobta}</span>
-          <span className="naplo__mire">${d.mire}</span>
-          <span className="naplo__ido">${d._fuggo ? 'küldés…' : idopont(d.idopont)}</span>
-        </div>
-        <div className="naplo__test">
-          <span className="mini-kockak" aria-label=${'Kockák: ' + kockak.join(', ')}>
-            ${kockak.map((k, i) => html`<span key=${i} className=${'mini-kocka' + (i === 2 ? ' mini-kocka--sarkany' : '')}>${k}</span>`)}
-          </span>
-          ${Number(d.modosito) ? html`<span className="naplo__mod">${elojel(Number(d.modosito))}</span>` : null}
-          <span className="naplo__osszeg">= ${dobasOsszeg(d)}</span>
-          ${d.eredmeny === 'siker' ? html`<${K.Badge} tone="success">✓ Siker<//>` : null}
-          ${d.eredmeny === 'kudarc' ? html`<${K.Badge} tone="danger">✗ Kudarc<//>` : null}
-          ${Number(d.mutatvanypont) ? html`<${K.Badge} tone="dragon">${d.mutatvanypont} mutatványpont<//>` : null}
-          ${dm && d.rejtett ? html`<${K.Badge}>Rejtett<//>` : null}
-        </div>
-        ${mutatvanyokSzoveg(d) ? html`<p className="naplo__mutatvanyok kicsi">${mutatvanyokSzoveg(d)}</p>` : null}
-      </li>`;
-    })}
-  </ol>`;
-}
+// A dobásnapló: web/js/app/dobasnaplo.js (KampanyNaplo, KarakterDobasai).
 
 // ---- Karakterlap ----
 // A karakter adatszerkezete és a számolás: web/js/karakter/ (adat.js, szamol.js). A korábbi, ideiglenes

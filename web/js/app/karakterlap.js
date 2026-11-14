@@ -17,6 +17,7 @@ import { KarakterKep, KepFeltolto } from './kepek.js';
 import { XpKiosztas } from './xpkiosztas.js';
 import { fokuszNev, Kapcsolo } from './varazslo_lepesek.js';
 import { KeszitesGomb, SzintlepesGomb, KarakterFejlec } from './jatek.js';
+import { KarakterDobasai } from './dobasnaplo.js';
 
 const TUL_NEV = {
   tul_accuracy: 'Pontosság', tul_communication: 'Kommunikáció', tul_constitution: 'Szívósság', tul_dexterity: 'Ügyesség',
@@ -494,12 +495,23 @@ const MIRE = (m) => {
   const [a, b] = String(m || '').split(':');
   return { tul: 'Tulajdonság', dobas: 'Elrendezés', elony: 'Faji előny', fajta: 'Fajta', hatter: 'Háttér', egeszseg: 'Egészség', mp: 'Mágiapont', penz: 'Kezdőpénz' }[a] + (b && /^\d+$/.test(b) && (a === 'egeszseg' || a === 'mp') ? ` (${b}. szint)` : '');
 };
-function Naplok({ adat }) {
+function Naplok({ karakter, adat, lap, lapok, irhato, dm, valtoztat }) {
   const xp = (adat.xp_naplo || []).slice().reverse();
   const dobasok = (adat.dobasok || []).slice().reverse();
-  if (!xp.length && !dobasok.length) return null;
+  const kampany = useKarakterKampanya(karakter);
+  // a mutatványok utólagos rögzítéséhez (csak aki a karaktert szerkesztheti)
+  const kornyezet = irhato && lapok ? {
+    lapok, lap, beallitas: kampany && kampany.beallitasok,
+    forrasok: (kampany && kampany.aktiv_forrasok && kampany.aktiv_forrasok.length ? kampany.aktiv_forrasok : (adat.keszites && adat.keszites.forrasok)) || [],
+    valasztasok: (adat.jatek && adat.jatek.mutatvany_valasztasok) || {},
+    onValasztas: valtoztat ? (kulcs, ertek) => valtoztat((d) => {
+      d.jatek = d.jatek || {};
+      d.jatek.mutatvany_valasztasok = { ...(d.jatek.mutatvany_valasztasok || {}), [kulcs]: ertek };
+    }) : null
+  } : null;
   return html`<${K.Panel} title="Napló">
     <div className="verem">
+      <${KarakterDobasai} karakter=${karakter} adat=${adat} dm=${dm} kampany=${kampany} kornyezet=${kornyezet}/>
       ${xp.length ? html`<details className="lenyilo"><summary>Tapasztalat (${xp.length})</summary>
         <ul className="sorlista">${xp.map((x, i) => html`<li key=${i} className="sorlista__sor">
           <span>${xpTipusNev(x.tipus)}${x.ok ? ': ' + x.ok : ''}<br/><span className="halvany kicsi">${datum(x.idopont)}${x.ki ? ' · ' + x.ki : ''}</span></span>

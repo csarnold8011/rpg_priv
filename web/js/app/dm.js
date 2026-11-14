@@ -5,9 +5,10 @@ import {
   HibaVagyBetoltes, SZEREP_NEV, idopont, temaBeallitasa, gyorsKulcs, indulasLekerese
 } from './kozos.js';
 import {
-  useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterFejlec, KampanyCimkek, megjelenitettNev,
+  useKampanyAllapot, useDobasok, DobasPanel, KarakterFejlec, KampanyCimkek, megjelenitettNev,
   UjKampanyKarakter
 } from './jatek.js';
+import { KampanyNaplo } from './dobasnaplo.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo } from './varazslo.js';
 import { KarakterLap } from './karakterlap.js';
@@ -289,7 +290,7 @@ function KampanyOldal({ id }) {
       </div>
       <div className="verem">
         <${K.Panel} title="Dobás"><${DobasPanel} allapot=${allapot} naploz=${naploz} dm=${true}/><//>
-        <${K.Panel} title="Dobásnapló"><${DobasNaplo} dobasok=${dobasok} karakterek=${allapot.karakterek} dm=${true}/><//>
+        <${K.Panel} title="Dobásnapló"><${KampanyNaplo} allapot=${allapot} dobasok=${dobasok}/><//>
       </div>
     </div>
   </div>`;
