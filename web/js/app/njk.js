@@ -629,13 +629,13 @@ function SablonPanel({ sb, fenyegetes, setSb }) {
   if (!s) return null;
   return html`<${K.Panel} title=${'Fenyegetési sablon: ' + fenyegetes}>
     <div className="verem">
-      <dl className="ertekek">
-        <div><dt>Tulajdonságpont</dt><dd>${s.pontok} / ${s.sablon.pont}</dd></div>
+      <dl className="ertekek ertekek--sablon">
+        <div><dt>Pontok</dt><dd>${s.pontok} / ${s.sablon.pont}</dd></div>
         <div><dt>Legnagyobb</dt><dd>${s.legnagyobb} / ${s.sablon.max}</dd></div>
         <div><dt>Fókusz</dt><dd>${s.fokuszok} / ${s.sablon.fokusz}</dd></div>
-        <div><dt>Talentumfok</dt><dd>${s.talentumok} / ${s.sablon.talentum}</dd></div>
-        <div><dt>Egészség</dt><dd>${szam(sb.egeszseg)}</dd><dd className="kicsi halvany">ajánlott ${s.egeszseg_ajanlott}</dd></div>
-        <div><dt>Mágiapont</dt><dd>${sb.magiapont === undefined || sb.magiapont === null ? '–' : sb.magiapont}</dd><dd className="kicsi halvany">varázslónál ${s.mp_ajanlott}</dd></div>
+        <div><dt>Talentum</dt><dd>${s.talentumok} / ${s.sablon.talentum}</dd></div>
+        <div><dt>Egészség</dt><dd>${szam(sb.egeszseg)}</dd><dd className="ertekek__megj">ajánlott: ${s.egeszseg_ajanlott}</dd></div>
+        <div><dt>Mágiapont</dt><dd>${sb.magiapont === undefined || sb.magiapont === null ? '–' : sb.magiapont}</dd><dd className="ertekek__megj">varázslónál: ${s.mp_ajanlott}</dd></div>
       </dl>
       ${s.figyelmeztetesek.map((f, i) => html`<${Uzenet} key=${i} tonus="warning">${f}<//>`)}
       <div className="gombsor">

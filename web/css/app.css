@@ -616,3 +616,6 @@ a.sorgomb-teljes { text-decoration: none; }
 }
 .njk-sor__gombok { padding-left: 52px; }
 .kartya--gomb { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.ertekek dt { overflow-wrap: anywhere; hyphens: auto; }
+.ertekek dd.ertekek__megj { font-size: 14px; line-height: 20px; font-weight: 400; color: var(--ink-muted); }
+.ertekek--sablon { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
