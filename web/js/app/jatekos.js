@@ -4,6 +4,7 @@ import {
   TemaKapcsolo, SzinkronJelzo, HibaVagyBetoltes, indulasLekerese
 } from './kozos.js';
 import { KampanyNaplo } from './dobasnaplo.js';
+import { JatekosProbak } from './probakeres.js';
 import { useKampanyAllapot, useDobasok, DobasPanel, KarakterFejlec, KampanyCimkek, UjKampanyKarakter } from './jatek.js';
 import { KarakterLap } from './karakterlap.js';
 import { KarakterKep } from './kepek.js';
@@ -111,6 +112,7 @@ function KampanyOldal({ id }) {
       <h1 className="oldalcim">${k.cim}</h1>
       <${KampanyCimkek} kampany=${k}/>
     </div>
+    <${JatekosProbak} allapot=${allapot} naploz=${naploz}/>
     <${K.Panel} title="Csapat">
       ${allapot.karakterek.length ? html`<ul className="kartyalista">
         ${allapot.karakterek.map((c) => {

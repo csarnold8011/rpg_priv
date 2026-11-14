@@ -9,6 +9,7 @@ import {
   UjKampanyKarakter
 } from './jatek.js';
 import { KampanyNaplo } from './dobasnaplo.js';
+import { ProbakPanel, ProbaBeallitasok } from './probakeres.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo } from './varazslo.js';
 import { KarakterLap } from './karakterlap.js';
@@ -289,6 +290,7 @@ function KampanyOldal({ id }) {
         <${KampanyArchivPanel} kampany=${k} frissit=${frissit}/>
       </div>
       <div className="verem">
+        <${ProbakPanel} allapot=${allapot} naploz=${naploz}/>
         <${K.Panel} title="Dobás"><${DobasPanel} allapot=${allapot} naploz=${naploz} dm=${true}/><//>
         <${K.Panel} title="Dobásnapló"><${KampanyNaplo} allapot=${allapot} dobasok=${dobasok}/><//>
       </div>
@@ -384,6 +386,7 @@ function KampanyBeallitasok({ kampany, frissit }) {
         ${valtozott ? html`<${K.Button} variant="quiet" onClick=${() => set(alap)}>Visszaállítás<//>` : null}
       </div>
     </details>
+    <${ProbaBeallitasok} key=${kampany.id} kampany=${kampany} onMentve=${(v) => { if (v && v.kampany) dm.kampanyFrissit(v.kampany); frissit(); }}/>
   <//>`;
 }
 

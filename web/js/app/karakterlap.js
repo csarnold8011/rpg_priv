@@ -18,6 +18,7 @@ import { XpKiosztas } from './xpkiosztas.js';
 import { fokuszNev, Kapcsolo } from './varazslo_lepesek.js';
 import { KeszitesGomb, SzintlepesGomb, KarakterFejlec } from './jatek.js';
 import { KarakterDobasai } from './dobasnaplo.js';
+import { CelpontProbaGomb } from './probakeres.js';
 
 const TUL_NEV = {
   tul_accuracy: 'Pontosság', tul_communication: 'Kommunikáció', tul_constitution: 'Szívósság', tul_dexterity: 'Ügyesség',
@@ -260,7 +261,9 @@ function Fegyverek(p) {
 }
 
 function Varazslatok(p) {
-  const { lap, valtoztat, irhato } = p;
+  const { lap, valtoztat, irhato, karakter } = p;
+  const kampany = useKarakterKampanya(karakter);
+  const kerhet = !!kampany && (kampany.sajat_szerep === 'dm' || kampany.sajat_szerep === 'mester');
   const [proba, setProba] = useState(null);
   const [nyitott, setNyitott] = useState(null);
   const mp = lap.magiapont ? lap.magiapont.aktualis : 0;
@@ -288,6 +291,7 @@ function Varazslatok(p) {
                   <${K.Button} size="sm" variant="secondary" onClick=${() => setProba({ tul: 'tul_intelligence', fokusz: fokId, celertek: cel, tipus: 'varazslas', mp_ar: ar || 0, cim: 'Varázslás: ' + x.nev_hu, megjegyzes: ar ? `Ára ${ar} Mágiapont (sikertelen próbánál is).` : '' })}>Varázslási próba<//>
                   ${irhato && ar ? html`<${K.Button} size="sm" variant=${mp >= ar ? 'primary' : 'quiet'} onClick=${() => valtoztat((d) => { d.allapot.magiapont = Math.max(0, mp - ar); })}>−${ar} MP${mp < ar ? ' (nincs elég)' : ''}<//>` : null}
                 </div>
+                <${CelpontProbaGomb} varazslat=${x.elem} varazsero=${10 + akarat + fok} kampany=${kampany} kerhet=${kerhet}/>
               </div>` : null}
             </li>`;
           })}</ul>

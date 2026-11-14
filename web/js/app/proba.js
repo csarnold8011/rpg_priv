@@ -11,6 +11,8 @@ import { taroltKampanyok } from './varazslo.js';
 import * as P from '../jatek/proba.js';
 
 const TULAJDONSAGOK = Object.keys(P.TUL_NEV);
+// A fókusz magyar neve a szabályadatból (a karakternek nem kell, hogy meglegyen).
+export const fokuszNevLapbol = (lapok, id) => ((lapok && lapok['Fókuszok'] || []).find((f) => f.id === id) || {}).nev_hu || id;
 const szamBol = (s) => { const n = parseInt(String(s).replace('−', '-'), 10); return Number.isFinite(n) ? n : 0; };
 
 // A karakter kampánya (a naplózás helye): egy karakter egyszerre egy kampányban szerepel.
@@ -69,7 +71,9 @@ export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLe
   const utolso = dobasok[dobasok.length - 1] || null;
 
   const dob = (kockak, beirt) => {
-    const ert = P.probaKiertekel(kockak, ossz.bonusz, { celertek: celIsmert ? celSzam : undefined });
+    const ert = P.probaKiertekel(kockak, ossz.bonusz, { celertek: celIsmert ? celSzam : undefined,
+      fokusz_kotelezo: kezdet.fokusz_kotelezo && (kezdet.fokuszok || []).length > 0, van_fokusz: !!fok && (kezdet.fokuszok || []).includes(fok),
+      mutatvany_tiltva: kezdet.mutatvany_tiltva });
     setMutNyitva(false); setMutKesz(null);
     const d = P.naploDobas({
       kampany_id: kampany && kampany.id, karakter_id: karakter && karakter.id,
@@ -89,6 +93,7 @@ export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLe
     <${Valaszto} label="Tulajdonság" value=${tul} onChange=${(x) => { setTul(x); setFok(''); uj(); }}
       opciok=${TULAJDONSAGOK.map((t) => ({ value: t, label: `${P.TUL_NEV[t]} (${elojel(lap.tulajdonsagok[t] ? lap.tulajdonsagok[t].ertek : 0)})` }))}/>
     <${Valaszto} label="Fókusz" value=${fok} onChange=${(x) => { setFok(x); uj(); }} ures="nincs fókusz"
+      hint=${kezdet.fokuszok && kezdet.fokuszok.length ? (kezdet.fokusz_kotelezo ? 'Kötelező fókusz: ' : 'Kért fókusz: ') + kezdet.fokuszok.map((id) => (lap.fokuszok[id] ? lap.fokuszok[id].nev_hu : fokuszNevLapbol(lapok, id))).join(' vagy ') : undefined}
       opciok=${fokuszok.map((f) => ({ value: f.id, label: `${f.nev_hu} (+${f.bonusz})` }))}/>
     ${kezdet.hosszuTav ? html`<${Kapcsolo} cimke="Távolság" teljes ertek=${hosszu ? 'h' : 'r'} onValt=${(x) => { setHosszu(x === 'h'); uj(); }}
       opciok=${[{ value: 'r', label: 'Rövid táv' }, { value: 'h', label: `Hosszú táv (${elojel(kezdet.hosszuBuntetes || -2)})` }]}/>` : null}
@@ -106,8 +111,8 @@ export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLe
     </div>
     ${rejtettLehet ? html`<${Jelolo} checked=${rejtett} onChange=${setRejtett}>Rejtett dobás (a játékosok nem látják)<//>` : null}
     <${Kockadobo} db=${3} kockak=${null} felirat=${utolso ? 'Újradobás' : 'Dobj 3d6-tal'} onDobas=${dob}/>
-    ${utolso ? html`<${ProbaEredmeny} d=${utolso} celIsmert=${celIsmert} celSzam=${celSzam} ujradobva=${dobasok.length > 1}/>` : null}
-    ${utolso && utolso.ert.mutatvanypont && lapok && !mutNyitva && !mutKesz ? html`<div className="gombsor">
+    ${utolso ? html`<${ProbaEredmeny} d=${utolso} celIsmert=${celIsmert} celSzam=${celSzam} ujradobva=${dobasok.length > 1} kezdet=${kezdet}/>` : null}
+    ${utolso && utolso.ert.mutatvanypont && lapok && !mutNyitva && !mutKesz && !kezdet.ellenproba ? html`<div className="gombsor">
       <${K.Button} variant="primary" onClick=${() => setMutNyitva(true)}>${utolso.ert.mutatvanypont} Mutatványpont elköltése<//>
       <span className="halvany kicsi">Azonnal el kell költeni.</span>
     </div>` : null}
@@ -126,13 +131,17 @@ export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLe
   </div>`;
 }
 
-function ProbaEredmeny({ d, celIsmert, celSzam, ujradobva }) {
+function ProbaEredmeny({ d, celIsmert, celSzam, ujradobva, kezdet = {} }) {
   const { ert, dobas, kockak } = d;
   return html`<div className="proba__eredmeny friss" key=${dobas.id} aria-live="polite">
     <${K.DiceRoll} dice=${kockak} bonus=${dobas.modosito} target=${celIsmert ? celSzam : undefined}/>
     <p className="halvany kicsi" style=${{ margin: 0 }}>
       ${ert.eredmeny === 'siker' ? `Siker, ${ert.fok} (sárkánykocka ${ert.sarkany}). ` : ''}
-      ${ert.eredmeny === '' ? 'Siker vagy kudarc: a DM dönt. ' : ''}
+      ${ert.fokusz_hianyzik ? 'A kért fókusz nélkül ez automatikus kudarc. ' : ''}
+      ${ert.eredmeny === '' && kezdet.ellenproba ? 'Ellenpróba: a DM táblája mutatja, ki nyert. ' : ''}
+      ${ert.eredmeny === '' && !kezdet.ellenproba && kezdet.proba_id && kezdet.celertek_rejtett ? 'A Célértéket a DM tudja: az eredmény hamarosan a naplóban látszik. ' : ''}
+      ${ert.eredmeny === '' && !kezdet.ellenproba && !(kezdet.proba_id && kezdet.celertek_rejtett) ? 'Siker vagy kudarc: a DM dönt. ' : ''}
+      ${kezdet.mutatvany_tiltva && ert.dupla ? 'Ennél a próbánál nincs Mutatványpont. ' : ''}
       ${dobas.kezi ? 'Beírt kockák. ' : ''}${ujradobva ? 'Újradobás (a napló az előzőt is őrzi). ' : ''}
     </p>
   </div>`;

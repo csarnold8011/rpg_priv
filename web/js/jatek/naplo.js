@@ -107,12 +107,16 @@ export function naploSzur(dobasok, szuro, ctx = {}) {
   return dobasok;
 }
 
-// A szűrőcsipek: mindenki, csak az enyém (ha van sajátom), majd a karakterek, akiknek van dobása (a csapat sorrendjében).
+// A szűrőcsipek: mindenki, csak az enyém (ha van sajátom), a karakterek, akiknek van dobása (a csapat sorrendjében),
+// végül a próbakérések, amelyekhez van dobás.
 export function szuroOpciok(dobasok, ctx = {}) {
   const opciok = [{ value: 'mindenki', label: 'Mindenki' }];
   if (dobasok.some((d) => sajatDobasE(d, ctx))) opciok.push({ value: 'sajat', label: 'Csak az enyém' });
   const van = new Set(dobasok.map((d) => d.karakter_id).filter(Boolean));
   ((ctx && ctx.karakterek) || []).forEach((c) => { if (van.has(c.id)) opciok.push({ value: 'k:' + c.id, label: c.nev }); });
+  // a próbakérések, amelyekhez már van dobás (a próba címével)
+  const probas = new Set(dobasok.map((d) => d.proba_id).filter(Boolean));
+  ((ctx && ctx.probak) || []).forEach((p) => { if (probas.has(p.id)) opciok.push({ value: 'p:' + p.id, label: 'Próba: ' + (p.cim || 'kérés') }); });
   return opciok;
 }
 

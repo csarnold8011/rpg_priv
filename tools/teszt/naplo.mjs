@@ -87,8 +87,9 @@ ellenoriz(N.naploSzur(dobasok, 'sajat', dm).map((d) => d.id).join() === 'd3,d4',
 ellenoriz(N.naploSzur(dobasok, 'k:c_lysa', bence).map((d) => d.id).join() === 'd2', 'egy karakter');
 ellenoriz(N.naploSzur(dobasok, 'p:p_1', bence).map((d) => d.id).join() === 'd2', 'egy próbakérés');
 const op = N.szuroOpciok(dobasok, bence);
-ellenoriz(op.map((o) => o.value).join() === 'mindenki,sajat,k:c_dorn,k:c_lysa,k:c_potty', 'szűrőcsipek a csapat sorrendjében', op);
-ellenoriz(N.szuroOpciok([d2], bence).map((o) => o.value).join() === 'mindenki,k:c_lysa', 'saját dobás nélkül nincs „Csak az enyém”');
+ellenoriz(op.map((o) => o.value).join() === 'mindenki,sajat,k:c_dorn,k:c_lysa,k:c_potty,p:p_1', 'szűrőcsipek: a csapat sorrendje, végül a próbakérés', op);
+ellenoriz(op[op.length - 1].label === 'Próba: Észlelés a kapunál', 'a próbakérés csipje a címével');
+ellenoriz(N.szuroOpciok([d2], bence).map((o) => o.value).join() === 'mindenki,k:c_lysa,p:p_1', 'saját dobás nélkül nincs „Csak az enyém”');
 ellenoriz(N.szuroErvenyes('k:c_x', op) === 'mindenki' && N.szuroErvenyes('k:c_dorn', op) === 'k:c_dorn', 'érvénytelen szűrő: mindenki');
 
 // ---------- Felülírások ----------

@@ -557,3 +557,28 @@ a.kartya .kartya__cim { color: var(--accent); }
 .mutatvany__hibak { margin: 0; padding-left: var(--space-4); color: var(--warning); }
 .mutatvany__osszegzes { margin: 0; }
 .naplo__mutatvanyok { margin: var(--space-1) 0 0; color: var(--dragon-ink); }
+
+/* ---- Próbakérés (DM Próbák panel, játékos kártyák) ---- */
+.probakartya { padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); }
+.probakartya--fuggo { opacity: 0.7; }
+.probakartya--lezart { background: transparent; }
+.probakartya--jatekos { border-color: var(--accent); border-width: 2px; }
+.probakartya--kesz { border-color: var(--line); border-width: 1px; }
+.probakartya__fej { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.probakartya__cim { font-family: var(--font-sans); font-weight: 700; color: var(--ink); }
+.probakartya__szam { margin-left: auto; font-variant-numeric: tabular-nums; }
+.probakartya__szoveg { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.probakartya__feltetel { margin: var(--space-1) 0 0; }
+.probakartya__kozos { display: grid; gap: var(--space-1); margin-top: var(--space-2); font-family: var(--font-sans); }
+.probakartya__kozos .csik { margin-top: 0; }
+.probakartya__eredmeny { display: inline-flex; align-items: center; gap: var(--space-2); }
+.probakartya .gombsor { margin-top: var(--space-2); }
+.probatabla { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.probatabla__sor { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) 0; border-top: 1px solid var(--line); }
+.probatabla__nev { font-family: var(--font-sans); font-weight: 500; color: var(--ink); min-width: 0; }
+.probatabla__ertek { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.probatabla__halad { grid-column: 2 / -1; display: grid; gap: 2px; }
+.probatabla__halad .csik { margin-top: 0; }
+.probakeres .szakasz { display: grid; gap: var(--space-2); }
+.probakeres__modositok { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-2); }

@@ -34,7 +34,8 @@ node tools/teszt/szintlepes.mjs    # a szintlépés-varázsló logikájának tes
 node tools/teszt/karakterlap.mjs   # XP és a játék közbeni leltár tesztje (26 ellenőrzés)
 node tools/teszt/proba.mjs         # a próbák szabályainak tesztje (30 ellenőrzés)
 node tools/teszt/mutatvany.mjs     # a mutatványkezelő tesztje (34; FAGE_SZABALYOK=<lapok.json> esetén a valódi szabályadattal 38)
-node tools/teszt/naplo.mjs         # a dobásnapló sorainak és szűrésének tesztje (51)
+node tools/teszt/naplo.mjs         # a dobásnapló sorainak és szűrésének tesztje (52)
+node tools/teszt/probakeres.mjs    # a DM próbakérés tesztje (54)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 
