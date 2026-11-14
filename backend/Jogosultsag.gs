@@ -31,6 +31,15 @@ function karakterIrhato_(felh, kar, k) {
   return karakterKampanyai_(kar.id, k).some(function (id) { return mester.indexOf(id) >= 0; });
 }
 
+// Láthatja-e (például a képét): szerkesztheti, vagy egy olyan kampány tagja, amelyben a felhasználónak szerepe van.
+function karakterLathato_(felh, kar, k) {
+  if (karakterIrhato_(felh, kar, k)) return true;
+  return karakterKampanyai_(kar.id, k).some(function (id) {
+    const kampany = k.kampanyok.find(function (x) { return x.id === id; });
+    return kampany && !!kampanySzerep_(felh, kampany, k);
+  });
+}
+
 // A felhasználó szerepe egy kampányban: 'dm', 'mester', 'jatekos' vagy null (nincs köze hozzá).
 function kampanySzerep_(felh, kampany, k) {
   if (felh.r === 'dm') return 'dm';

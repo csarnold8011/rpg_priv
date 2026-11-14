@@ -103,7 +103,7 @@ function SzintlepesTest({ karakter, beallitKarakter, lepes, lapok, alap, dm, onV
   const kilepes = async () => { await ment(); navigal(alap); };
   const lezar = async () => {
     let kov = null;
-    valtoztat((a) => { kov = S.szintLezar(a); });
+    valtoztat((a) => { kov = S.szintLezar(a, ixMind); });
     if (!kov) setVege(true);
     const ok = await ment();
     if (ok === false) return;

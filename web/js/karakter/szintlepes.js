@@ -7,6 +7,7 @@ import { TULAJDONSAGOK, fejlesztesKoltseg, fokozatNev } from './tablak.js';
 import { uresSzint } from './adat.js';
 import { fokozatVarazslatok } from './magia.js';
 import { naplozDobas, osszeg } from './varazslo.js';
+import { xpKuszob } from './xp.js';
 
 export const MAX_SZINT = 20;
 
@@ -55,10 +56,17 @@ export function szintlepesIndit(adat, cel) {
 }
 
 // A nyitott szint lezárása. Ha a cél magasabb, rögtön nyílik a következő; visszaadja annak számát, vagy null.
-export function szintLezar(adat) {
+// ix megadásakor a karakterkészítőben választott kezdő szintig az XP is felmegy a szint küszöbéig
+// (aki 4. szinten kezd, 6000 XP-vel indul, így a későbbi jutalmak jól adódnak hozzá).
+export function szintLezar(adat, ix) {
   const sz = felkeszSzint(adat);
   if (!sz) return null;
   sz.kesz = true;
+  if (ix && sz.szint <= szam((adat.keszites || {}).cel_szint, 1)) {
+    adat.allapot = adat.allapot || {};
+    const k = xpKuszob(ix, sz.szint);
+    if (k !== null && szam(adat.allapot.xp) < k) adat.allapot.xp = k;
+  }
   const cel = adat.szintlepes ? szam(adat.szintlepes.cel, sz.szint) : sz.szint;
   if (cel > sz.szint && sz.szint < MAX_SZINT) {
     adat.szintek.push(Object.assign(uresSzint(sz.szint + 1), { kesz: false }));

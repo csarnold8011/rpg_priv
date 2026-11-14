@@ -7,6 +7,7 @@ import { szabalyokBetoltese } from '../szabalyok.js';
 import { Belepes } from './belepes.js';
 import { DmFelulet } from './dm.js';
 import { JatekosFelulet } from './jatekos.js';
+import { kepTarTorles } from './kepek.js';
 
 // Meghívó link (index.html#kapcsolat=<cím>): beállítja a szerver címét ezen az eszközön,
 // majd eltünteti a címsorból.
@@ -57,7 +58,7 @@ function App() {
   }, [birodalom, ut[0]]);
 
   // Kilépéskor az eszközön tárolt listák is törlődnek (közös eszközön a következő belépő ne lássa őket).
-  const kijelentkezes = () => { if (felhasznalo) gyorsTorles(felhasznalo.id); api.kijelentkezes(); };
+  const kijelentkezes = () => { if (felhasznalo) gyorsTorles(felhasznalo.id); kepTarTorles(); api.kijelentkezes(); };
   const kilepes = () => {
     if (sync.status().varakozo > 0) setKilepesKerdes(true);
     else kijelentkezes();

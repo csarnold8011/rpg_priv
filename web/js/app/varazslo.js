@@ -24,6 +24,9 @@ export function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
   const [allapot, setAllapot] = useState('mentve'); // mentve | ment | var | hiba
   const [utkozes, setUtkozes] = useState(null);
   const futRef = useRef(null);
+  // A legutóbbi sikeres mentés óta végzett módosítások (függvények). Ütközéskor (más is mentett közben)
+  // ezeket a máshol mentett változatra újra alkalmazzuk, így egyik fél változása sem vész el.
+  const fuggoRef = useRef([]);
 
   // Ha a karakter máshonnan frissült (például a DM közben mentett) és nincs helyi változás, átvesszük.
   useEffect(() => {
@@ -32,6 +35,7 @@ export function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
       verzioRef.current = karakter.verzio;
       const uj = atallit(karakter.adat || {});
       adatRef.current = uj;
+      fuggoRef.current = [];
       setAdat(uj);
     }
   }, [karakter.verzio]);
@@ -41,15 +45,17 @@ export function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
     fn(uj);
     kulcsmezokFrissit(uj);
     adatRef.current = uj;
+    fuggoRef.current.push(fn);
     piszkosRef.current = true;
     setAdat(uj);
     setAllapot((a) => (a === 'mentve' ? 'valtozott' : a));
   }, []);
 
-  const ment = useCallback(async () => {
+  const ment = useCallback(async (ujraproba = 0) => {
     if (!piszkosRef.current) return true;
     if (futRef.current) { await futRef.current.catch(() => {}); if (!piszkosRef.current) return true; }
     const kuldott = lemasol(adatRef.current);
+    const kuldottDb = fuggoRef.current.length;
     try { kuldott.szamitott = szamitottKivonat(karakterSzamol(kuldott, lapok)); } catch (e) { /* a kivonat csak gyorsítótár */ }
     piszkosRef.current = false;
     setAllapot(sync.status().online ? 'ment' : 'var');
@@ -58,6 +64,7 @@ export function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
     try {
       const v = await ig;
       verzioRef.current = v.verzio;
+      fuggoRef.current = fuggoRef.current.slice(kuldottDb);
       const ossz = { adat: kuldott, verzio: v.verzio, modositva: v.modositva, nev: kuldott.nev || karakter.nev, faj: kuldott.faj, osztaly: kuldott.osztaly, szint: kuldott.szint, keszites: kuldott.keszites.allapot };
       beallitKarakter((c) => ({ ...c, ...ossz }));
       if (onValtozott) onValtozott({ ...karakter, ...ossz });
@@ -65,7 +72,21 @@ export function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
       return true;
     } catch (e) {
       piszkosRef.current = true;
-      if (e.kod === 'utkozes') { setUtkozes((e.valasz && e.valasz.aktualis) || { verzio: null }); setAllapot('hiba'); }
+      const aktualis = e.valasz && e.valasz.aktualis;
+      if (e.kod === 'utkozes' && aktualis && aktualis.adat && ujraproba < 2) {
+        // Összefésülés: a máshol mentett változatra újra alkalmazzuk a saját, még nem mentett módosításainkat.
+        try {
+          const uj = atallit(aktualis.adat);
+          fuggoRef.current.forEach((fn) => fn(uj));
+          kulcsmezokFrissit(uj);
+          verzioRef.current = aktualis.verzio;
+          adatRef.current = uj;
+          setAdat(uj);
+          if (futRef.current === ig) futRef.current = null;
+          return await ment(ujraproba + 1);
+        } catch (x) { /* nem sikerült: a felhasználó dönt */ }
+      }
+      if (e.kod === 'utkozes') { setUtkozes(aktualis || { verzio: null }); setAllapot('hiba'); }
       else { setAllapot('hiba'); uzen('A mentés nem sikerült: ' + e.message, 'danger'); }
       return false;
     } finally {
@@ -88,6 +109,7 @@ export function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
     verzioRef.current = a.verzio;
     const uj = atallit(a.adat);
     adatRef.current = uj;
+    fuggoRef.current = [];
     piszkosRef.current = false;
     setAdat(uj);
     setAllapot('mentve');
@@ -101,7 +123,18 @@ export function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
     return () => document.removeEventListener('visibilitychange', fn);
   }, [ment]);
 
-  return { adat, valtoztat, ment, allapot, utkozes, sajatMarad, masikBetolt };
+  // A háttér közvetlenül módosította a karaktert (kép feltöltése, XP): az új verziószám és ugyanaz a
+  // módosítás helyben is, a még nem mentett saját változások megmaradnak.
+  const kulsoModositas = useCallback((verzio, fn) => {
+    const uj = lemasol(adatRef.current);
+    fn(uj);
+    adatRef.current = uj;
+    verzioRef.current = verzio;
+    setAdat(uj);
+    beallitKarakter((c) => ({ ...c, verzio, adat: lemasol(uj) }));
+  }, []);
+
+  return { adat, valtoztat, ment, allapot, utkozes, sajatMarad, masikBetolt, kulsoModositas };
 }
 
 export function MentesJel({ allapot }) {
@@ -213,7 +246,7 @@ function VarazsloTest({ karakter, beallitKarakter, lepes, lapok, alap, dm, kampa
     } catch (e) { uzen(e.message || String(e), 'danger'); }
   } } : extra;
   const Lepes = LEPES_KOMPONENSEK[aktiv];
-  const props = { adat, valtoztat, lap, lapKesz, ix, ixMind, szurt, lapok, forrasok, dm, karakter, kampany, kampanyok, extra: extraKesz, ugras, kesz, ment };
+  const props = { adat, valtoztat, lap, lapKesz, ix, ixMind, szurt, lapok, forrasok, dm, karakter, kampany, kampanyok, extra: extraKesz, ugras, kesz, ment, kulsoModositas: v.kulsoModositas };
   const cim = adat.nev || karakter.nev || 'Új karakter';
   const lepesLista = html`<ul className="lepeslista">
     ${LEPESEK.map((l, i) => html`<li key=${l.kulcs}><button type="button" aria-current=${l.kulcs === aktiv ? 'step' : undefined} onClick=${() => ugras(l.kulcs)}>

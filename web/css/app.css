@@ -461,3 +461,52 @@ a.kartya .kartya__cim { color: var(--accent); }
 .valtlista .uj { color: var(--accent); }
 .szintlepes .tabla--rovid { max-width: 360px; }
 .szintlepes .tabla--rovid caption { caption-side: top; }
+
+/* ---- Karakterkép ---- */
+.karakterkep { flex: none; display: inline-flex; align-items: center; justify-content: center; object-fit: cover; border-radius: var(--radius-md);
+  border: 1px solid var(--line); background: var(--accent-soft); color: var(--accent); font-family: var(--font-display); font-weight: 700; }
+.karakterkep--kicsi { width: 36px; height: 36px; font-size: 16px; border-radius: var(--radius-sm); }
+.karakterkep--kozep { width: 64px; height: 64px; font-size: 26px; }
+.karakterkep--nagy { width: 112px; height: 112px; font-size: 44px; }
+.nevsor { display: flex; align-items: center; gap: var(--space-2); }
+.kartya--kepes { display: flex; align-items: center; gap: var(--space-3); }
+.kartya__test { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kivago { position: relative; overflow: hidden; touch-action: none; cursor: grab; border-radius: var(--radius-md); border: 2px solid var(--accent);
+  background: var(--surface-sunken); align-self: center; max-width: 100%; }
+.kivago img { position: absolute; left: 0; top: 0; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.mezo-csuszka { display: flex; flex-direction: column; gap: var(--space-1); font: 700 15px/20px var(--font-sans); }
+.mezo-csuszka input { width: 100%; min-height: var(--touch-min); accent-color: var(--accent); }
+.kepfeltolto .gombsor { margin-top: 0; }
+
+/* ---- Karakterlap ---- */
+.klap { display: flex; flex-direction: column; gap: var(--space-5); }
+.klap__fej { display: flex; gap: var(--space-4); align-items: flex-start; flex-wrap: wrap; }
+.klap__fejtest { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: var(--space-2); }
+.klap__fejtest .gombsor { margin-top: var(--space-1); align-items: center; }
+.klap__racs { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+@media (min-width: 1024px) { .klap__racs { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.xpsor { display: flex; flex-direction: column; gap: var(--space-1); max-width: 420px; }
+.xpsor__sor { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.xpsor__szam { font: 700 16px/22px var(--font-sans); font-variant-numeric: tabular-nums lining-nums; }
+.xpsor__jel { font: 700 14px/20px var(--font-sans); color: var(--success); }
+.xpsor .csik { margin-top: 0; }
+.szamlalo { display: flex; flex-direction: column; gap: var(--space-2); }
+.szamlalo__sor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.szamlalo__mezo { width: 64px; min-height: var(--touch-min); text-align: center; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--surface-sunken); color: var(--ink); font: 700 18px/24px var(--font-sans); font-variant-numeric: tabular-nums lining-nums; }
+.tul-racs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin: 0; }
+.tul-racs .ka-ability { padding: 0; }
+.tul-gomb { display: block; width: 100%; height: 100%; padding: var(--space-2); border: 0; background: transparent; color: inherit; font: inherit; text-align: center; cursor: pointer; border-radius: inherit; }
+.tul-gomb:hover { background: var(--accent-soft); }
+.tul-gomb dd, .tul-gomb dt { margin: 0; }
+.sorgomb-teljes { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); width: 100%; min-height: var(--touch-min);
+  padding: var(--space-1) 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.sorgomb-teljes:hover { color: var(--accent); }
+.fegyver-ertek { display: flex; flex-direction: column; align-items: flex-end; font: 800 20px/24px var(--font-sans); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.csip--kicsi { min-height: 36px; padding: 0 10px; font-size: 14px; }
+.lenyilo--sor > summary { min-height: 36px; gap: var(--space-2); flex-wrap: wrap; }
+.dm-eszkozok { margin-top: var(--space-5); }
+.dm-eszkozok__racs { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+@media (min-width: 1024px) { .dm-eszkozok__racs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.xpkiosztas__sor { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-2); padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line); }

@@ -2,7 +2,6 @@
 import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Jelolo, Ikon, idopont, elojel, SZEREP_NEV, tarOlvas, tarIr, gyorsKulcs, navigal, Parbeszed, useMuvelet } from './kozos.js';
 import { uresKarakter, atallit, kulcsmezok } from '../karakter/adat.js';
 import { megjelenitettNev } from '../szabalyok.js';
-import { karakterSzamol } from '../karakter/szamol.js';
 
 // ---- Kampány élő állapota a szinkronrétegen keresztül ----
 // Visszaadja: { allapot, hiba, frissit }. Megnyitáskor kapcsolódik, elhagyáskor bont.
@@ -185,7 +184,7 @@ export function felkeszSzintE(karakter) {
 
 // A karakterlap fejlécébe: szintlépés indítása (egy szint), vagy a félbehagyott folytatása.
 // Bárki indíthatja, aki a karaktert szerkesztheti; a Fejlődés modul (XP) később erre épül.
-export function SzintlepesGomb({ karakter, alap }) {
+export function SzintlepesGomb({ karakter, alap, kiemelt }) {
   if (!karakter || karakter.irhato === false || !karakter.adat || piszkozatE(karakter)) return null;
   const a = atallit(karakter.adat);
   if (!a.osztaly) return null;
@@ -193,7 +192,7 @@ export function SzintlepesGomb({ karakter, alap }) {
   const lezart = kulcsmezok(a).szint;
   if (!fk && lezart >= 20) return null;
   const lepes = fk && a.szintlepes && a.szintlepes.lepes ? '/' + a.szintlepes.lepes : '';
-  return html`<${K.Button} variant=${fk ? 'primary' : 'secondary'} onClick=${() => navigal(alap + '/szintlepes' + lepes)}>${fk ? `Szintlépés folytatása (${fk}. szint)` : `Szintlépés: ${lezart + 1}. szint`}<//>`;
+  return html`<${K.Button} variant=${fk || kiemelt ? 'primary' : 'secondary'} onClick=${() => navigal(alap + '/szintlepes' + lepes)}>${fk ? `Szintlépés folytatása (${fk}. szint)` : `Szintlépés: ${lezart + 1}. szint`}<//>`;
 }
 
 // Új karakter egy kampányba (DM, mesterjátékos): név, létrehozás, utána a varázsló.
@@ -233,60 +232,6 @@ export function KarakterFejlec({ karakter, jatekosNev }) {
     ${faj ? html`<${K.Badge}>${faj}<//>` : null}
     ${osztaly ? html`<${K.Badge}>${osztaly}${karakter.szint ? ', ' + karakter.szint + '. szint' : ''}<//>` : null}
     ${jatekosNev !== undefined ? html`<span className="halvany kicsi">${jatekosNev ? 'Játékos: ' + jatekosNev : 'Játékos nélkül'}</span>` : null}
-  </div>`;
-}
-
-// A karakter számolt lapja (memóriában tartva, amíg az adat és a szabályadat nem változik).
-export function useKarakterSzamol(karakter) {
-  const szabalyok = useApp().szabalyok.adat;
-  return useMemo(() => karakterSzamol((karakter && karakter.adat) || {}, (szabalyok && szabalyok.lapok) || {}), [karakter && karakter.adat, szabalyok]);
-}
-
-export function KarakterLap({ karakter, oszlopok }) {
-  const lap = useKarakterSzamol(karakter);
-  const adat = (karakter && karakter.adat) || {};
-  const ures = !lap.faj && !lap.osztaly && TULAJDONSAGOK.every(([id]) => !lap.tulajdonsagok[id].ertek);
-  const fokuszNevek = (tulId) => Object.values(lap.fokuszok).filter((f) => f.tulajdonsag === tulId)
-    .map((f) => f.nev_hu + (f.bonusz === 3 ? ' (+3)' : ''));
-  const kepessegek = TULAJDONSAGOK.map(([id, nev]) => ({ name: nev, value: lap.tulajdonsagok[id].ertek, focus: fokuszNevek(id) }));
-  const figy = lap.figyelmeztetesek.filter((f) => f.szint === 'figyelmeztetes' && !f.elfogadott);
-  const nincs = html`<span className="halvany">nincs</span>`;
-  const elojelesen = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
-  return html`<div className="karakterlap">
-    <${K.Panel} title="Tulajdonságok">
-      ${ures ? html`<${Uzenet} tonus="warning">A tulajdonságokat, a fajt és az osztályt a karakterkészítő tölti ki.<//>` : null}
-      ${adat.keszites && adat.keszites.allapot === 'piszkozat' && !ures ? html`<${Uzenet} tonus="neutral">Piszkozat: a karakterkészítés még nem fejeződött be.<//>` : null}
-      ${lap.felkesz_szint ? html`<${Uzenet} tonus="neutral">ⓘ A(z) ${lap.felkesz_szint}. szint szintlépése folyamatban: a lapon a lezárása után számít.<//>` : null}
-      <${K.AbilityGrid} abilities=${kepessegek} columns=${oszlopok || 3}/>
-    <//>
-    <${K.Panel} title="Erőforrások">
-      <div className="verem">
-        ${lap.egeszseg.ertek ? html`<${K.ResourceBar} kind="health" value=${lap.egeszseg.aktualis} max=${lap.egeszseg.ertek}/>`
-          : html`<p className="halvany">Az Egészség még nincs megadva.</p>`}
-        ${lap.magiapont && lap.magiapont.ertek ? html`<${K.ResourceBar} kind="magic" value=${lap.magiapont.aktualis} max=${lap.magiapont.ertek}/>` : null}
-        <dl className="ertekek">
-          <div><dt>Védekezés</dt><dd>${lap.vedekezes.ertek || nincs}</dd></div>
-          <div><dt>Sebesség</dt><dd>${lap.sebesseg ? lap.sebesseg.ertek : nincs}</dd></div>
-          <div><dt>Páncélérték</dt><dd>${lap.pancelertek.ertek}</dd></div>
-        </dl>
-      </div>
-    <//>
-    ${lap.fegyverek.length ? html`<${K.Panel} title="Fegyverek">
-      <dl className="ertekek ertekek--lista">
-        ${lap.fegyverek.map((w) => html`<div key=${w.id}>
-          <dt>${w.nev_hu}${w.ismert ? '' : ' (nem ismert csoport)'}</dt>
-          <dd>${elojelesen(w.tamadas)} · ${w.sebzes}</dd>
-        </div>`)}
-      </dl>
-    <//>` : null}
-    ${lap.talentumok.length || lap.arkanumok.length || lap.specializaciok.length ? html`<${K.Panel} title="Talentumok">
-      <dl className="ertekek ertekek--lista">
-        ${lap.specializaciok.concat(lap.talentumok, lap.arkanumok).map((t) => html`<div key=${t.id}><dt>${t.nev_hu}</dt><dd>${t.fokozat}</dd></div>`)}
-      </dl>
-    <//>` : null}
-    ${figy.length ? html`<${K.Panel} title="Figyelmeztetések">
-      <div className="verem">${figy.map((f) => html`<${Uzenet} key=${f.kulcs} tonus="warning">${f.uzenet}<//>`)}</div>
-    <//>` : null}
   </div>`;
 }
 

@@ -5,11 +5,14 @@ import {
   HibaVagyBetoltes, SZEREP_NEV, idopont, temaBeallitasa, gyorsKulcs, indulasLekerese
 } from './kozos.js';
 import {
-  useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, megjelenitettNev,
-  KeszitesGomb, SzintlepesGomb, UjKampanyKarakter
+  useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterFejlec, KampanyCimkek, megjelenitettNev,
+  UjKampanyKarakter
 } from './jatek.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo } from './varazslo.js';
+import { KarakterLap } from './karakterlap.js';
+import { KarakterKep } from './kepek.js';
+import { XpKiosztas } from './xpkiosztas.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
@@ -313,12 +316,20 @@ function CsapatPanel({ allapot, frissit }) {
     await frissit();
   });
 
-  return html`<${K.Panel} title="Csapat">
+  const [xpAblak, setXpAblak] = useState(false);
+  const aktivak = allapot.karakterek.filter((c) => !c.kampany_allapot || c.kampany_allapot === 'aktív');
+  return html`<${K.Panel} title="Csapat" actions=${aktivak.length ? html`<${K.Button} size="sm" variant="secondary" onClick=${() => setXpAblak(true)}>XP kiosztása<//>` : null}>
+    ${xpAblak ? html`<${XpKiosztas} karakterek=${aktivak.map((c) => ({ id: c.id, nev: c.nev, xp: c.xp || 0, szint: Number(c.szint) || 1 }))} kampanyId=${kampanyId}
+      onBezar=${() => setXpAblak(false)} onKesz=${() => { setXpAblak(false); frissit(); }}/>` : null}
     ${allapot.karakterek.length ? html`<ul className="sorlista">
       ${allapot.karakterek.map((c) => html`<li key=${c.id} className="sorlista__sor">
-        <div>
-          <a className="sorlista__nev" href=${'#/dm/karakter/' + c.id}>${c.nev}</a>
-          <${KarakterFejlec} karakter=${c} jatekosNev=${dm.felhasznaloNev(c.jatekos_id)}/>
+        <div className="nevsor">
+          <${KarakterKep} kep=${c.kep} nev=${c.nev}/>
+          <div>
+            <a className="sorlista__nev" href=${'#/dm/karakter/' + c.id}>${c.nev}</a>
+            <${KarakterFejlec} karakter=${c} jatekosNev=${dm.felhasznaloNev(c.jatekos_id)}/>
+            ${c.xp !== undefined ? html`<span className="halvany kicsi">${c.xp} XP</span>` : null}
+          </div>
         </div>
         <div className="sorlista__muvelet">
           <select className="ka-field__input valaszto valaszto--kicsi" aria-label=${c.nev + ' állapota'} value=${c.kampany_allapot}
@@ -434,7 +445,7 @@ function KarakterekOldal() {
       <div className="tablazat-keret"><table className="tablazat">
         <thead><tr><th>Név</th><th>Faj és osztály</th><th>Játékos</th><th>Kampányok</th></tr></thead>
         <tbody>${lista.map((c) => html`<tr key=${c.id} className=${c.aktiv ? '' : 'tablazat__sor--halvany'}>
-          <td><a href=${'#/dm/karakter/' + c.id}>${c.nev}</a>${c.aktiv ? null : html` <${K.Badge}>Archivált<//>`}</td>
+          <td><span className="nevsor"><${KarakterKep} kep=${c.kep} nev=${c.nev}/><a href=${'#/dm/karakter/' + c.id}>${c.nev}</a>${c.aktiv ? null : html` <${K.Badge}>Archivált<//>`}</span></td>
           <td><${KarakterFejlec} karakter=${c}/></td>
           <td>${c.jatekos_id ? dm.felhasznaloNev(c.jatekos_id) : html`<span className="halvany">nincs</span>`}</td>
           <td>${(c.kampanyok || []).map(kampanyCim).filter(Boolean).join(', ') || html`<span className="halvany">nincs</span>`}</td>
@@ -482,19 +493,17 @@ function KarakterOldal({ id }) {
   return html`<div>
     <${HibaVagyBetoltes} lekeres=${lekeres}>${(c) => html`
       <${Oldalfej} cim=${c.nev} vissza=${['#/dm/karakterek', 'Karakterek']}>
-        <${KarakterFejlec} karakter=${c}/>
         ${c.aktiv === false ? html`<${K.Badge} tone="warning">⚠ Archivált<//>` : null}
-        <${KeszitesGomb} karakter=${c} alap=${'/dm/karakter/' + c.id}/>
-        <${SzintlepesGomb} karakter=${c} alap=${'/dm/karakter/' + c.id}/>
       <//>
-      <div className="ket-hasab">
-        <${KarakterLap} karakter=${c}/>
-        <div className="verem">
+      <${KarakterLap} karakter=${c} beallitKarakter=${lekeres.beallit} alap=${'/dm/karakter/' + c.id} onValtozott=${(x) => dm.karakterFrissit(x)}/>
+      <details className="lenyilo dm-eszkozok">
+        <summary>DM: játékos, kampányok, nyers adat, archiválás</summary>
+        <div className="dm-eszkozok__racs">
           <${TarsitasPanel} karakter=${c} valtozott=${valtozott}/>
           <${NyersAdatPanel} karakter=${c} valtozott=${valtozott} ujra=${lekeres.ujra}/>
           <${KarakterArchivPanel} karakter=${c} valtozott=${valtozott}/>
         </div>
-      </div>`}
+      </details>`}
     <//>
   </div>`;
 }

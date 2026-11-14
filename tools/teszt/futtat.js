@@ -151,6 +151,38 @@ ellenoriz(v.ok && v.kampanyok.length === 1 && v.karakterek.length >= 3 && v.felh
 v = hivas('init', {}, annaT);
 ellenoriz(v.ok && v.kampanyok.length === 1 && v.felhasznalok === undefined, 'init: játékos nem kapja meg a felhasználókat', v);
 
+// ---------- XP ----------
+const b64 = (x) => Buffer.from(x, 'utf8').toString('base64');
+let morgElotte = hivas('character.get', { id: morg.id }, dm2).karakter;
+v = hivas('character.xp', { tetelek: [{ karakter_id: morg.id, xp: 250 }, { karakter_id: pottom.id, xp: 250 }], ok: 'Rajtaütés', tipus: 'talalkozas', kampany_id: kampany.id }, dm2);
+ellenoriz(v.ok && v.karakterek.length === 2 && v.karakterek[0].xp === 250 && v.karakterek[0].verzio === morgElotte.verzio + 1, 'DM XP-t oszt két karakternek, a verzió nő', v);
+const morgXp = hivas('character.get', { id: morg.id }, dm2).karakter;
+ellenoriz(morgXp.adat.allapot.xp === 250 && morgXp.adat.xp_naplo.length === 1 && morgXp.adat.xp_naplo[0].ok === 'Rajtaütés' && morgXp.xp === 250, 'az XP és a napló a karakteren, az összefoglalóban is', morgXp.adat);
+ellenoriz(hivas('character.xp', { tetelek: [{ karakter_id: morg.id, xp: 1000 }] }, annaT).hiba === 'nincs_jogosultsag', 'XP-t csak a DM oszthat');
+v = hivas('character.xp', { tetelek: [{ karakter_id: morg.id, xp: -50 }], ok: 'javítás', tipus: 'javitas' }, dm2);
+ellenoriz(v.ok && v.karakterek[0].xp === 200, 'negatív XP-vel javítható', v);
+
+// ---------- Karakterkép ----------
+v = hivas('character.image.set', { id: morg.id, kep: b64('NAGYKEP'), belyeg: b64('BELYEG') }, annaT);
+ellenoriz(v.ok && v.kep && v.kep.verzio === 1 && v.kep.kep !== v.kep.belyeg, 'A mesterjátékos képet tölt fel Morghoz (kép és bélyeg)', v);
+const kep1 = v.kep;
+ellenoriz(fajlok[kep1.kep] && fajlok[kep1.kep].szulo === mappaKeres(gyoker, tulajdonsagok.KEPMAPPA_ID).id && mappaKeres(gyoker, tulajdonsagok.KEPMAPPA_ID).nev === 'Karakterképek', 'a kép a Karakterképek mappába került');
+ellenoriz(hivas('characters.list', {}, annaT).karakterek.find(c => c.id === morg.id).kep === kep1.belyeg, 'a listában a bélyeg azonosítója');
+v = hivas('image.get', { idk: [kep1.kep, kep1.belyeg] }, annaT);
+ellenoriz(v.ok && Buffer.from(v.kepek[kep1.kep], 'base64').toString() === 'NAGYKEP' && Buffer.from(v.kepek[kep1.belyeg], 'base64').toString() === 'BELYEG', 'a kép és a bélyeg lekérhető', v);
+ellenoriz(Object.keys(hivas('image.get', { idk: [kep1.belyeg] }, dm2).kepek).length === 1, 'a DM is látja');
+v = hivas('character.image.set', { id: bhos.id, kep: b64('SAJAT') }, dm2);
+ellenoriz(v.ok && Object.keys(hivas('image.get', { idk: [v.kep.kep] }, annaT).kepek).length === 0, 'más kampányon kívüli karakterének képe nem kérhető le');
+ellenoriz(hivas('character.image.set', { id: bhos.id, kep: b64('X') }, annaT).hiba === 'nincs_jogosultsag', 'képet csak az tölthet fel, aki a karaktert szerkesztheti');
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).karakterek.find(c => c.id === pottom.id).kep === '', 'a csapattárs névsorában a kép mezője is ott van');
+v = hivas('character.image.set', { id: morg.id, kep: b64('UJKEP'), belyeg: b64('UJBELYEG') }, annaT);
+ellenoriz(v.ok && v.kep.verzio === 2 && fajlok[kep1.kep].kuka && fajlok[kep1.belyeg].kuka, 'képcsere: a régi fájlok a kukába kerülnek', v);
+const kep2 = v.kep;
+v = hivas('character.image.set', { id: morg.id, kep: null }, annaT);
+ellenoriz(v.ok && v.kep === null && fajlok[kep2.kep].kuka && hivas('character.get', { id: morg.id }, dm2).karakter.adat.alap.kep === null, 'kép törlése', v);
+v = hivas('character.image.set', { id: morg.id, kep: b64('HARMADIK') }, annaT);
+const kep3 = v.kep;
+
 ellenoriz(hivas('character.delete', { id: morg.id }, dm2).hiba === 'hibas_adat', 'aktív karakter nem törölhető');
 ellenoriz(hivas('character.archive', { id: morg.id, aktiv: false }, annaT).hiba === 'nincs_jogosultsag', 'archiválni csak a DM tud');
 ellenoriz(hivas('character.archive', { id: morg.id, aktiv: false }, dm2).ok, 'DM archiválja Morgot');
@@ -160,6 +192,7 @@ ellenoriz(hivas('characters.list', {}, dm2).karakterek.some(c => c.id === morg.i
 ellenoriz(hivas('character.delete', { id: morg.id }, dm2).ok, 'archivált karakter törölhető');
 ellenoriz(!jatek.getSheetByName('Kampánykarakterek').adat.some(sor => sor.includes(morg.id)), 'a törölt karakter kampánykapcsolata is törlődött');
 ellenoriz(hivas('character.get', { id: morg.id }, dm2).hiba === 'nem_talalhato', 'a törölt karakter nem kérhető le');
+ellenoriz(fajlok[kep3.kep].kuka, 'a törölt karakter képe is a kukába került');
 
 ellenoriz(hivas('users.admin', { muvelet: 'torol', id: anna.id }, dm2).hiba === 'hibas_adat', 'aktív felhasználó nem törölhető');
 ellenoriz(/Bence önálló hőse/.test(hivas('users.admin', { muvelet: 'torol', id: bence.id }, dm2).uzenet), 'karakteres felhasználó nem törölhető, az üzenet megnevezi a karaktert');

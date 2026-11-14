@@ -138,7 +138,7 @@ function allapotLekerese_(a, felh) {
     const irhato = karakterIrhato_(felh, kar, k);
     const o = irhato ? karakterTeljes_(kar, k, felh) : {
       // a csapattársakról csak a névsor látszik
-      id: kar.id, nev: kar.nev, faj: kar.faj, osztaly: kar.osztaly, szint: kar.szint, irhato: false
+      id: kar.id, nev: kar.nev, faj: kar.faj, osztaly: kar.osztaly, szint: kar.szint, irhato: false, kep: karakterBelyeg_(kar)
     };
     o.kampany_allapot = x.allapot;
     return o;

@@ -8,6 +8,7 @@ import { reszletek, szam, tartomanyban } from '../karakter/szabalyindex.js';
 import { tulajdonsagDobasbol, fokozatNev } from '../karakter/tablak.js';
 import { kezdoCsomag } from '../karakter/felszereles.js';
 import * as V from '../karakter/varazslo.js';
+import { KarakterKep, KepFeltolto } from './kepek.js';
 
 const TUL_NEV = {
   tul_accuracy: 'Pontosság', tul_communication: 'Kommunikáció', tul_constitution: 'Szívósság', tul_dexterity: 'Ügyesség',
@@ -711,7 +712,7 @@ function Szamitott({ lap }) {
 }
 
 // ================= 9. Név és célok =================
-function NevCelok({ adat, valtoztat, kampany }) {
+function NevCelok({ adat, valtoztat, kampany, karakter, kulsoModositas }) {
   const { api } = useApp();
   const [csapat, setCsapat] = useState([]);
   useEffect(() => {
@@ -726,11 +727,11 @@ function NevCelok({ adat, valtoztat, kampany }) {
   });
   const kotelekek = adat.alap.kotelekek || [];
   const kotelek = (i, mezo, v) => valtoztat((a) => { const k = (a.alap.kotelekek || []).map((x) => ({ ...x })); k[i][mezo] = v; a.alap.kotelekek = k; });
-  const monogram = (adat.nev || '?').trim().charAt(0).toUpperCase();
-  return html`<div className="fejsor">
-      <span className="monogram" aria-hidden="true">${monogram}</span>
-      <p className="sugo">A karakterkép feltöltése a következő fejlesztési lépésben érkezik. Addig a monogram áll a helyén.</p>
-    </div>
+  return html`<${Szakasz} cim="Karakterkép">
+      <${KepFeltolto} karakterId=${karakter.id} kep=${adat.alap.kep} nev=${adat.nev}
+        onKesz=${(valasz) => kulsoModositas(valasz.verzio, (a) => { a.alap.kep = valasz.kep; })}/>
+      <p className="sugo kicsi">Nem kötelező, később is feltöltheted. Telefonon fényképezhetsz is.</p>
+    <//>
     <${K.TextField} label="Név" value=${adat.nev} autoCapitalize="words" onChange=${(e) => { const v = e.target.value; valtoztat((a) => { a.nev = v; }); }}/>
     <${K.TextField} label="Megjelenés" multiline=${true} rows=${3} value=${adat.alap.megjelenes || ''} onChange=${(e) => { const v = e.target.value; valtoztat((a) => { a.alap.megjelenes = v; }); }}/>
     <p className="cimke" style=${{ margin: 0 }}>Célok${S('celok')}</p>
@@ -793,7 +794,7 @@ export function Elonezet({ adat, lap, ix, cimNelkul, teljes, figyHol = 'az Össz
   const celok = adat.alap.celok || [];
   return html`<div className="verem">
     ${cimNelkul ? null : html`<div className="fejsor">
-      <span className="monogram" aria-hidden="true">${nev.charAt(0).toUpperCase()}</span>
+      <${KarakterKep} kep=${adat.alap.kep && adat.alap.kep.belyeg} nev=${nev} meret="kozep"/>
       <div><div className="valasztas__nev" style=${{ fontSize: '20px', lineHeight: '28px' }}>${nev}</div>
         <div className="cimkek">
           ${lap.faj ? html`<${K.Badge}>${lap.faj.nev_hu}<//>` : html`<${K.Badge}>Faj: még nincs<//>`}

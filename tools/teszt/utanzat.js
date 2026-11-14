@@ -69,9 +69,15 @@ function letrehoz() {
     getFilesByType() { const t = Object.entries(fajlok).filter(([, f]) => f.szulo === this.id).map(([id, f]) => fajlObj(id)); let i = 0; return { hasNext: () => i < t.length, next: () => t[i++] }; }
     getFoldersByName(n) { const t = this.almappak.filter(m => m.nev === n); let i = 0; return { hasNext: () => i < t.length, next: () => t[i++] }; }
     createFolder(n) { const m = new Mappa(n); this.almappak.push(m); return m; }
+    createFile(blob) { const id = ujId(); fajlok[id] = { cim: blob.getName(), szulo: this.id, mime: blob.getContentType(), bajtok: blob.getBytes(), kuka: false }; return fajlObj(id); }
   }
   const gyoker = new Mappa('root');
-  const fajlObj = (id) => ({ getId: () => id, getName: () => fajlok[id].cim, setName: (n) => { fajlok[id].cim = n; }, getMimeType: () => 'sheets', isTrashed: () => false, moveTo: (m) => { fajlok[id].szulo = m.id; } });
+  const fajlObj = (id) => {
+    if (!fajlok[id]) throw new Error('Nincs ilyen fájl: ' + id);
+    return { getId: () => id, getName: () => fajlok[id].cim, setName: (n) => { fajlok[id].cim = n; }, getMimeType: () => fajlok[id].mime || 'sheets',
+      isTrashed: () => !!fajlok[id].kuka, setTrashed: (x) => { fajlok[id].kuka = !!x; }, moveTo: (m) => { fajlok[id].szulo = m.id; },
+      getBlob: () => ({ getBytes: () => fajlok[id].bajtok || [] }) };
+  };
   function mappaKeres(m, id) { if (m.id === id) return m; for (const a of m.almappak) { const x = mappaKeres(a, id); if (x) return x; } return null; }
   const tulajdonsagok = {};
   let propOlvasas = 0; // a Properties olvasására napi kvóta van, a gyakori hívások nem olvashatják
@@ -112,7 +118,11 @@ function letrehoz() {
       base64EncodeWebSafe: (b) => Buffer.from(typeof b === 'string' ? Buffer.from(b, 'utf8') : b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_'),
       base64DecodeWebSafe: (s) => Array.from(Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64')),
       getUuid: () => crypto.randomUUID(),
-      newBlob: (x) => ({ getBytes: () => Array.from(Buffer.from(x, 'utf8')), getDataAsString: () => Buffer.from(x).toString('utf8') }),
+      newBlob: (x, mime, nev) => {
+        const b = Array.isArray(x) ? Buffer.from(x) : Buffer.from(x, 'utf8');
+        return { getBytes: () => Array.from(b), getDataAsString: () => b.toString('utf8'), getName: () => nev || '', getContentType: () => mime || '' };
+      },
+      base64Decode: (s) => Array.from(Buffer.from(s, 'base64')),
       formatDate: () => '2026-11-13'
     },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (s) => ({ s, setMimeType() { return this; }, getContent() { return this.s; } }) },

@@ -3,7 +3,9 @@ import {
   html, K, useApp, useState, useEffect, temaBeallitasa, useLekeres, useMuvelet, navigal, Ikon, Betoltes, Uzenet, Parbeszed,
   TemaKapcsolo, SzinkronJelzo, HibaVagyBetoltes, indulasLekerese
 } from './kozos.js';
-import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, KeszitesGomb, SzintlepesGomb, UjKampanyKarakter } from './jatek.js';
+import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterFejlec, KampanyCimkek, UjKampanyKarakter } from './jatek.js';
+import { KarakterLap } from './karakterlap.js';
+import { KarakterKep } from './kepek.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo, taroltKampanyok } from './varazslo.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
@@ -64,9 +66,10 @@ function Kezdolap() {
     <${K.Panel} title="Karaktereim" actions=${html`<${K.Button} size="md" variant="quiet" onClick=${() => setUj(true)}
         icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Új karakter<//>`}>
       <${HibaVagyBetoltes} lekeres=${karakterek}>${(lista) => lista.length ? html`<ul className="kartyalista">
-        ${lista.map((c) => html`<li key=${c.id}><a className="kartya" href=${'#/jatekos/karakter/' + c.id}>
-          <span className="kartya__cim">${c.nev}</span>
-          <${KarakterFejlec} karakter=${c}/>
+        ${lista.map((c) => html`<li key=${c.id}><a className="kartya kartya--kepes" href=${'#/jatekos/karakter/' + c.id}>
+          <${KarakterKep} kep=${c.kep} nev=${c.nev}/>
+          <span className="kartya__test"><span className="kartya__cim">${c.nev}</span>
+          <${KarakterFejlec} karakter=${c}/></span>
         </a></li>`)}
       </ul>` : html`<p className="halvany">Még nincs karaktered.</p>`}<//>
     <//>
@@ -110,12 +113,12 @@ function KampanyOldal({ id }) {
     <${K.Panel} title="Csapat">
       ${allapot.karakterek.length ? html`<ul className="kartyalista">
         ${allapot.karakterek.map((c) => {
-          const belso = html`<span className="kartya__cim">${c.nev}</span>
+          const belso = html`<${KarakterKep} kep=${c.kep} nev=${c.nev}/><span className="kartya__test"><span className="kartya__cim">${c.nev}</span>
             <${KarakterFejlec} karakter=${c}/>
-            ${c.kampany_allapot && c.kampany_allapot !== 'aktív' ? html`<span className="halvany kicsi">${c.kampany_allapot}</span>` : null}`;
+            ${c.kampany_allapot && c.kampany_allapot !== 'aktív' ? html`<span className="halvany kicsi">${c.kampany_allapot}</span>` : null}</span>`;
           return html`<li key=${c.id}>${c.irhato
-            ? html`<a className="kartya" href=${'#/jatekos/karakter/' + c.id}>${belso}</a>`
-            : html`<div className="kartya kartya--csak-olvas">${belso}</div>`}</li>`;
+            ? html`<a className="kartya kartya--kepes" href=${'#/jatekos/karakter/' + c.id}>${belso}</a>`
+            : html`<div className="kartya kartya--kepes kartya--csak-olvas">${belso}</div>`}</li>`;
         })}
       </ul>` : html`<p className="halvany">Még nincs karakter a kampányban.</p>`}
     <//>
@@ -131,17 +134,13 @@ function KampanyOldal({ id }) {
 }
 
 function KarakterOldal({ id }) {
-  const { api, szabalyok } = useApp();
+  const { api } = useApp();
   const lekeres = useLekeres(async () => (await api.hivas('character.get', { id })).karakter, [id], 'kar.' + id);
   return html`<div className="verem verem--nagy">
     <a className="visszalink" href="#/jatekos"><${Ikon} nev="vissza" meret=${20}/>Kezdőlap</a>
     <${HibaVagyBetoltes} lekeres=${lekeres}>${(c) => html`
-      <div className="oldalfej">
-        <h1 className="oldalcim">${c.nev}</h1>
-        <${KarakterFejlec} karakter=${c}/>
-        <div className="gombsor"><${KeszitesGomb} karakter=${c} alap=${'/jatekos/karakter/' + c.id}/><${SzintlepesGomb} karakter=${c} alap=${'/jatekos/karakter/' + c.id}/></div>
-      </div>
-      <${KarakterLap} karakter=${c}/>`}
+      <h1 className="oldalcim">${c.nev}</h1>
+      <${KarakterLap} karakter=${c} beallitKarakter=${lekeres.beallit} alap=${'/jatekos/karakter/' + c.id}/>`}
     <//>
   </div>`;
 }

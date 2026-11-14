@@ -341,11 +341,22 @@ export function felszerelesFrissit(adat, lapok) {
     if (meglevo) meglevo.db += v.db || 1;
     else targyak.push({ id: v.id, db: v.db || 1, felszerelve: regi.has(v.id) ? !!regi.get(v.id).felszerelve : false });
   });
-  f.targyak = targyak;
+  // Játék közbeni tételek (leltar.js): vétel, eladás, pénzmozgás, talált vagy elvesztett tárgy.
+  let jatekPenz = 0;
+  (f.jatek || []).forEach((t) => {
+    jatekPenz += szam(t.penz);
+    const valtozasok = Array.isArray(t.targyak) ? t.targyak : (t.targy && t.db ? [{ id: t.targy, nev: t.nev, db: szam(t.db) }] : []);
+    valtozasok.forEach((x) => {
+      const meglevo = targyak.find((y) => y.id === x.id);
+      if (meglevo) meglevo.db += szam(x.db);
+      else if (szam(x.db) > 0) targyak.push({ id: x.id, db: szam(x.db), felszerelve: regi.has(x.id) ? !!regi.get(x.id).felszerelve : false, ...(x.nev ? { nev: x.nev } : {}) });
+    });
+  });
+  f.targyak = targyak.filter((t) => t.db > 0);
   const osztaly = tarsadalmiOsztaly(adat, ix);
   const kezdo = osztaly && f.penz_dobas !== null && f.penz_dobas !== undefined ? kezdoPenzRez(osztaly, f.penz_dobas, ix) : null;
   f.kezdo_penz_rez = kezdo;
-  f.penz_rez = (kezdo || 0) - kolt;
+  f.penz_rez = (kezdo || 0) - kolt + jatekPenz;
   return { kolt, kezdo, osztaly, csomag: cs };
 }
 export function vasarlas(adat, id, valtozas) {

@@ -6,6 +6,7 @@ import { szam, reszletek, tartomanyban, index } from './szabalyindex.js';
 import { TULAJDONSAGOK, fejlesztesKoltseg, fokozatNev, fokozatSzam } from './tablak.js';
 import { atallit } from './adat.js';
 import { ellenorzes, gyujto } from './ellenoriz.js';
+import { xpKuszob, xpSzint } from './xp.js';
 
 const ertekBol = (reszek) => reszek.reduce((a, r) => a + r.ertek, 0);
 const nevE = (e, tartalek) => (e ? e.nev_hu || e.nev_en || e.id : tartalek || '');
@@ -414,6 +415,14 @@ export function karakterSzamol(nyers, lapok, opciok = {}) {
 
   lap.sotetlatas = sotetlatas;
   lap.felkesz_szint = felkesz ? felkesz.szint : null;
+  // XP: az elért szint és a következő küszöb. Ha a csoport XP-vel játszik (van napló), és a karakter
+  // magasabb szinten van, mint amit az XP-je enged, figyelmeztetés (nem tilt, a DM elfogadhatja).
+  const xp = szam(adat.allapot.xp);
+  const xpSz = xpSzint(ix, xp);
+  lap.xp = { ertek: xp, elert_szint: xpSz, kuszob: xpKuszob(ix, szint), kovetkezo: xpKuszob(ix, szint + 1), elerheto: xpSz > szint };
+  if (Array.isArray(adat.xp_naplo) && adat.xp_naplo.length && szint > xpSz) {
+    f('xp_keves', String(szint), `A(z) ${szint}. szinthez ${xpKuszob(ix, szint)} XP kell, a karakternek ${xp} van.`, 'szintlepes');
+  }
   ellenorzes(adat, ix, lap, { f, faj, fr, osztaly, or, hatter, magus, talentumFokozat });
   lap.figyelmeztetesek = f.lista();
   return lap;
