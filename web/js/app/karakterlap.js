@@ -27,6 +27,9 @@ const TUL_NEV = {
 const elemNev = (ix, lap, id, tartalek) => { const e = ix.elem(lap, id); return e ? e.nev_hu : (tartalek || id); };
 const targyNev = (ix, t) => (t.nev ? t.nev : elemNev(ix, V.targyLap(t.id), t.id, String(t.id).replace(/^sajat:/, '').replace(/_/g, ' ')));
 const rovid = (s, n = 200) => { const t = String(s || '').trim(); return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…'; };
+// A varázslat célpontjának próbája röviden: „Ügyesség (Lopakodás)”.
+const celpontProbaNev = (pr, lapok) => TUL_NEV[pr.tulajdonsag] + ((pr.fokusz || []).length
+  ? ' (' + pr.fokusz.map((id) => ((lapok && lapok['Fókuszok'] || []).find((f) => f.id === id) || {}).nev_hu || id).join(' vagy ') + ')' : '');
 const datum = (iso) => { try { return new Date(iso).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }); } catch (e) { return ''; } };
 
 // ---- A lap belépési pontja ----
@@ -261,7 +264,7 @@ function Fegyverek(p) {
 }
 
 function Varazslatok(p) {
-  const { lap, valtoztat, irhato, karakter } = p;
+  const { lap, lapok, valtoztat, irhato, karakter } = p;
   const kampany = useKarakterKampanya(karakter);
   const kerhet = !!kampany && (kampany.sajat_szerep === 'dm' || kampany.sajat_szerep === 'mester');
   const [proba, setProba] = useState(null);
@@ -283,7 +286,7 @@ function Varazslatok(p) {
             const cel = r.celertek && r.celertek.ertek ? r.celertek.ertek : (x.elem && x.elem.celertek);
             return html`<li key=${x.id} className="sorlista__sor sorlista__sor--fuggoleges">
               <button type="button" className="sorgomb-teljes" aria-expanded=${nyitott === x.id} onClick=${() => setNyitott(nyitott === x.id ? null : x.id)}>
-                <span><strong>${x.nev_hu}</strong><br/><span className="halvany kicsi">${x.fokozat}${ar ? ` · ${ar}${r.mp && r.mp.plusz ? '+' : ''} MP` : ''}${cel ? ` · Célérték ${cel}` : ''}${x.elem && x.elem.varazslasi_ido ? ' · ' + x.elem.varazslasi_ido : ''}</span></span>
+                <span><strong>${x.nev_hu}</strong><br/><span className="halvany kicsi">${x.fokozat}${ar ? ` · ${ar}${r.mp && r.mp.plusz ? '+' : ''} MP` : ''}${cel ? ` · Célérték ${cel}` : ''}${x.elem && x.elem.varazslasi_ido ? ' · ' + x.elem.varazslasi_ido : ''}${r.proba && r.proba.tulajdonsag ? ' · célpont: ' + celpontProbaNev(r.proba, lapok) : ''}</span></span>
               </button>
               ${nyitott === x.id ? html`<div className="verem">
                 ${x.elem && x.elem.leiras_hu ? html`<p className="kicsi" style=${{ margin: 0 }}>${x.elem.leiras_hu}</p>` : null}
