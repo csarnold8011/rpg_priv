@@ -26,7 +26,8 @@ function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
 
   // Ha a karakter máshonnan frissült (például a DM közben mentett) és nincs helyi változás, átvesszük.
   useEffect(() => {
-    if (!piszkosRef.current && karakter.verzio !== verzioRef.current) {
+    // csak újabb verziót veszünk át: egy lassan visszaérkező régebbi lekérés nem írhatja felül a már mentett változást
+    if (!piszkosRef.current && Number(karakter.verzio) > Number(verzioRef.current)) {
       verzioRef.current = karakter.verzio;
       const uj = atallit(karakter.adat || {});
       adatRef.current = uj;
@@ -166,12 +167,15 @@ function VarazsloTest({ karakter, beallitKarakter, lepes, lapok, alap, dm, kampa
   }, [aktiv]);
 
   const lap = useMemo(() => karakterSzamol(adat, lapok), [adat, lapok]);
+  // A Kész utáni állapot ellenőrzése (a hiányzó döntéseket csak kész karakternél jelzi a számoló):
+  // az Összegzésben és onnantól a lépéslistán is ez látszik, hogy a hiány a Kész előtt kiderüljön.
+  const lapKesz = useMemo(() => karakterSzamol({ ...adat, keszites: { ...adat.keszites, allapot: 'kesz' } }, lapok), [adat, lapok]);
   const forrasok = adat.keszites.forrasok || [];
   const szurt = useMemo(() => szurtLapok(lapok, forrasok), [lapok, forrasok.join('|')]);
   const ix = useMemo(() => index(szurt), [szurt]);
   const ixMind = useMemo(() => index(lapok), [lapok]);
-  const figy = lepesFigyelmeztetesek(lap);
   const elert = Math.max(adat.keszites.elert || 0, n);
+  const figy = lepesFigyelmeztetesek(elert >= LEPESEK.length - 1 ? lapKesz : lap);
 
   const ugras = (kulcs) => { setLepesekNyitva(false); navigal(alap + '/keszites/' + kulcs); };
   const elozo = n > 0 ? LEPESEK[n - 1].kulcs : null;
@@ -195,7 +199,7 @@ function VarazsloTest({ karakter, beallitKarakter, lepes, lapok, alap, dm, kampa
     } catch (e) { uzen(e.message || String(e), 'danger'); }
   } } : extra;
   const Lepes = LEPES_KOMPONENSEK[aktiv];
-  const props = { adat, valtoztat, lap, ix, ixMind, szurt, lapok, forrasok, dm, karakter, kampany, kampanyok, extra: extraKesz, ugras, kesz, ment };
+  const props = { adat, valtoztat, lap, lapKesz, ix, ixMind, szurt, lapok, forrasok, dm, karakter, kampany, kampanyok, extra: extraKesz, ugras, kesz, ment };
   const cim = adat.nev || karakter.nev || 'Új karakter';
   const lepesLista = html`<ul className="lepeslista">
     ${LEPESEK.map((l, i) => html`<li key=${l.kulcs}><button type="button" aria-current=${l.kulcs === aktiv ? 'step' : undefined} onClick=${() => ugras(l.kulcs)}>

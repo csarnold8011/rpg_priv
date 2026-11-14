@@ -321,9 +321,13 @@ export function penzSzoveg(rez) {
 }
 export const targyLap = (id) => (id.startsWith('fgy_') ? 'Fegyverek' : id.startsWith('pan_') ? 'Páncélok' : 'Felszerelés');
 
+// A háttér társadalmi osztálya; ha háttér még nincs, de az Alapkönyv szerinti osztály már ki van dobva vagy választva, az.
 export function tarsadalmiOsztaly(adat, ix) {
   const h = ix.elem('Hátterek', adat.hatter.id);
-  return reszletek(h).tarsadalmi_osztaly || adat.hatter.tarsadalmi_osztaly || null;
+  const t = reszletek(h).tarsadalmi_osztaly || adat.hatter.tarsadalmi_osztaly;
+  if (t) return t;
+  if (adat.hatter.rendszer !== 'companion' && TARSADALMI_OSZTALYOK.includes(adat.hatter.csoport)) return adat.hatter.csoport;
+  return null;
 }
 
 // A felszerelés újraszámolása a döntésekből: kezdő csomag + választott fegyverek + vásárlások,

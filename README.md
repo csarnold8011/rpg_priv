@@ -29,7 +29,7 @@ python3 tools/sema_general.py      # schema/sema.json -> backend/Sema.gs
 python3 tools/backend_osszefuz.py  # backend/*.gs -> dist/Kod.gs
 node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 64 ellenőrzés)
 node tools/teszt/karakter.mjs      # a karakterszámoló tesztje (az Alapkönyv példakarakterével, 73 ellenőrzés)
-node tools/teszt/varazslo.mjs      # a karakterkészítő varázsló logikájának tesztje (46 ellenőrzés)
+node tools/teszt/varazslo.mjs      # a karakterkészítő varázsló logikájának tesztje (48 ellenőrzés)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 

@@ -191,6 +191,38 @@ export function Valaszto({ label, hint, value, onChange, opciok, ures, disabled,
   </div>`;
 }
 
+// Súgó: kis „?” gomb, egérrel rámutatva vagy koppintásra felugrik a magyarázat. Esc vagy mellékattintás bezárja.
+const egerrel = () => { try { return window.matchMedia('(hover: hover)').matches; } catch (e) { return false; } };
+export function Sugo({ cim, children }) {
+  const [rogzitett, setRogzitett] = useState(false);
+  const [lebeg, setLebeg] = useState(false);
+  const [hely, setHely] = useState(null);
+  const ref = useRef(null);
+  const nyitva = rogzitett || lebeg;
+  useEffect(() => {
+    if (!nyitva) return undefined;
+    // Rögzített helyzet a gomb alatt, a képernyőn belül (görgethető táblázatban sem vágódik le).
+    if (ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      const szeles = Math.min(320, window.innerWidth - 32);
+      setHely({ top: r.bottom + 6, left: Math.max(16, Math.min(r.left - 8, window.innerWidth - 16 - szeles)), width: szeles });
+    }
+    const bezar = () => { setRogzitett(false); setLebeg(false); };
+    const kint = (e) => { if (ref.current && !ref.current.contains(e.target)) bezar(); };
+    const esc = (e) => { if (e.key === 'Escape') bezar(); };
+    document.addEventListener('pointerdown', kint);
+    document.addEventListener('keydown', esc);
+    window.addEventListener('scroll', bezar, true);
+    return () => { document.removeEventListener('pointerdown', kint); document.removeEventListener('keydown', esc); window.removeEventListener('scroll', bezar, true); };
+  }, [nyitva]);
+  return html`<span className="sugo" ref=${ref} onMouseEnter=${() => { if (egerrel()) setLebeg(true); }} onMouseLeave=${() => setLebeg(false)}>
+    <button type="button" className="sugo__gomb" aria-label=${'Mit jelent: ' + cim} aria-expanded=${nyitva}
+      onClick=${(e) => { e.preventDefault(); e.stopPropagation(); setRogzitett(!rogzitett); }}><span aria-hidden="true">?</span></button>
+    ${nyitva && hely ? html`<span className="sugo__doboz" role="tooltip" style=${{ top: hely.top + 'px', left: hely.left + 'px', maxWidth: hely.width + 'px' }}>
+      <strong className="sugo__cim">${cim}</strong>${children}</span>` : null}
+  </span>`;
+}
+
 export function Jelolo({ checked, onChange, children }) {
   return html`<label className="jelolo">
     <input type="checkbox" checked=${checked} onChange=${(e) => onChange(e.target.checked)}/>

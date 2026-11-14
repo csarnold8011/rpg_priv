@@ -420,3 +420,15 @@ a.kartya .kartya__cim { color: var(--accent); }
   border: 1px solid var(--line-strong); font-size: 13px; font-weight: 700; }
 .lepeslista__pont--kesz { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .lepeslista__figy { margin-left: auto; color: var(--warning); font-size: 14px; font-weight: 700; }
+
+/* ---- Súgó („?” gomb felugró magyarázattal) ---- */
+.sugo { position: relative; display: inline-flex; vertical-align: middle; margin-left: 2px; text-transform: none; letter-spacing: normal; }
+.sugo__gomb { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -6px -4px; padding: 0;
+  border: 0; background: transparent; cursor: help; color: var(--accent); }
+.sugo__gomb > span { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid currentColor; font: 800 13px/1 var(--font-sans); }
+.sugo__gomb:hover > span, .sugo__gomb[aria-expanded="true"] > span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.sugo__doboz { position: fixed; z-index: 70; width: max-content;
+  padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-raised); border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-overlay); font: 400 15px/22px var(--font-sans); color: var(--ink); text-align: left; white-space: normal; }
+.sugo__cim { display: block; margin-bottom: var(--space-1); font-weight: 700; }

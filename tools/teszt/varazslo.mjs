@@ -86,6 +86,11 @@ ellenoriz(k.faj_dontes.elonyok.length === 2, 'ugyanaz a faj újra kiválasztva: 
 // ---------- 5. Háttér ----------
 ellenoriz(V.tarsadalmiOsztalyDobas(ix, 3) === 'Alsó', 'társadalmi osztály: 3 → Alsó');
 ellenoriz(V.hatterDobasbol(ix, 'alap', 'Alsó', 5).id === 'hat_soldier' && V.hatterDobasbol(ix, 'alap', 'Alsó', 2) === null, 'háttér a társadalmi osztály táblájából');
+const h0 = uresKarakter();
+h0.hatter.csoport = 'Közép';
+ellenoriz(V.tarsadalmiOsztaly(h0, ix) === 'Közép', 'kezdőpénz társadalmi osztálya háttér nélkül is, ha az osztály már megvan (Alapkönyv)');
+h0.hatter.rendszer = 'companion'; h0.hatter.csoport = 'Arkán';
+ellenoriz(V.tarsadalmiOsztaly(h0, ix) === null, 'Companion csoport háttér nélkül: nincs társadalmi osztály');
 ellenoriz(V.hatterCsoportok(ix).join() === 'Arkán' && V.hatterLista(ix, 'companion', 'Arkán')[0].id === 'hat_c_scholar', 'Companion háttércsoportok');
 Object.assign(k.hatter, { rendszer: 'alap', mod: 'dobas', osztaly_dobas: 3, hatter_dobas: 5 });
 V.hatterBeallit(k, 'hat_soldier');

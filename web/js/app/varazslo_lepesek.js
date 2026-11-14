@@ -1,7 +1,7 @@
 // A karakterkészítő varázsló tíz lépése és az élő karakterlap-előnézet.
 // Minden lépés ugyanazokat a tulajdonságokat kapja (lásd varazslo.js): adat, valtoztat, lap, ix (a karakter
 // forrásaira szűrt szabályadat indexe), ixMind (a teljes szabályadat), lapok, forrasok, dm, kampany, ugras.
-import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Megerosites, Ikon } from './kozos.js';
+import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Megerosites, Ikon, Sugo } from './kozos.js';
 import { Kockadobo, DobasMod, useDobasMod, Kockak, RovidTabla } from './kockadobo.js';
 import { megjelenitettNev } from '../szabalyok.js';
 import { reszletek, szam, tartomanyban } from '../karakter/szabalyindex.js';
@@ -24,6 +24,49 @@ export function fokuszNev(ix, id) {
 const elemNev = (ix, lap, id) => { const e = ix.elem(lap, id); return e ? e.nev_hu : id; };
 const rovid = (s, n = 170) => { const t = String(s || '').trim(); if (t.length <= n) return t; const v = t.slice(0, n); return v.slice(0, v.lastIndexOf(' ') > 80 ? v.lastIndexOf(' ') : n) + '…'; };
 const forrasMeta = (e) => [e.forras, e.oldal ? Math.round(szam(e.oldal)) + '. o.' : ''].filter(Boolean).join(', ');
+
+// ---- Súgószövegek (a „?” gombok mögött) ----
+export const SUGO = {
+  forrasok: ['Források', 'Melyik könyvek elemei közül választhatsz (fajok, hátterek, talentumok, varázslatok). Az Alapkönyv az alap. A Companion bővítés: új fajok, háttércsoportok, és a mágusnak választható kezdő varázslatok. Kampányban a DM dönti el, mi aktív.'],
+  modszer: ['Tulajdonság-módszer', 'Így dől el a kilenc tulajdonság kezdőértéke. Sorban dobás: a legvéletlenebb, a kocka formálja a karaktert. Elrendezés: dobsz, de te döntöd el, melyik érték hová kerül. Vásárlás: nincs szerencse, 10 pontot osztasz el, kiegyensúlyozottabb karakter.'],
+  szint: ['Kezdő szint', 'Hányadik szinten kezd a karakter. Kampány elején általában az 1. Magasabb szintnél a varázsló után szintenként jön a fejlődés (Egészség, új képességek).'],
+  koncepcio: ['Koncepció', 'Egy-két mondat arról, ki a karakter. Segít a további döntéseknél (faj, háttér, osztály), és a DM is ebből tud kalandot szőni köré.'],
+  tulajdonsag: ['Tulajdonságok', 'A karakter kilenc alapképessége. 1. szinten általában −2 és +4 között. Próbánál 3d6 + a tulajdonság (+2, ha illik egy fókusz) a célérték ellen. A 0 átlagos, az 1–2 jó, a 3–4 kiemelkedő.'],
+  tabla: ['3d6 → kezdő érték', 'A három kocka összegéből a táblázat adja a tulajdonság kezdőértékét: 3 → −2, 4–5 → −1, 6–8 → 0, 9–11 → +1, 12–14 → +2, 15–17 → +3, 18 → +4.'],
+  csere: ['Csere', 'Sorban dobásnál a végén két tulajdonság értéke helyet cserélhet, így a legjobb dobás oda kerülhet, ahol az osztályod miatt a legtöbbet ér.'],
+  fokusz: ['Fókusz', 'Egy tulajdonságon belüli szakterület, például Észlelés (Keresés). Ha egy próbához illik a fókusz, +2 jár. Ugyanazt a fókuszt kétszer csak a 11. szinttől érdemes felvenni (akkor +3).'],
+  faj: ['Faj', 'A karakter népe. Ad egy tulajdonság-bónuszt, Sebességet, nyelveket, egy fókuszt két lehetőség közül, és véletlenszerű előnyöket az előnytábláról.'],
+  elonyok: ['Faji előnyök', 'A fajod előnytáblájáról 2d6-tal dobsz: +1 tulajdonság, fókusz, fegyvercsoport vagy különleges képesség. Ha ugyanaz a sor jön ki kétszer, újra kell dobni.'],
+  fajta: ['Fajta', 'A Vadnép tagjai állati vonásokat hordoznak. A 2d6 dönti el, milyen állatra hasonlít a karakter (lásd a táblázatot), a fajta előnyei közül pedig kettőt választasz.'],
+  felver: ['Származási lény', 'A Félvér egyik őse szörny vagy különleges lény. Az előnyei ehhez igazodnak („a legmagasabb tulajdonsága”), ezért a választásokat a DM-mel egyeztesd.'],
+  hatter: ['Háttér', 'Ahonnan a karakter jön, mielőtt kalandozni kezdett. Ad egy fókuszt, és a társadalmi osztálya dönti el a kezdőpénzt.'],
+  rendszer: ['Háttérrendszer', 'Az Alapkönyvben előbb a társadalmi osztály dől el, utána azon belül a háttér. A Companion nyolc csoportba (például Katonai, Mágikus) rendezi a háttereket. A már kiválasztott háttér átváltáskor megmarad, amíg újat nem választasz.'],
+  tarsadalmi: ['Társadalmi osztály', 'Kívülálló, Alsó, Közép vagy Felső osztály. A kezdőpénz ettől függ: 15, 25, 50 vagy 100 ezüst, plusz 3d6 ezüst.'],
+  hattercsoport: ['Háttércsoport', 'A Companion hátterei nyolc csoportban vannak. Válassz csoportot, utána dobj 1d6-tal, vagy válassz hátteret a csoportból.'],
+  osztaly: ['Osztály', 'A karakter mestersége: harcos, mágus vagy zsivány. Ettől függ az Egészség, a fegyvercsoportok, a talentumok, és hogy mely tulajdonságok a fontosak (elsődlegesek).'],
+  elsodleges: ['Elsődleges és másodlagos', 'Szintlépéskor páros szinten egy elsődleges, páratlan szinten egy másodlagos tulajdonságot fejlesztesz, és ilyen tulajdonságú fókuszt választasz.'],
+  egeszseg: ['Egészség', 'Ennyi sebzést bír ki a karakter, 0-nál haldoklik. Kezdetben az osztály alapértéke + Szívósság + 1d6.'],
+  magiapont: ['Mágiapont', 'A varázslatok ára. Kezdetben 10 + Akaraterő + 1d6. Pihenéssel tér vissza.'],
+  fegyvercsoport: ['Fegyvercsoport', 'Fegyvercsaládok, például Fejszék vagy Íjak. Ismert csoport fegyverével rendesen harcolsz, ismeretlennel −2 a támadásra és fél sebzés.'],
+  talentum: ['Talentum', 'Különleges tudás Kezdő, Haladó és Mester fokozattal. Az 1. szinten az osztályod listájáról választasz. Ha az előfeltétel nem teljesül, választhatod, de figyelmeztetést kap.'],
+  arkanum: ['Arkánum (mágikus talentum)', 'A mágia iskolái, például Tűz vagy Gyógyító. Mindegyik saját varázslatokkal jár. A mágus kettővel kezd.'],
+  varazslat: ['Kezdő varázslatok', 'Az arkánum Kezdő fokozatú varázslatai. Ha a Companion aktív, a felsoroltak közül választhatsz, különben az Alapkönyv szerinti kettő jár.'],
+  csomag: ['Kezdő csomag', 'Minden kalandor alapfelszerelése (hátizsák, utazóruha, tömlő), az osztálytól függő páncél és a fegyverek. Íjhoz tegez és 20 vessző is jár.'],
+  fegyverek: ['Kezdő fegyverek', 'Az osztályod ennyi fegyverrel kezd. Az ismert fegyvercsoportokból érdemes választani, különben büntetés jár.'],
+  penz: ['Kezdőpénz', 'A háttér társadalmi osztálya szerinti alap (ezüstben) plusz 3d6 ezüst. Ebből vásárolhatsz a boltban. 1 ezüst = 10 réz.'],
+  viselve: ['Viselve és kézben', 'Ami épp rajtad van: a viselt páncél és pajzs számít a Védekezésbe és a Sebességbe, a felszerelt fegyverek a karakterlap tetején állnak.'],
+  vedekezes: ['Védekezés', 'Ezt kell elérnie a támadó dobásának, hogy eltaláljon. 10 + Ügyesség + pajzs.'],
+  sebesseg: ['Sebesség', 'Hány yardot mozogsz egy mozgás akcióval. Faji alap + Ügyesség − páncélbüntetés.'],
+  pancelertek: ['Páncélérték', 'Ennyivel kevesebb sebzés ér találatkor (az átütő sebzést nem csökkenti).'],
+  celok: ['Célok', 'Mit akar elérni a karakter rövid és hosszú távon. A DM ebből épít kalandokat.'],
+  kotelekek: ['Kötelékek', 'Kapcsolatok más karakterekhez vagy szereplőkhöz: kit védesz, kinek tartozol. Szerepjátékban kapaszkodót adnak.']
+};
+const S = (kulcs) => (SUGO[kulcs] ? html`<${Sugo} cim=${SUGO[kulcs][0]}>${SUGO[kulcs][1]}<//>` : null);
+// Tulajdonságnév a szabályadat rövid leírásával a „?” mögött.
+function TulNev({ ix, t }) {
+  const e = ix.elem('Tulajdonságok', t);
+  return html`<strong>${tulNev(ix, t)}</strong>${e && e.leiras_hu ? html`<${Sugo} cim=${tulNev(ix, t)}>${e.leiras_hu}<//>` : null}`;
+}
 
 // ---- Közös elemek ----
 function Valasztas({ elem, nev, en, meta, leiras, valasztott, onClick, figy, ok, fix, children }) {
@@ -50,8 +93,8 @@ function Kapcsolo({ ertek, opciok, onValt, teljes, cimke }) {
   </div>`;
 }
 
-function Szakasz({ cim, children, sugo }) {
-  return html`<fieldset className="szakasz"><legend className="cimke">${cim}</legend>${sugo ? html`<p className="sugo">${sugo}</p>` : null}${children}</fieldset>`;
+function Szakasz({ cim, children, sugo, segit }) {
+  return html`<fieldset className="szakasz"><legend className="cimke">${cim}${segit ? S(segit) : null}</legend>${sugo ? html`<p className="sugo">${sugo}</p>` : null}${children}</fieldset>`;
 }
 
 // Az adott lépés figyelmeztetései (sárga), a lépés alján.
@@ -89,16 +132,16 @@ function Keret({ adat, valtoztat, lapok, dm, karakter, kampany, extra, ugras }) 
     ${dm && extra && extra.jatekosok ? html`<${Valaszto} label="Játékos" hint="Csak a DM látja ezt a mezőt. Azonnal mentődik."
       value=${karakter.jatekos_id || ''} onChange=${extra.tarsit} ures="nincs (játékos nélküli)"
       opciok=${extra.jatekosok.map((f) => ({ value: f.id, label: f.nev }))}/>` : null}
-    <${Szakasz} cim="Források" sugo=${kampany && (kampany.aktiv_forrasok || []).length ? 'A kampány aktív forrásai, szűkítheted őket.' : 'A választólisták ezekből a könyvekből dolgoznak.'}>
+    <${Szakasz} cim="Források" segit="forrasok" sugo=${kampany && (kampany.aktiv_forrasok || []).length ? 'A kampány aktív forrásai, szűkítheted őket.' : 'A választólisták ezekből a könyvekből dolgoznak.'}>
       <div className="csipek">${elerheto.map((f) => html`<${Csip} key=${f} be=${forrasok.includes(f)}
         onClick=${() => valtoztat((a) => { const s = new Set(a.keszites.forrasok || []); s.has(f) ? s.delete(f) : s.add(f); a.keszites.forrasok = elerheto.filter((x) => s.has(x)); })}>${f}<//>`)}</div>
       ${!forrasok.length ? html`<${Uzenet} tonus="warning">Ha egy forrás sincs bekapcsolva, minden könyv elemei látszanak.<//>` : null}
     <//>
-    <${Szakasz} cim="Tulajdonság-módszer">
+    <${Szakasz} cim="Tulajdonság-módszer" segit="modszer">
       <div className="valasztasok">${MODSZEREK.map((x) => html`<${Valasztas} key=${x.m} nev=${x.nev} meta="" leiras=${x.leiras}
         valasztott=${adat.keszites.modszer === x.m} onClick=${() => modszer(x.m)}/>`)}</div>
     <//>
-    <${Valaszto} label="Kezdő szint" hint="Magasabb szintnél a varázsló után a szintlépés jön (hamarosan)."
+    <${Valaszto} label=${html`Kezdő szint${S('szint')}`} hint="Magasabb szintnél a varázsló után a szintlépés jön (hamarosan)."
       value=${String(adat.keszites.cel_szint || 1)} onChange=${(v) => valtoztat((a) => { a.keszites.cel_szint = Number(v) || 1; })}
       opciok=${Array.from({ length: 20 }, (_, i) => ({ value: String(i + 1), label: (i + 1) + '. szint' }))}/>
     ${modszerKerdes ? html`<${Megerosites} cim="Módszer cseréje" gomb="Csere" veszelyes=${true}
@@ -110,7 +153,7 @@ function Keret({ adat, valtoztat, lapok, dm, karakter, kampany, extra, ugras }) 
 const OTLETEK = ['Vándor, aki hazát keres', 'Tanonc, aki elszökött a mesterétől', 'Utolsó tagja egy régi rendnek', 'Kalandor a pénzért és a hírnévért',
   'Adósságot törlesztő zsoldos', 'Kíváncsi tudós, aki terepre vágyik'];
 function Koncepcio({ adat, valtoztat, ugras }) {
-  return html`<p className="sugo">Egy-két mondat arról, ki ez a karakter. Nem kötelező, később is megírhatod.</p>
+  return html`<p className="sugo">Egy-két mondat arról, ki ez a karakter. Nem kötelező, később is megírhatod. ${S('koncepcio')}</p>
     <${K.TextField} label="Koncepció" multiline=${true} rows=${4} value=${adat.alap.koncepcio || ''}
       onChange=${(e) => { const v = e.target.value; valtoztat((a) => { a.alap.koncepcio = v; }); }}/>
     <${Szakasz} cim="Ötletek" sugo="Koppints egyre, ha kiindulásnak jó.">
@@ -150,7 +193,7 @@ function Sorban({ adat, valtoztat, ixMind, lap }) {
     if ((a.tulajdonsag_keszites.dobasok || [])[i] === null || (a.tulajdonsag_keszites.dobasok || [])[i] === undefined) V.sorbanDob(a, t, V.dobas(3), false, ixMind);
   }));
   const aktivDobas = aktiv ? V.utolsoDobas(adat, 'tul:' + aktiv) : null;
-  return html`<p className="sugo">Sorban dobás: kilenc 3d6, a lap sorrendjében. Ha mind megvan, két tulajdonság helyet cserélhet.</p>
+  return html`<p className="sugo">Sorban dobás: kilenc 3d6, a lap sorrendjében. Ha mind megvan, két tulajdonság helyet cserélhet. ${S('tulajdonsag')}</p>
     ${!mind && mod === 'dobj' ? html`<div><${K.Button} variant="secondary" onClick=${dobMind}>Dobj az összes hiányzóra<//></div>` : null}
     <div className="tablazat-keret"><table className="tabla">
       <thead><tr><th>Tulajdonság</th><th>Kockák</th><th className="szam szeles">3d6</th><th className="szam">Érték</th><th><span className="lathatatlan">Művelet</span></th></tr></thead>
@@ -160,7 +203,7 @@ function Sorban({ adat, valtoztat, ixMind, lap }) {
         const alapErtek = megvan ? tulajdonsagDobasbol(szam(dobasok[i]), ixMind) : null;
         const cserelt = csere.includes(t);
         return html`<tr key=${t} className=${cserelt ? 'jelolt' : aktiv === t && !mind ? 'kiemelt' : ''}>
-          <td><strong>${tulNev(ixMind, t)}</strong>${d && d.kezi ? html`<span className="kezijel">beírt</span>` : null}</td>
+          <td><${TulNev} ix=${ixMind} t=${t}/>${d && d.kezi ? html`<span className="kezijel">beírt</span>` : null}</td>
           <td>${d ? html`<${Kockak} kockak=${d.kockak}/>` : html`<span className="halvany">még nincs</span>`}</td>
           <td className="szam szeles">${megvan ? dobasok[i] : ''}</td>
           <td className="szam">${megvan ? html`<span className="ertek">${elojel(alapErtek)}</span>${cserelt && csere.length === 2 ? html` <span style=${{ color: 'var(--accent)' }}>⇄ ${elojel(adat.tulajdonsag_alap[t])}</span>` : null}` : ''}</td>
@@ -177,8 +220,8 @@ function Sorban({ adat, valtoztat, ixMind, lap }) {
         onDobas=${(k, kezi) => { valtoztat((a) => V.sorbanDob(a, aktiv, k, kezi, ixMind)); setCel(null); }}/>
       ${cel ? html`<div><${K.Button} variant="quiet" size="sm" onClick=${() => setCel(null)}>Mégse<//></div>` : null}
     </div>` : null}
-    <${RovidTabla} cim="3d6 → kezdő érték" sorok=${sorok} kiemelt=${utolso ? kiemeltSor(sorok, V.osszeg(utolso.kockak)) : null}/>
-    ${mind ? html`<p className="sugo">Csere: koppints két sor ⇄ gombjára. ${csere.length === 2 ? `Most: ${tulNev(ixMind, csere[0])} és ${tulNev(ixMind, csere[1])}.` : csere.length === 1 ? 'Válaszd ki a másikat is.' : 'Nem kötelező.'}</p>` : null}
+    <${RovidTabla} cim=${html`3d6 → kezdő érték${S('tabla')}`} sorok=${sorok} kiemelt=${utolso ? kiemeltSor(sorok, V.osszeg(utolso.kockak)) : null}/>
+    ${mind ? html`<p className="sugo">Csere${S('csere')}: koppints két sor ⇄ gombjára. ${csere.length === 2 ? `Most: ${tulNev(ixMind, csere[0])} és ${tulNev(ixMind, csere[1])}.` : csere.length === 1 ? 'Válaszd ki a másikat is.' : 'Nem kötelező.'}</p>` : null}
     ${(adat.dobasok || []).some((d) => d.mire.startsWith('tul:') && d.kezi) ? html`<${Uzenet} tonus="neutral">ⓘ A kézzel beírt dobások a karakteren jelölve maradnak, a DM látja őket.<//>` : null}
     <${LepesFigyelmeztetesek} lap=${lap} lepes="tulajdonsagok"/>`;
 }
@@ -199,7 +242,7 @@ function Elrendezes({ adat, valtoztat, ixMind, lap }) {
     valtoztat((a) => V.elrendezesKioszt(a, t, fogott, ixMind));
     setFogott(null);
   };
-  return html`<p className="sugo">Dobás és elrendezés: kilenc 3d6. Koppints egy dobott értékre, aztán arra a tulajdonságra, ahová szánod. Egy kiosztott értékre koppintva visszaveheted.</p>
+  return html`<p className="sugo">Dobás és elrendezés: kilenc 3d6. Koppints egy dobott értékre, aztán arra a tulajdonságra, ahová szánod. Egy kiosztott értékre koppintva visszaveheted. ${S('tulajdonsag')}</p>
     ${ures >= 0 ? html`<div className="verem">
       <p className="cimke">${ures + 1}. dobás a kilencből</p>
       ${mod === 'dobj' ? html`<div><${K.Button} variant="secondary" onClick=${dobMind}>Dobj mind a ${9 - dobasok.filter((d) => d !== null && d !== undefined).length} hiányzóra<//></div>` : null}
@@ -217,7 +260,7 @@ function Elrendezes({ adat, valtoztat, ixMind, lap }) {
     <table className="tabla">
       <thead><tr><th>Tulajdonság</th><th className="szam">Érték</th></tr></thead>
       <tbody>${V.TULAJDONSAGOK.map((t) => html`<tr key=${t}>
-        <td><strong>${tulNev(ixMind, t)}</strong></td>
+        <td><${TulNev} ix=${ixMind} t=${t}/></td>
         <td className="szam">${kiosztas[t] !== undefined
           ? html`<button type="button" className="huzhato" aria-label=${tulNev(ixMind, t) + ': ' + elojel(ertekE(kiosztas[t])) + ', koppints a visszavételhez vagy cseréhez'} onClick=${() => helyre(t)}>${elojel(ertekE(kiosztas[t]))}</button>`
           : html`<button type="button" className="huzhato huzhato--ures" onClick=${() => helyre(t)}>${fogott !== null ? 'ide' : '—'}</button>`}</td>
@@ -229,11 +272,11 @@ function Elrendezes({ adat, valtoztat, ixMind, lap }) {
 
 function Vasarlas({ adat, valtoztat, ixMind, lap }) {
   const ossz = V.vasarlasOsszeg(adat);
-  return html`<p className="sugo">10 pontos vásárlás: minden 0-ról indul, egy tulajdonságra legfeljebb 3.</p>
+  return html`<p className="sugo">10 pontos vásárlás: minden 0-ról indul, egy tulajdonságra legfeljebb 3. ${S('tulajdonsag')}</p>
     <div className="osszegsor"><span className="osszegsor__nev">Elköltve</span><span className="osszegsor__ertek">${ossz} / 10</span></div>
     <table className="tabla"><tbody>${V.TULAJDONSAGOK.map((t) => {
       const v = szam(adat.tulajdonsag_alap[t]);
-      return html`<tr key=${t}><td><strong>${tulNev(ixMind, t)}</strong></td><td className="szam"><span className="lepteto">
+      return html`<tr key=${t}><td><${TulNev} ix=${ixMind} t=${t}/></td><td className="szam"><span className="lepteto">
         <button type="button" aria-label=${tulNev(ixMind, t) + ' csökkentése'} onClick=${() => valtoztat((a) => { a.tulajdonsag_alap[t] = v - 1; })}>−</button>
         <span aria-live="polite">${v}</span>
         <button type="button" aria-label=${tulNev(ixMind, t) + ' növelése'} onClick=${() => valtoztat((a) => { a.tulajdonsag_alap[t] = v + 1; })}>+</button>
@@ -257,7 +300,7 @@ function Faj({ adat, valtoztat, ix, ixMind, lap }) {
   const faj = ixMind.elem('Fajok', adat.faj);
   const [lista, setLista] = useState(!faj);
   if (!faj || lista) {
-    return html`<p className="sugo">Válassz fajt. A fajtól függ néhány tulajdonság, egy fókusz és az előnydobások.</p>
+    return html`<p className="sugo">Válassz fajt. A fajtól függ néhány tulajdonság, egy fókusz és az előnydobások. ${S('faj')}</p>
       <div className="valasztasok valasztasok--ket">${fajok.map((f) => {
         const r = reszletek(f);
         const bon = Object.entries(r.tulajdonsag_bonusz || {}).map(([t, n]) => `+${n} ${tulNev(ixMind, t)}`).join(', ');
@@ -276,7 +319,7 @@ function Faj({ adat, valtoztat, ix, ixMind, lap }) {
   return html`<${Valasztas} elem=${faj} valasztott=${true} leiras=${rovid(faj.leiras_hu)} onClick=${() => setLista(true)}>
       <span className="valasztas__ok">Koppints a faj cseréjéhez.</span><//>
     <${Uzenet} tonus="neutral">✓ ${ell}.<//>
-    ${(fr.fokusz_valasztas || []).length ? html`<${Szakasz} cim="Faji fókusz (egy)">
+    ${(fr.fokusz_valasztas || []).length ? html`<${Szakasz} cim="Faji fókusz (egy)" segit="fokusz">
       <div className="valasztasok valasztasok--ket">${fr.fokusz_valasztas.map((f) => html`<${Valasztas} key=${f} nev=${fokuszNev(ixMind, f)} meta=""
         valasztott=${adat.faj_dontes.fokusz === f} onClick=${() => valtoztat((a) => { a.faj_dontes.fokusz = f; })}/>`)}</div>
     <//>` : null}
@@ -285,7 +328,7 @@ function Faj({ adat, valtoztat, ix, ixMind, lap }) {
       <div className="valasztasok valasztasok--ket">${(fr.vegleges_valasztas.valaszthato || []).map((f) => html`<${Valasztas} key=${f} nev=${fokuszNev(ixMind, f)} meta=""
         valasztott=${adat.faj_dontes.vegleges === f} onClick=${() => valtoztat((a) => { a.faj_dontes.vegleges = f; })}/>`)}</div>
     <//>` : null}
-    <${Szakasz} cim=${`Előnyök: ${db} dobás 2d6-tal`} sugo="Ha ugyanaz a sor jön ki másodszor, dobj újra. Fegyvercsoport-előnynél, ha az osztályod is adja, a hozzá tartozó fókusz jár helyette (ez az osztály kiválasztása után dől el).">
+    <${Szakasz} cim=${`Előnyök: ${db} dobás 2d6-tal`} segit="elonyok" sugo="Ha ugyanaz a sor jön ki másodszor, dobj újra. Fegyvercsoport-előnynél, ha az osztályod is adja, a hozzá tartozó fókusz jár helyette (ez az osztály kiválasztása után dől el).">
       ${Array.from({ length: db }, (_, i) => {
         const e = elonyok[i];
         const d = V.utolsoDobas(adat, 'elony:' + i);
@@ -325,7 +368,7 @@ function ValasztasMezo({ jelleg, ertek, onValt, ixMind, lap, sorrend, cimke }) {
     opciok=${ixMind.lista('Fókuszok').map((f) => ({ value: f.id, label: fokuszNev(ixMind, f.id) })).sort((a, b) => a.label.localeCompare(b.label, 'hu'))}/>`;
 }
 function FelverAlap({ fr, adat, valtoztat, ixMind, lap }) {
-  return html`<${Szakasz} cim="Származási lény szerinti választások" sugo="A DM-mel egyeztesd, melyik lény a karakter őse.">
+  return html`<${Szakasz} cim="Származási lény szerinti választások" segit="felver" sugo="A DM-mel egyeztesd, melyik lény a karakter őse.">
     ${fr.alap_valasztas.map((v, i) => {
       const d = (adat.faj_dontes.alap || [])[i] || {};
       return html`<${ValasztasMezo} key=${i} jelleg=${v.jelleg} cimke=${v.leiras} ertek=${d.ertek} ixMind=${ixMind} lap=${lap} sorrend=${v.sorrend}
@@ -357,11 +400,19 @@ function Fajta({ fr, adat, valtoztat, ixMind }) {
   const fajta = fd ? fr.fajtatabla.find((x) => tartomanyban(x.dobas, szam(fd.dobas))) : null;
   const kell = szam(fr.fajta_valasztando, 2);
   const valasztott = (fd && fd.valasztott) || [];
-  return html`<${Szakasz} cim="Fajta (2d6)" sugo=${`A fajta előnyei közül ${kell} választható.`}>
+  return html`<${Szakasz} cim="Fajta (2d6)" segit="fajta" sugo=${`Dobj 2d6-tal: a táblázat mutatja, melyik eredmény melyik fajtához vezet. A fajta előnyei közül ${kell} választható.`}>
     <${Kockadobo} db=${2} kockak=${fd && d ? d.kockak : null} kezi=${d && d.kezi} kicsi=${true}
       eredmeny=${() => (fajta ? html`<strong className="kockadobo__eredmeny">${fajta.nev_hu}</strong>` : null)}
       onDobas=${(k, kezi) => valtoztat((a) => { a.faj_dontes.fajta = { dobas: V.osszeg(k), valasztott: [] }; V.naplozDobas(a, 'fajta', k, kezi); })}/>
-    ${fajta ? html`<div className="valasztasok">${(fajta.elonyok_gepi || []).map((s, i) => html`<${Valasztas} key=${i}
+    <div className="tablazat-keret"><table className="tabla">
+      <thead><tr><th>2d6</th><th>Fajta</th></tr></thead>
+      <tbody>${fr.fajtatabla.map((x) => html`<tr key=${x.dobas} className=${fajta === x ? 'kiemelt' : ''}>
+        <td>${String(x.dobas).replace('-', '–')}</td>
+        <td><strong>${x.nev_hu}</strong>${x.pelda ? html` <span className="halvany">(${x.pelda})</span>` : null}
+          ${(x.elonyok || []).length ? html`<br/><span className="kicsi halvany">${x.elonyok.join(' · ')}</span>` : null}</td>
+      </tr>`)}</tbody>
+    </table></div>
+    ${fajta ? html`<p className="cimke">${fajta.nev_hu}: válassz ${kell} előnyt</p><div className="valasztasok">${(fajta.elonyok_gepi || []).map((s, i) => html`<${Valasztas} key=${i}
       nev=${s.tipus === 'kulonleges' ? s.nev_hu : elonySzoveg(s, ixMind)} meta="" leiras=${s.tipus === 'kulonleges' ? s.leiras : ''}
       valasztott=${valasztott.includes(i)}
       onClick=${() => valtoztat((a) => { const v = (a.faj_dontes.fajta.valasztott || []).slice(); const j = v.indexOf(i); j >= 0 ? v.splice(j, 1) : v.push(i); a.faj_dontes.fajta.valasztott = v; })}/>`)}
@@ -384,29 +435,34 @@ function Hatter({ adat, valtoztat, ix, ixMind, lap }) {
   const lista = csoport ? V.hatterLista(ix, rendszer, csoport) : [];
   const set = (fn) => valtoztat((a) => { fn(a.hatter, a); });
   const hatterValaszt = (id, d) => valtoztat((a) => { V.hatterBeallit(a, id); if (d !== undefined) a.hatter.hatter_dobas = d; });
-  const osztalyTabla = V.TARSADALMI_OSZTALYOK;
+  const hr = reszletek(hatter);
   return html`
-    ${companionCsoportok.length ? html`<${Kapcsolo} teljes=${true} cimke="Háttérrendszer" ertek=${rendszer}
+    ${hatter ? html`<${Valasztas} fix=${true} elem=${hatter} meta=${forrasMeta(hatter)}
+        leiras=${[(hr.tarsadalmi_osztaly ? hr.tarsadalmi_osztaly + ' osztály' : ''), (hr.hattercsoport ? hr.hattercsoport + ' csoport' : ''), (h.fokusz ? 'Fókusz: ' + fokuszNev(ixMind, h.fokusz) : 'Fókusz: még nincs kiválasztva')].filter(Boolean).join(' · ')}>
+        <span className="valasztas__ok">✓ Választott háttér. Lent másikat is választhatsz, ez addig megmarad.</span><//>`
+      : html`<${Uzenet} tonus="warning">Még nincs kiválasztott háttér. Dobj, vagy válassz a listából.<//>`}
+    ${companionCsoportok.length ? html`<div className="sorban" style=${{ alignItems: 'center' }}><span className="cimke" style=${{ margin: 0 }}>Háttérrendszer${S('rendszer')}</span></div>
+      <${Kapcsolo} teljes=${true} cimke="Háttérrendszer" ertek=${rendszer}
       opciok=${[{ value: 'alap', label: 'Társadalmi osztály' }, { value: 'companion', label: 'Companion csoportok' }]}
-      onValt=${(x) => set((hh) => { if (hh.rendszer !== x) { hh.rendszer = x; hh.csoport = null; hh.id = null; hh.fokusz = null; } })}/>` : null}
+      onValt=${(x) => set((hh) => { if (hh.rendszer !== x) { hh.rendszer = x; hh.csoport = null; hh.hatter_dobas = null; } })}/>` : null}
     <${Kapcsolo} cimke="Választás módja" ertek=${mod} opciok=${[{ value: 'dobas', label: 'Dobás' }, { value: 'valasztas', label: 'Választás' }]}
       onValt=${(x) => set((hh) => { hh.mod = x; })}/>
-    ${rendszer === 'alap' ? html`<${Szakasz} cim="1. Társadalmi osztály">
+    ${rendszer === 'alap' ? html`<${Szakasz} cim="1. Társadalmi osztály" segit="tarsadalmi">
       ${mod === 'dobas' ? html`<${Kockadobo} db=${1} kockak=${h.osztaly_dobas && osztalyDobas ? osztalyDobas.kockak : null} kezi=${osztalyDobas && osztalyDobas.kezi} kicsi=${true}
-        onDobas=${(k, kezi) => valtoztat((a) => { a.hatter.rendszer = 'alap'; a.hatter.osztaly_dobas = k[0]; a.hatter.csoport = V.tarsadalmiOsztalyDobas(ixMind, k[0]); a.hatter.id = null; a.hatter.fokusz = null; a.hatter.hatter_dobas = null; V.naplozDobas(a, 'hatter:osztaly', k, kezi); })}/>` : null}
+        onDobas=${(k, kezi) => valtoztat((a) => { a.hatter.rendszer = 'alap'; a.hatter.osztaly_dobas = k[0]; a.hatter.csoport = V.tarsadalmiOsztalyDobas(ixMind, k[0]); a.hatter.hatter_dobas = null; V.naplozDobas(a, 'hatter:osztaly', k, kezi); })}/>` : null}
       <table className="tabla"><tbody>${[['1', 'Kívülálló'], ['2–3', 'Alsó'], ['4–5', 'Közép'], ['6', 'Felső']].map(([d, o]) => html`<tr key=${o} className=${tarsOsztaly === o ? 'kiemelt' : ''}>
-        <td>${d}</td><td>${mod === 'valasztas' ? html`<button type="button" className="sorgomb" aria-pressed=${tarsOsztaly === o} onClick=${() => set((hh) => { hh.rendszer = 'alap'; hh.csoport = o; hh.osztaly_dobas = null; })}>${o} osztály</button>` : o + ' osztály'}</td></tr>`)}</tbody></table>
-    <//>` : html`<${Szakasz} cim="1. Háttércsoport">
-      <div className="csipek">${companionCsoportok.map((c) => html`<${Csip} key=${c} be=${csoport === c} onClick=${() => set((hh) => { hh.rendszer = 'companion'; hh.csoport = c; hh.id = null; hh.fokusz = null; })}>${c}<//>`)}</div>
+        <td>${d}</td><td>${mod === 'valasztas' ? html`<button type="button" className="sorgomb" aria-pressed=${tarsOsztaly === o} onClick=${() => set((hh) => { if (hh.csoport !== o) hh.hatter_dobas = null; hh.rendszer = 'alap'; hh.csoport = o; hh.osztaly_dobas = null; })}>${o} osztály</button>` : o + ' osztály'}</td></tr>`)}</tbody></table>
+    <//>` : html`<${Szakasz} cim="1. Háttércsoport" segit="hattercsoport">
+      <div className="csipek">${companionCsoportok.map((c) => html`<${Csip} key=${c} be=${csoport === c} onClick=${() => set((hh) => { if (hh.csoport !== c) hh.hatter_dobas = null; hh.rendszer = 'companion'; hh.csoport = c; })}>${c}<//>`)}</div>
     <//>`}
-    ${csoport ? html`<${Szakasz} cim=${rendszer === 'alap' ? `2. Háttér (${csoport} osztály)` : `2. Háttér (${csoport})`}>
+    ${csoport ? html`<${Szakasz} segit="hatter" cim=${rendszer === 'alap' ? `2. Háttér (${csoport} osztály)` : `2. Háttér (${csoport})`}>
       ${mod === 'dobas' ? html`<${Kockadobo} db=${1} kockak=${h.hatter_dobas && hatterDobasNaplo ? hatterDobasNaplo.kockak : null} kezi=${hatterDobasNaplo && hatterDobasNaplo.kezi} kicsi=${true}
         onDobas=${(k, kezi) => { const t = V.hatterDobasbol(ix, rendszer, csoport, k[0]); valtoztat((a) => { V.naplozDobas(a, 'hatter:hatter', k, kezi); a.hatter.hatter_dobas = k[0]; V.hatterBeallit(a, t ? t.id : null); }); }}/>` : null}
       <div className="valasztasok">${lista.map((t) => html`<${Valasztas} key=${t.id} elem=${t} valasztott=${h.id === t.id}
         meta=${[V.hatterSajatDobas(t) ? '1d6: ' + V.hatterSajatDobas(t) : '', forrasMeta(t)].filter(Boolean).join(' · ')}
         leiras=${rovid(t.leiras_hu, 120)} onClick=${() => hatterValaszt(t.id)}/>`)}</div>
     <//>` : null}
-    ${hatter ? html`<${Szakasz} cim="Háttér-fókusz (egy)">
+    ${hatter ? html`<${Szakasz} cim="Háttér-fókusz (egy)" segit="fokusz">
       <div className="valasztasok valasztasok--ket">${(reszletek(hatter).fokusz_valasztas || []).map((f) => html`<${Valasztas} key=${f} nev=${fokuszNev(ixMind, f)} meta=""
         valasztott=${h.fokusz === f} onClick=${() => set((hh) => { hh.fokusz = f; })}/>`)}</div>
     <//>` : null}
@@ -419,7 +475,7 @@ function Osztaly({ adat, valtoztat, ix, ixMind, lap, forrasok }) {
   const osztaly = ixMind.elem('Osztályok', adat.osztaly);
   const [lista, setLista] = useState(!osztaly);
   if (!osztaly || lista) {
-    return html`<p className="sugo">Válassz osztályt. Ez adja a kezdő Egészséget, a fegyvercsoportokat és az első talentumokat.</p>
+    return html`<p className="sugo">Válassz osztályt. Ez adja a kezdő Egészséget, a fegyvercsoportokat és az első talentumokat. ${S('osztaly')} ${S('elsodleges')}</p>
       <div className="valasztasok">${osztalyok.map((o) => {
         const r = reszletek(o);
         return html`<${Valasztas} key=${o.id} elem=${o} valasztott=${adat.osztaly === o.id}
@@ -439,13 +495,13 @@ function Osztaly({ adat, valtoztat, ix, ixMind, lap, forrasok }) {
   const kg = (lap.egeszseg.reszek || []);
   return html`<${Valasztas} elem=${osztaly} valasztott=${true} leiras=${'Elsődleges: ' + (or.elsodleges || []).map((t) => tulNev(ixMind, t)).join(', ') + '. Másodlagos: ' + (or.masodlagos || []).map((t) => tulNev(ixMind, t)).join(', ') + '.'}
       onClick=${() => setLista(true)}><span className="valasztas__ok">Koppints az osztály cseréjéhez.</span><//>
-    <${Szakasz} cim="Kezdő Egészség (1d6)">
+    <${Szakasz} cim="Kezdő Egészség (1d6)" segit="egeszseg">
       <${Kockadobo} db=${1} kicsi=${true} kockak=${sz1.egeszseg_dobas !== null && sz1.egeszseg_dobas !== undefined && egDobas ? egDobas.kockak : null} kezi=${egDobas && egDobas.kezi}
         onDobas=${(k, kezi) => valtoztat((a) => { a.szintek[0].egeszseg_dobas = k[0]; V.naplozDobas(a, 'egeszseg:1', k, kezi); })}/>
       <div className="osszegsor"><span>${kg.map((r) => `${r.ertek} (${r.eredet.replace('Osztály: ', '').replace(' (1. szint)', '')})`).join(' + ')}</span><span className="osszegsor__ertek">${lap.egeszseg.ertek}</span></div>
     <//>
     ${magus ? html`<${Magus} adat=${adat} valtoztat=${valtoztat} ix=${ix} ixMind=${ixMind} lap=${lap} forrasok=${forrasok} osztaly=${osztaly} kepessegek=${kepessegek}/>` : null}
-    <${Szakasz} cim=${fcsV ? `Fegyvercsoportok: válassz ${fcsV.db}-${fcsV.db === 1 ? 'et' : 'at'} (${valasztottCsoportok.length} / ${fcsV.db})` : 'Fegyvercsoportok'}
+    <${Szakasz} segit="fegyvercsoport" cim=${fcsV ? `Fegyvercsoportok: válassz ${fcsV.db}-${fcsV.db === 1 ? 'et' : 'at'} (${valasztottCsoportok.length} / ${fcsV.db})` : 'Fegyvercsoportok'}
       sugo=${'Megvan: ' + (or.fegyvercsoportok || []).map((c) => elemNev(ixMind, 'Fegyvercsoportok', c)).join(', ') + ' (osztály).'}>
       ${fcsV ? html`<div className="csipek">${(fcsV.valaszthato || []).map((c) => html`<${Csip} key=${c} be=${valasztottCsoportok.includes(c)}
         onClick=${() => valtoztat((a) => { const s = (a.osztaly_dontes.fegyvercsoportok || []).slice(); const j = s.indexOf(c); j >= 0 ? s.splice(j, 1) : s.push(c); a.osztaly_dontes.fegyvercsoportok = s; })}>${elemNev(ixMind, 'Fegyvercsoportok', c)}<//>`)}</div>` : null}
@@ -471,7 +527,7 @@ function TalentumValasztas({ k, adat, valtoztat, ix, ixMind, lap }) {
     V.kapottBeallit(a, 'talentum', kotelezo.concat(v), kotelezo);
     V.felszerelesFrissit(a, ixMind.lapok);
   });
-  return html`<${Szakasz} cim=${`${k.nev_hu || 'Kezdő talentum'}: válassz ${db}-${db === 1 ? 'et' : 't'} (${valasztott.filter((x) => valaszthato.includes(x)).length} / ${db})`}>
+  return html`<${Szakasz} segit="talentum" cim=${`${k.nev_hu || 'Kezdő talentum'}: válassz ${db}-${db === 1 ? 'et' : 't'} (${valasztott.filter((x) => valaszthato.includes(x)).length} / ${db})`}>
     ${kotelezo.map((id) => html`<${Valasztas} key=${id} fix=${true} elem=${ixMind.elem('Talentumok', id)} nev=${elemNev(ixMind, 'Talentumok', id)} meta="Kezdő, jár"/>`)}
     <div className="valasztasok">${valaszthato.map((id) => {
       const t = ixMind.elem('Talentumok', id);
@@ -508,12 +564,12 @@ function Magus({ adat, valtoztat, ix, ixMind, lap, forrasok, kepessegek }) {
     j >= 0 ? v.splice(j, 1) : v.push(id);
     V.kapottBeallit(a, 'varazslat', v);
   });
-  return html`<${Szakasz} cim="Mágiapont (1d6)">
+  return html`<${Szakasz} cim="Mágiapont (1d6)" segit="magiapont">
       <${Kockadobo} db=${1} kicsi=${true} kockak=${sz1.mp_dobas !== null && sz1.mp_dobas !== undefined && mpDobas ? mpDobas.kockak : null} kezi=${mpDobas && mpDobas.kezi}
         onDobas=${(k, kezi) => valtoztat((a) => { a.szintek[0].mp_dobas = k[0]; V.naplozDobas(a, 'mp:1', k, kezi); })}/>
       ${lap.magiapont ? html`<div className="osszegsor"><span>${lap.magiapont.reszek.map((r) => `${r.ertek} (${r.eredet.replace(' (1. szint)', '')})`).join(' + ')}</span><span className="osszegsor__ertek">${lap.magiapont.ertek}</span></div>` : null}
     <//>
-    <${Szakasz} cim=${`Mágikus talentumok (arkánumok): válassz ${arkDb}-t (${valasztott.length} / ${arkDb})`}>
+    <${Szakasz} segit="arkanum" cim=${`Mágikus talentumok (arkánumok): válassz ${arkDb}-t (${valasztott.length} / ${arkDb})`}>
       <div className="valasztasok valasztasok--ket">${lathato.map((a) => html`<${Valasztas} key=${a.id} elem=${a} valasztott=${valasztott.includes(a.id)}
         leiras=${rovid(a.leiras_hu, 110)} onClick=${() => { arkValt(a.id); if (!valasztott.includes(a.id) && valasztott.length + 1 >= arkDb) setMind(false); }}/>`)}</div>
       <div><${K.Button} variant="quiet" onClick=${() => setMind(!mind)}>${mind ? 'Csak a választottak' : `Összes arkánum (${arkanumok.length})`}<//></div>
@@ -521,7 +577,7 @@ function Magus({ adat, valtoztat, ix, ixMind, lap, forrasok, kepessegek }) {
     ${valasztott.map((aid) => {
       const kv = V.kezdoVarazslatok(ix, aid, forrasok);
       const sajat = varazslatok.filter((v) => (ixMind.elem('Varázslatok', v) || {}).arkanum === aid);
-      return html`<${Szakasz} key=${aid} cim=${`${elemNev(ixMind, 'Arkánumok', aid)}: ${kv.valaszthato ? `válassz ${kv.db} varázslatot (${sajat.length} / ${kv.db})` : 'kezdő varázslatok'}`}
+      return html`<${Szakasz} key=${aid} segit="varazslat" cim=${`${elemNev(ixMind, 'Arkánumok', aid)}: ${kv.valaszthato ? `válassz ${kv.db} varázslatot (${sajat.length} / ${kv.db})` : 'kezdő varázslatok'}`}
         sugo=${kv.valaszthato ? null : 'Csak az Alapkönyv aktív, ezért a kezdő varázslatok adottak.'}>
         <div className="valasztasok">${kv.lista.map((vid) => {
           const v = ixMind.elem('Varázslatok', vid);
@@ -536,7 +592,7 @@ function Magus({ adat, valtoztat, ix, ixMind, lap, forrasok, kepessegek }) {
 }
 
 // ================= 7. Felszerelés =================
-function Felszereles({ adat, valtoztat, ix, ixMind, lap }) {
+function Felszereles({ adat, valtoztat, ix, ixMind, lap, ugras }) {
   const f = adat.felszereles;
   const osztaly = ixMind.elem('Osztályok', adat.osztaly);
   const [kereso, setKereso] = useState('');
@@ -578,23 +634,27 @@ function Felszereles({ adat, valtoztat, ix, ixMind, lap }) {
   const vasarolt = new Map((f.vasarolt || []).map((v) => [v.id, v.db]));
   const vesz = (id, n) => valtoztat((a) => { V.vasarlas(a, id, n); V.felszerelesFrissit(a, ixMind.lapok); });
   const viselheto = (f.targyak || []).filter((t) => t.id.startsWith('pan_') || t.id.startsWith('fgy_'));
-  return html`<${Szakasz} cim="Kezdő csomag (automatikus)">
+  return html`<${Szakasz} cim="Kezdő csomag (automatikus)" segit="csomag">
       <ul className="sorlista">${cs.targyak.filter((t) => !t.id.startsWith('fgy_')).map((t) => html`<li key=${t.id} className="sorlista__sor">
         <span>${elemNev(ixMind, V.targyLap(t.id), t.id)}${t.db > 1 ? ' × ' + t.db : ''}</span>
         <span className="halvany kicsi">${t.id === cs.pancel ? 'osztály, viselve' : t.id.startsWith('pan_') ? 'pajzs a stílushoz' : 'osztály'}</span></li>`)}</ul>
     <//>
-    <${Szakasz} cim=${`Fegyverek: válassz ${cs.fegyver_db}-${cs.fegyver_db === 1 ? 'et' : 'at'} (${valasztott.length} / ${cs.fegyver_db})`} sugo="Íjhoz és számszeríjhoz tegez és 20 vessző is jár.">
+    <${Szakasz} segit="fegyverek" cim=${`Fegyverek: válassz ${cs.fegyver_db}-${cs.fegyver_db === 1 ? 'et' : 'at'} (${valasztott.length} / ${cs.fegyver_db})`} sugo="Íjhoz és számszeríjhoz tegez és 20 vessző is jár.">
       <${Kereso} cimke="Fegyver keresése" ertek=${kereso} set=${setKereso}/>
       ${ismertek.length ? html`<p className="cimke">Ismert csoportok</p><div className="valasztasok valasztasok--ket">${ismertek.map(fegyverKartya)}</div>` : null}
       ${tobbi.length ? html`<details className="lenyilo"><summary>Nem ismert csoportok (${tobbi.length})</summary><div className="valasztasok valasztasok--ket">${tobbi.map(fegyverKartya)}</div></details>` : null}
     <//>
-    <${Szakasz} cim=${tarsOsztaly ? `Kezdőpénz: ${tarsOsztaly} osztály, ${alt[tarsOsztaly] || '+ 3d6'} ezüst` : 'Kezdőpénz'}>
+    <${Szakasz} segit="penz" cim=${tarsOsztaly ? `Kezdőpénz: ${tarsOsztaly} osztály, ${alt[tarsOsztaly] || '+ 3d6'} ezüst` : 'Kezdőpénz'}>
       ${tarsOsztaly ? html`<${Kockadobo} db=${3} kicsi=${true} kockak=${f.penz_dobas !== null && f.penz_dobas !== undefined && penzDobas ? penzDobas.kockak : null} kezi=${penzDobas && penzDobas.kezi}
         eredmeny=${() => (f.kezdo_penz_rez !== null && f.kezdo_penz_rez !== undefined ? html`<strong className="kockadobo__eredmeny">${V.penzSzoveg(f.kezdo_penz_rez)}</strong>` : null)}
         onDobas=${(k, kezi) => valtoztat((a) => { a.felszereles.penz_dobas = V.osszeg(k); V.naplozDobas(a, 'penz', k, kezi); V.felszerelesFrissit(a, ixMind.lapok); })}/>`
-        : html`<${Uzenet} tonus="warning">A kezdőpénz a háttér társadalmi osztályától függ. Előbb válassz hátteret.<//>`}
+        : html`<div className="uzenet uzenet--warning figyuzenet" role="status">
+            <span>⚠ Nincs kiválasztott háttér, ezért a kezdőpénz nem számolható (a háttér társadalmi osztályától függ).${adat.hatter.rendszer === 'companion' && adat.hatter.csoport ? ` A Companion csoport (${adat.hatter.csoport}) megvan, de azon belül még dobni vagy választani kell egy hátteret.` : ''}</span>
+            <span className="figyuzenet__gombok"><button type="button" className="figygomb" onClick=${() => ugras('hatter')}>Ugrás a Háttér lépéshez</button></span>
+          </div>`}
+      ${tarsOsztaly && (f.penz_dobas === null || f.penz_dobas === undefined) ? html`<p className="sugo">Dobj 3d6-tal (vagy írd be a dobásod), ebből jön a kezdőpénz, utána vásárolhatsz.</p>` : null}
     <//>
-    <div className="osszegsor"><span className="osszegsor__nev">Pénz</span><span className="osszegsor__ertek">${V.penzSzoveg(f.penz_rez || 0)}</span></div>
+    <div className="osszegsor"><span className="osszegsor__nev">Pénz</span><span className="osszegsor__ertek">${f.kezdo_penz_rez === null || f.kezdo_penz_rez === undefined ? html`<span className="halvany kicsi">még nincs kezdőpénz</span>` : V.penzSzoveg(f.penz_rez || 0)}</span></div>
     <details className="lenyilo" open=${(f.vasarolt || []).length > 0}>
     <summary>Bolt: vásárlás a kezdőpénzből${(f.vasarolt || []).length ? ` (${(f.vasarolt || []).reduce((x, v) => x + v.db, 0)} tétel)` : ''}</summary>
     <div className="szakasz">
@@ -612,7 +672,7 @@ function Felszereles({ adat, valtoztat, ix, ixMind, lap }) {
       ${aruk.length > boltDb ? html`<div><${K.Button} variant="quiet" onClick=${() => setBoltDb(boltDb + 20)}>Továbbiak (${aruk.length - boltDb})<//></div>` : null}
     </div>
     </details>
-    ${viselheto.length ? html`<${Szakasz} cim="Viselve és kézben" sugo="A páncél, a pajzs és a fegyverek közül melyik van épp rajtad (a számított értékekhez).">
+    ${viselheto.length ? html`<${Szakasz} cim="Viselve és kézben" segit="viselve" sugo="A páncél, a pajzs és a fegyverek közül melyik van épp rajtad (a számított értékekhez).">
       <div className="csipek">${viselheto.map((t) => html`<${Csip} key=${t.id} be=${t.felszerelve}
         onClick=${() => valtoztat((a) => { const x = a.felszereles.targyak.find((y) => y.id === t.id); if (x) x.felszerelve = !x.felszerelve; })}>${elemNev(ixMind, V.targyLap(t.id), t.id)}<//>`)}</div>
     <//>` : null}
@@ -632,11 +692,11 @@ function Szamitott({ lap }) {
     ${lap.egeszseg.ertek ? html`<${K.ResourceBar} kind="health" value=${lap.egeszseg.ertek} max=${lap.egeszseg.ertek}/>` : null}
     ${lap.magiapont && lap.magiapont.ertek ? html`<${K.ResourceBar} kind="magic" value=${lap.magiapont.ertek} max=${lap.magiapont.ertek}/>` : null}
     <div>
-      <${ErtekReszekkel} nev="Egészség" ertek=${lap.egeszseg}/>
-      ${lap.magiapont ? html`<${ErtekReszekkel} nev="Mágiapont" ertek=${lap.magiapont}/>` : null}
-      <${ErtekReszekkel} nev="Védekezés" ertek=${lap.vedekezes}/>
-      <${ErtekReszekkel} nev="Sebesség" ertek=${lap.sebesseg}/>
-      <${ErtekReszekkel} nev="Páncélérték" ertek=${lap.pancelertek}/>
+      <${ErtekReszekkel} nev=${html`Egészség${S('egeszseg')}`} ertek=${lap.egeszseg}/>
+      ${lap.magiapont ? html`<${ErtekReszekkel} nev=${html`Mágiapont${S('magiapont')}`} ertek=${lap.magiapont}/>` : null}
+      <${ErtekReszekkel} nev=${html`Védekezés${S('vedekezes')}`} ertek=${lap.vedekezes}/>
+      <${ErtekReszekkel} nev=${html`Sebesség${S('sebesseg')}`} ertek=${lap.sebesseg}/>
+      <${ErtekReszekkel} nev=${html`Páncélérték${S('pancelertek')}`} ertek=${lap.pancelertek}/>
     </div>
     ${lap.fegyverek.length ? html`<${Szakasz} cim="Fegyverek">
       <table className="tabla"><thead><tr><th>Fegyver</th><th className="szam">Támadás</th><th className="szam">Sebzés</th></tr></thead>
@@ -673,9 +733,10 @@ function NevCelok({ adat, valtoztat, kampany }) {
     </div>
     <${K.TextField} label="Név" value=${adat.nev} autoCapitalize="words" onChange=${(e) => { const v = e.target.value; valtoztat((a) => { a.nev = v; }); }}/>
     <${K.TextField} label="Megjelenés" multiline=${true} rows=${3} value=${adat.alap.megjelenes || ''} onChange=${(e) => { const v = e.target.value; valtoztat((a) => { a.alap.megjelenes = v; }); }}/>
+    <p className="cimke" style=${{ margin: 0 }}>Célok${S('celok')}</p>
     <${K.TextField} label="Rövid távú cél" value=${cel('rovid')} onChange=${(e) => celBeallit('rovid', e.target.value)}/>
     <${K.TextField} label="Hosszú távú cél" value=${cel('hosszu')} onChange=${(e) => celBeallit('hosszu', e.target.value)}/>
-    <${Szakasz} cim="Kötelékek" sugo="Kihez és miért kötődik a karakter (csapattárs, rokon, régi ismerős). Később is pótolható.">
+    <${Szakasz} cim="Kötelékek" segit="kotelekek" sugo="Kihez és miért kötődik a karakter (csapattárs, rokon, régi ismerős). Később is pótolható.">
       ${kotelekek.map((k, i) => html`<div key=${i} className="valasztas valasztas--fix verem">
         ${csapat.length ? html`<${Valaszto} label="Csapattárs" value=${csapat.includes(k.nev) ? k.nev : ''} ures="Más (írd be lent)" onChange=${(v) => kotelek(i, 'nev', v)}
           opciok=${csapat.map((n) => ({ value: n, label: n }))}/>` : null}
@@ -689,9 +750,9 @@ function NevCelok({ adat, valtoztat, kampany }) {
 }
 
 // ================= 10. Összegzés =================
-function Osszegzes({ adat, valtoztat, lap, ixMind, dm, ugras }) {
-  const figy = lap.figyelmeztetesek.filter((f) => f.szint === 'figyelmeztetes');
-  const info = lap.figyelmeztetesek.filter((f) => f.szint !== 'figyelmeztetes');
+function Osszegzes({ adat, valtoztat, lap, lapKesz, ixMind, dm, ugras }) {
+  const figy = lapKesz.figyelmeztetesek.filter((f) => f.szint === 'figyelmeztetes');
+  const info = lapKesz.figyelmeztetesek.filter((f) => f.szint !== 'figyelmeztetes');
   const beirt = (adat.dobasok || []).filter((d) => d.kezi);
   const elfogad = (kulcs, be) => valtoztat((a) => { const s = new Set(a.elfogadott || []); be ? s.add(kulcs) : s.delete(kulcs); a.elfogadott = [...s]; });
   const nyitott = figy.filter((f) => !f.elfogadott).length;
