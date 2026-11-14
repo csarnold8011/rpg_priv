@@ -2,7 +2,8 @@
 // Egy figyelmeztetés: { kod, targy, uzenet, lepes, szint: figyelmeztetes | info, elfogadott }.
 // A DM elfogadottnak jelölheti (adat.elfogadott: ['kod:targy']), ilyenkor szürkén marad.
 import { szam, reszletek, tartomanyban } from './szabalyindex.js';
-import { TULAJDONSAGOK, tulajdonsagDobasbol, fokozatSzam } from './tablak.js';
+import { TULAJDONSAGOK, tulajdonsagDobasbol, fokozatSzam, fokozatNev } from './tablak.js';
+import { fokozatVarazslatok } from './magia.js';
 
 export function gyujto(adat) {
   const elfogadott = new Set(adat.elfogadott || []);
@@ -103,16 +104,21 @@ export function ellenorzes(adat, ix, lap, k) {
   szintSzamok.forEach((n, i) => { if (n !== i + 1) f('szint_sorrend', String(n), 'A szintek nem folytonosak 1-től.', 'szintlepes'); });
   const elsodleges = or.elsodleges || [];
   const masodlagos = or.masodlagos || [];
+  // A hiányzó döntéseket kész karakternél jelezzük, és a szintlépés-varázslóban lezárt (vagy lezárásra kész) szintnél.
+  const szintKesz = (s) => kesz || s.kesz === true;
+  const forrasok0 = adat.keszites.forrasok || [];
+  const arkDb = {}; // arkánum → fokozat az adott szintig
   adat.szintek.forEach((s) => {
     const n = s.szint;
     const lepes = n === 1 ? 'osztaly' : 'szintlepes';
     const kapott = s.kapott || [];
+    const sk = szintKesz(s);
     if (n >= 2 && osztaly) {
       const kell = n % 2 === 0 ? elsodleges : masodlagos;
       const nev = n % 2 === 0 ? 'elsődleges' : 'másodlagos';
-      if (!s.fejlesztes) { if (kesz) f('fejlesztes_hianyzik', String(n), `${n}. szint: nincs kiválasztva a tulajdonság-fejlesztés.`, lepes); }
+      if (!s.fejlesztes) { if (sk) f('fejlesztes_hianyzik', String(n), `${n}. szint: nincs kiválasztva a tulajdonság-fejlesztés.`, lepes); }
       else if (kell.length && !kell.includes(s.fejlesztes)) f('fejlesztes_tipus', String(n), `${n}. szint: a fejlesztés ${nev} tulajdonságra jár (${tulNev(ix, s.fejlesztes)} nem az).`, lepes);
-      if (!s.fokusz) { if (kesz) f('szint_fokusz_hianyzik', String(n), `${n}. szint: nincs kiválasztva az új fókusz.`, lepes); }
+      if (!s.fokusz) { if (sk) f('szint_fokusz_hianyzik', String(n), `${n}. szint: nincs kiválasztva az új fókusz.`, lepes); }
       else {
         const fe = ix.elem('Fókuszok', s.fokusz);
         if (fe && kell.length && !kell.includes(fe.tulajdonsag)) f('szint_fokusz_tipus', String(n), `${n}. szint: a fókusz ${nev} tulajdonsághoz kell, hogy tartozzon (${fe.nev_hu} nem az).`, lepes);
@@ -125,16 +131,16 @@ export function ellenorzes(adat, ix, lap, k) {
       if (kp.tipus === 'talentum_valasztas') {
         const db = szam(kp.valasztando, 1);
         const valasztott = van('talentum', kp.valaszthato);
-        if (valasztott.length > db || (kesz && valasztott.length < db)) f('kezdo_talentum', String(n), `${n}. szint, ${kp.nev_hu}: ${db} választandó a felsoroltak közül (most ${valasztott.length}).`, lepes);
+        if (valasztott.length > db || (sk && valasztott.length < db)) f('kezdo_talentum', String(n), `${n}. szint, ${kp.nev_hu}: ${db} választandó a felsoroltak közül (most ${valasztott.length}).`, lepes);
         (kp.kotelezo || []).forEach((id) => { if (!van('talentum', [id]).length) f('kotelezo_talentum', id, `${n}. szint: ${elemNev(ix, 'Talentumok', id)} Kezdő fokozata jár, de nincs felvéve.`, lepes); });
-      } else if (kesz && kp.tipus === 'talentum' && !van('talentum').length) f('szint_kepesseg_hianyzik', n + ':talentum', `${n}. szint: hiányzik az új talentum.`, lepes);
-      else if (kesz && kp.tipus === 'magikus_talentum' && !van('arkanum').length) f('szint_kepesseg_hianyzik', n + ':arkanum', `${n}. szint: hiányzik az új mágikus talentum (arkánum).`, lepes);
-      else if (kesz && (kp.tipus === 'specializacio' || kp.tipus === 'specializacio_fokozat') && !van('specializacio').length) f('szint_kepesseg_hianyzik', n + ':specializacio', `${n}. szint: hiányzik: ${kp.nev_hu}.`, lepes);
-      else if (kesz && kp.tipus === 'fegyvercsoport' && !van('fegyvercsoport').length) f('szint_kepesseg_hianyzik', n + ':fegyvercsoport', `${n}. szint: hiányzik az új fegyvercsoport.`, lepes);
+      } else if (sk && kp.tipus === 'talentum' && !van('talentum').length) f('szint_kepesseg_hianyzik', n + ':talentum', `${n}. szint: hiányzik az új talentum.`, lepes);
+      else if (sk && kp.tipus === 'magikus_talentum' && !van('arkanum').length) f('szint_kepesseg_hianyzik', n + ':arkanum', `${n}. szint: hiányzik az új mágikus talentum (arkánum).`, lepes);
+      else if (sk && (kp.tipus === 'specializacio' || kp.tipus === 'specializacio_fokozat') && !van('specializacio').length) f('szint_kepesseg_hianyzik', n + ':specializacio', `${n}. szint: hiányzik: ${kp.nev_hu}.`, lepes);
+      else if (sk && kp.tipus === 'fegyvercsoport' && !van('fegyvercsoport').length) f('szint_kepesseg_hianyzik', n + ':fegyvercsoport', `${n}. szint: hiányzik az új fegyvercsoport.`, lepes);
       else if (kp.tipus === 'fokusz_valasztas') {
         const v = van('fokusz');
         if (v.some((x) => kp.valaszthato && !kp.valaszthato.includes(x.id))) f('osztaly_fokusz', String(n), `${n}. szint: a fókusz nem a felsoroltak közül való.`, lepes);
-        if (kesz && !v.length) f('szint_kepesseg_hianyzik', n + ':fokusz', `${n}. szint: hiányzik az osztály által adott fókusz.`, lepes);
+        if (sk && !v.length) f('szint_kepesseg_hianyzik', n + ':fokusz', `${n}. szint: hiányzik az osztály által adott fókusz.`, lepes);
       }
     });
     // Mágus 1. szint: két mágikus talentum (arkánum) és a hozzájuk tartozó varázslatok.
@@ -144,6 +150,14 @@ export function ellenorzes(adat, ix, lap, k) {
       if (ark.length > 2 || (kesz && ark.length < 2)) f('magus_arkanum', '1', `Mágus 1. szint: két mágikus talentummal (arkánummal) kezd (most ${ark.length}).`, 'osztaly');
       const kellVar = ark.reduce((a, x) => a + szam(((reszletek(ix.elem('Arkánumok', x.id)).valasztas || {})['Kezdő'] || {}).db, 2), 0);
       if (vars.length > kellVar || (kesz && vars.length < kellVar)) f('magus_varazslat', '1', `Mágus 1. szint: ${kellVar} varázslat jár (most ${vars.length}).`, 'osztaly');
+    }
+    // Szintlépés: az arkánum új fokozatához járó varázslatok száma (Companion: választható, Alapkönyv: fix).
+    const ujArk = kapott.filter((x) => x.tipus === 'arkanum');
+    ujArk.forEach((x) => { arkDb[x.id] = (arkDb[x.id] || 0) + 1; });
+    if (n >= 2 && ujArk.length) {
+      const kellVar = ujArk.reduce((a, x) => a + fokozatVarazslatok(ix, x.id, fokozatNev(arkDb[x.id]) || 'Mester', forrasok0).db, 0);
+      const db = kapott.filter((x) => x.tipus === 'varazslat').length;
+      if (db > kellVar || (sk && db < kellVar)) f('szint_varazslat', String(n), `${n}. szint: az arkánum új fokozatához ${kellVar} varázslat jár (most ${db}).`, lepes);
     }
   });
 

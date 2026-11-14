@@ -29,7 +29,7 @@ const forrasMeta = (e) => [e.forras, e.oldal ? Math.round(szam(e.oldal)) + '. o.
 export const SUGO = {
   forrasok: ['Források', 'Melyik könyvek elemei közül választhatsz (fajok, hátterek, talentumok, varázslatok). Az Alapkönyv az alap. A Companion bővítés: új fajok, háttércsoportok, és a mágusnak választható kezdő varázslatok. Kampányban a DM dönti el, mi aktív.'],
   modszer: ['Tulajdonság-módszer', 'Így dől el a kilenc tulajdonság kezdőértéke. Sorban dobás: a legvéletlenebb, a kocka formálja a karaktert. Elrendezés: dobsz, de te döntöd el, melyik érték hová kerül. Vásárlás: nincs szerencse, 10 pontot osztasz el, kiegyensúlyozottabb karakter.'],
-  szint: ['Kezdő szint', 'Hányadik szinten kezd a karakter. Kampány elején általában az 1. Magasabb szintnél a varázsló után szintenként jön a fejlődés (Egészség, új képességek).'],
+  szint: ['Kezdő szint', 'Hányadik szinten kezd a karakter. Kampány elején általában az 1. Magasabb szintnél a Kész után a szintlépés-varázsló szintenként végigvezet a kívánt szintig (Egészség, tulajdonság, fókusz, új képességek).'],
   koncepcio: ['Koncepció', 'Egy-két mondat arról, ki a karakter. Segít a további döntéseknél (faj, háttér, osztály), és a DM is ebből tud kalandot szőni köré.'],
   tulajdonsag: ['Tulajdonságok', 'A karakter kilenc alapképessége. 1. szinten általában −2 és +4 között. Próbánál 3d6 + a tulajdonság (+2, ha illik egy fókusz) a célérték ellen. A 0 átlagos, az 1–2 jó, a 3–4 kiemelkedő.'],
   tabla: ['3d6 → kezdő érték', 'A három kocka összegéből a táblázat adja a tulajdonság kezdőértékét: 3 → −2, 4–5 → −1, 6–8 → 0, 9–11 → +1, 12–14 → +2, 15–17 → +3, 18 → +4.'],
@@ -141,7 +141,7 @@ function Keret({ adat, valtoztat, lapok, dm, karakter, kampany, extra, ugras }) 
       <div className="valasztasok">${MODSZEREK.map((x) => html`<${Valasztas} key=${x.m} nev=${x.nev} meta="" leiras=${x.leiras}
         valasztott=${adat.keszites.modszer === x.m} onClick=${() => modszer(x.m)}/>`)}</div>
     <//>
-    <${Valaszto} label=${html`Kezdő szint${S('szint')}`} hint="Magasabb szintnél a varázsló után a szintlépés jön (hamarosan)."
+    <${Valaszto} label=${html`Kezdő szint${S('szint')}`} hint="Magasabb szintnél a Kész után a szintlépés jön, szintenként."
       value=${String(adat.keszites.cel_szint || 1)} onChange=${(v) => valtoztat((a) => { a.keszites.cel_szint = Number(v) || 1; })}
       opciok=${Array.from({ length: 20 }, (_, i) => ({ value: String(i + 1), label: (i + 1) + '. szint' }))}/>
     ${modszerKerdes ? html`<${Megerosites} cim="Módszer cseréje" gomb="Csere" veszelyes=${true}
@@ -770,11 +770,11 @@ function Osszegzes({ adat, valtoztat, lap, lapKesz, ixMind, dm, ugras }) {
       ${beirt.length ? html`<${Uzenet} tonus="neutral">ⓘ Kézzel beírt dobások: ${beirt.length} (a karakter készítési naplójában látszanak).<//>` : null}
       ${info.filter((f) => f.kod !== 'kezi_modosito').map((f) => html`<${Uzenet} key=${f.kulcs} tonus="neutral">ⓘ ${f.uzenet}<//>`)}
     <//>
-    ${(adat.keszites.cel_szint || 1) > 1 ? html`<${Uzenet} tonus="neutral">ⓘ A kezdő szint ${adat.keszites.cel_szint}. A szintlépés-varázsló a következő fejlesztési lépésben jön, addig a karakter 1. szinten marad.<//>` : null}`;
+    ${(adat.keszites.cel_szint || 1) > lap.szint ? html`<${Uzenet} tonus="neutral">ⓘ A kezdő szint ${adat.keszites.cel_szint}. A Kész után a szintlépés-varázsló jön: a ${lap.szint + 1}. szinttől szintenként öt rövid lépés a(z) ${adat.keszites.cel_szint}. szintig.<//>` : null}`;
 }
 
 // ================= Élő karakterlap-előnézet =================
-export function Elonezet({ adat, lap, ix, cimNelkul, teljes }) {
+export function Elonezet({ adat, lap, ix, cimNelkul, teljes, figyHol = 'az Összegzésben' }) {
   const elozo = useRef(null);
   const [friss, setFriss] = useState([]);
   useEffect(() => {
@@ -827,7 +827,7 @@ export function Elonezet({ adat, lap, ix, cimNelkul, teljes }) {
       ${celok.length ? html`<p className="kicsi" style=${{ margin: 0 }}><strong>Célok:</strong> ${celok.map((c) => (c.tipus === 'rovid' ? 'rövid távon: ' : 'hosszú távon: ') + c.szoveg).join('; ')}</p>` : null}
       ${(adat.alap.kotelekek || []).filter((k) => k.nev).length ? html`<p className="kicsi" style=${{ margin: 0 }}><strong>Kötelékek:</strong> ${adat.alap.kotelekek.filter((k) => k.nev).map((k) => k.nev + (k.leiras ? ' (' + k.leiras + ')' : '')).join('; ')}</p>` : null}
     ` : null}
-    ${!teljes && nyitott ? html`<${Uzenet} tonus="warning">${nyitott} figyelmeztetés, lásd az Összegzésben.<//>` : null}
+    ${!teljes && nyitott ? html`<${Uzenet} tonus="warning">${nyitott} figyelmeztetés, lásd ${figyHol}.<//>` : null}
   </div>`;
 }
 
@@ -835,3 +835,6 @@ export const LEPES_KOMPONENSEK = {
   keret: Keret, koncepcio: Koncepcio, tulajdonsagok: Tulajdonsagok, faj: Faj, hatter: Hatter,
   osztaly: Osztaly, felszereles: Felszereles, szamitott: Szamitott, nev: NevCelok, osszegzes: Osszegzes
 };
+
+// A szintlépés-varázsló (szintlepes_lepesek.js) is ezeket használja.
+export { Valasztas, Csip, Kapcsolo, Szakasz, Kereso, keresIllik, rovid, forrasMeta, elemNev, tulNev, TulNev, S as SugoGomb, TUL_NEV };

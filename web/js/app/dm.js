@@ -6,10 +6,11 @@ import {
 } from './kozos.js';
 import {
   useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, megjelenitettNev,
-  KeszitesGomb, UjKampanyKarakter
+  KeszitesGomb, SzintlepesGomb, UjKampanyKarakter
 } from './jatek.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo } from './varazslo.js';
+import { SzintlepesVarazslo } from './szintlepes.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -71,6 +72,12 @@ export function DmFelulet({ ut }) {
           return v.karakter;
         } }}
         onValtozott=${(c) => dm.karakterFrissit(c)}/>
+    <//>`;
+  }
+  // A szintlépés-varázsló is a teljes képernyőt kapja.
+  if (oldal === 'karakter' && azon && ut[2] === 'szintlepes') {
+    return html`<${DmKontextus.Provider} value=${dm}>
+      <${SzintlepesVarazslo} key=${azon} id=${azon} lepes=${ut[3]} birodalom="dm" onValtozott=${(c) => dm.karakterFrissit(c)}/>
     <//>`;
   }
   let tartalom;
@@ -478,6 +485,7 @@ function KarakterOldal({ id }) {
         <${KarakterFejlec} karakter=${c}/>
         ${c.aktiv === false ? html`<${K.Badge} tone="warning">⚠ Archivált<//>` : null}
         <${KeszitesGomb} karakter=${c} alap=${'/dm/karakter/' + c.id}/>
+        <${SzintlepesGomb} karakter=${c} alap=${'/dm/karakter/' + c.id}/>
       <//>
       <div className="ket-hasab">
         <${KarakterLap} karakter=${c}/>

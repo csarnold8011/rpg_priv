@@ -3,9 +3,10 @@ import {
   html, K, useApp, useState, useEffect, temaBeallitasa, useLekeres, useMuvelet, navigal, Ikon, Betoltes, Uzenet, Parbeszed,
   TemaKapcsolo, SzinkronJelzo, HibaVagyBetoltes, indulasLekerese
 } from './kozos.js';
-import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, KeszitesGomb, UjKampanyKarakter } from './jatek.js';
+import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, KeszitesGomb, SzintlepesGomb, UjKampanyKarakter } from './jatek.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo, taroltKampanyok } from './varazslo.js';
+import { SzintlepesVarazslo } from './szintlepes.js';
 
 export function JatekosFelulet({ ut }) {
   const { felhasznalo, kilepes } = useApp();
@@ -15,6 +16,9 @@ export function JatekosFelulet({ ut }) {
   // A karakterkészítő varázsló a teljes képernyőt kapja.
   if (oldal === 'karakter' && azon && ut[2] === 'keszites') {
     return html`<${KarakterVarazslo} key=${azon} id=${azon} lepes=${ut[3]} birodalom="jatekos" kampanyok=${taroltKampanyok(felhasznalo.id)}/>`;
+  }
+  if (oldal === 'karakter' && azon && ut[2] === 'szintlepes') {
+    return html`<${SzintlepesVarazslo} key=${azon} id=${azon} lepes=${ut[3]} birodalom="jatekos"/>`;
   }
   let tartalom;
   if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon}/>`;
@@ -135,7 +139,7 @@ function KarakterOldal({ id }) {
       <div className="oldalfej">
         <h1 className="oldalcim">${c.nev}</h1>
         <${KarakterFejlec} karakter=${c}/>
-        <div className="gombsor"><${KeszitesGomb} karakter=${c} alap=${'/jatekos/karakter/' + c.id}/></div>
+        <div className="gombsor"><${KeszitesGomb} karakter=${c} alap=${'/jatekos/karakter/' + c.id}/><${SzintlepesGomb} karakter=${c} alap=${'/jatekos/karakter/' + c.id}/></div>
       </div>
       <${KarakterLap} karakter=${c}/>`}
     <//>

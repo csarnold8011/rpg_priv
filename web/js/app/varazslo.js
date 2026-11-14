@@ -9,12 +9,13 @@ import { karakterSzamol, szamitottKivonat } from '../karakter/szamol.js';
 import { atallit } from '../karakter/adat.js';
 import { index } from '../karakter/szabalyindex.js';
 import { LEPESEK, lepesSzam, lepesFigyelmeztetesek, szurtLapok, elerhetoForrasok, kulcsmezokFrissit } from '../karakter/varazslo.js';
+import { szintlepesIndit, lezartSzint, felkeszSzint } from '../karakter/szintlepes.js';
 import { LEPES_KOMPONENSEK, Elonezet } from './varazslo_lepesek.js';
 
 const lemasol = (x) => JSON.parse(JSON.stringify(x));
 
 // A karakter adatainak helyi példánya és a mentés. Mentés: lépésváltáskor, kilépéskor és a végén.
-function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
+export function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
   const { sync, uzen } = useApp();
   const [adat, setAdat] = useState(() => atallit(karakter.adat || {}));
   const adatRef = useRef(adat);
@@ -103,7 +104,7 @@ function useVarazsloAdat(karakter, lapok, beallitKarakter, onValtozott) {
   return { adat, valtoztat, ment, allapot, utkozes, sajatMarad, masikBetolt };
 }
 
-function MentesJel({ allapot }) {
+export function MentesJel({ allapot }) {
   const { sync } = useApp();
   const [online, setOnline] = useState(sync.status().online);
   useEffect(() => sync.subscribe((e) => { if (e.tipus === 'statusz') setOnline(e.statusz.online); }), [sync]);
@@ -181,12 +182,25 @@ function VarazsloTest({ karakter, beallitKarakter, lepes, lapok, alap, dm, kampa
   const elozo = n > 0 ? LEPESEK[n - 1].kulcs : null;
   const kovetkezo = n < LEPESEK.length - 1 ? LEPESEK[n + 1].kulcs : null;
   const kilepes = async () => { await ment(); navigal(alap); };
+  // Magasabb kezdő szintnél a Kész után a szintlépés-varázsló jön, szintenként a kívánt szintig.
+  const celSzint = adat.keszites.cel_szint || 1;
+  const szintlepesJon = celSzint > lezartSzint(adat) || !!felkeszSzint(adat);
   const kesz = async () => {
-    valtoztat((a) => { a.keszites.allapot = 'kesz'; a.keszites.lepes = null; a.keszites.elert = LEPESEK.length - 1; });
+    let szintlepes = false;
+    valtoztat((a) => {
+      a.keszites.allapot = 'kesz'; a.keszites.lepes = null; a.keszites.elert = LEPESEK.length - 1;
+      if ((a.keszites.cel_szint || 1) > lezartSzint(a) || felkeszSzint(a)) szintlepes = !!szintlepesIndit(a, a.keszites.cel_szint || 1);
+    });
     const ok = await ment();
     if (ok !== false) {
-      uzen((adat.nev || 'A karakter') + ' elkészült.' + ((adat.keszites.cel_szint || 1) > 1 ? ' A szintlépés-varázsló hamarosan érkezik, addig 1. szinten marad.' : ''));
-      navigal(alap);
+      const nev = adat.nev || 'A karakter';
+      if (szintlepes) {
+        uzen(`${nev} elkészült 1. szinten. Jöhet a szintlépés a(z) ${celSzint}. szintig.`);
+        navigal(alap + '/szintlepes/egeszseg');
+      } else {
+        uzen(nev + ' elkészült.');
+        navigal(alap);
+      }
     }
   };
 
@@ -210,7 +224,7 @@ function VarazsloTest({ karakter, beallitKarakter, lepes, lapok, alap, dm, kampa
   </ul>`;
   const tovabbGomb = kovetkezo
     ? html`<${K.Button} variant="primary" size="lg" onClick=${() => ugras(kovetkezo)}>Tovább<//>`
-    : html`<${K.Button} variant="primary" size="lg" onClick=${kesz}>Kész<//>`;
+    : html`<${K.Button} variant="primary" size="lg" onClick=${kesz}>${szintlepesJon ? 'Kész, jöhet a szintlépés' : 'Kész'}<//>`;
 
   return html`<div className="varazslo">
     <header className="varazslo__fej">

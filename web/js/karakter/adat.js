@@ -6,6 +6,8 @@ import { SEMA_VERZIO, TULAJDONSAGOK } from './tablak.js';
 // Egy szint döntései. A kapott elemek: { tipus, id }, ahol a tipus:
 // talentum, arkanum, specializacio, varazslat, fokusz, fegyvercsoport.
 // Egy talentum (arkánum, specializáció) fokozata a kapott bejegyzések száma (1 = Kezdő).
+// A szintlépés-varázsló által nyitott szint `kesz: false`, a lezárásakor `kesz: true` (az 1. szintnél és az
+// átvett karakterek régi szintjeinél nincs ilyen mező).
 export function uresSzint(szint) {
   return { szint, egeszseg_dobas: null, mp_dobas: null, fejlesztes: null, fokusz: null, kapott: [] };
 }
@@ -68,7 +70,7 @@ export function normalizal(adat) {
     .map((s) => Object.assign(uresSzint(Number(s.szint) || 1), s, { kapott: Array.isArray(s.kapott) ? s.kapott : [] }))
     .sort((a, b) => a.szint - b.szint);
   ki.sema = SEMA_VERZIO;
-  ki.szint = ki.szintek[ki.szintek.length - 1].szint;
+  ki.szint = kulcsmezok(ki).szint;
   return ki;
 }
 
@@ -115,9 +117,9 @@ export function atallit(regi) {
   return uj;
 }
 
-// A kulcsmezők a döntésekből: a szint a legmagasabb kitöltött szint.
+// A kulcsmezők a döntésekből: a szint a legmagasabb lezárt szint (a félbehagyott szintlépés nem számít).
 export function kulcsmezok(adat) {
-  const szintek = (adat && adat.szintek) || [];
+  const szintek = ((adat && adat.szintek) || []).filter((s) => s.kesz !== false);
   const szint = szintek.length ? Math.max(...szintek.map((s) => Number(s.szint) || 1)) : 1;
   return { nev: adat.nev || '', faj: adat.faj || '', osztaly: adat.osztaly || '', szint };
 }

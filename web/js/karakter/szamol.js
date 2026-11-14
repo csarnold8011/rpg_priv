@@ -27,13 +27,20 @@ function tulajdonsagNevbol(ix, nev) {
   return t ? t.id : null;
 }
 
-export function karakterSzamol(nyers, lapok) {
+// opciok.felkesz: a félbehagyott (kesz: false) szintlépés is számít. Alapból nem: a karakterlap csak a lezárt
+// szinteket mutatja, a szintlépés-varázsló élő előnézete kéri a félkész szinttel együtt.
+export function karakterSzamol(nyers, lapok, opciok = {}) {
   const adat = atallit(nyers);
+  const felkesz = adat.szintek.find((s) => s.kesz === false) || null;
+  if (!opciok.felkesz) adat.szintek = adat.szintek.filter((s) => s.kesz !== false);
   const ix = index(lapok);
   const f0 = gyujto(adat);
-  // Az átvett (korábbi szerkezetű) karakternél nincsenek szintenkénti dobások, ezek hiányát nem jelezzük.
+  // Az átvett (korábbi szerkezetű) karakternél a régi szintekhez nincsenek dobások, ezek hiányát nem jelezzük;
+  // az átvétel után szintlépéssel hozzáadott szintekét igen (keszites.atvett_szint: az átvételkori szint).
   const atvett = adat.keszites.allapot === 'atvett';
-  const f = Object.assign((kod, ...m) => (atvett && kod === 'hianyzo_dobas' ? undefined : f0(kod, ...m)), { lista: f0.lista });
+  const atvettSzint = atvett ? szam(adat.keszites.atvett_szint, Infinity) : 0;
+  const f = Object.assign((kod, targy, ...m) => (atvett && kod === 'hianyzo_dobas' && szam(String(targy).split(':')[1], 1) <= atvettSzint
+    ? undefined : f0(kod, targy, ...m)), { lista: f0.lista });
 
   const faj = ix.elem('Fajok', adat.faj);
   const fr = reszletek(faj);
@@ -171,25 +178,25 @@ export function karakterSzamol(nyers, lapok) {
     const akv = tulErtek('tul_willpower');
     if (n === 1) {
       if (or.kezdo_egeszseg) {
-        eg.push({ ertek: szam(or.kezdo_egeszseg.alap), eredet: 'Osztály: ' + nevE(osztaly) });
-        eg.push({ ertek: szv, eredet: 'Szívósság (1. szint)' });
-        eg.push({ ertek: szam(s.egeszseg_dobas), eredet: 'Dobás (1. szint)' });
+        eg.push({ ertek: szam(or.kezdo_egeszseg.alap), eredet: 'Osztály: ' + nevE(osztaly), szint: 1 });
+        eg.push({ ertek: szv, eredet: 'Szívósság (1. szint)', szint: 1 });
+        eg.push({ ertek: szam(s.egeszseg_dobas), eredet: 'Dobás (1. szint)', szint: 1 });
         if (s.egeszseg_dobas === null || s.egeszseg_dobas === undefined) f('hianyzo_dobas', 'egeszseg:1', 'Hiányzik a kezdő Egészség dobása (1d6).', 'osztaly');
       }
       if (magus) {
-        mp.push({ ertek: mpAlap, eredet: 'Mágikus képzés' }, { ertek: akv, eredet: 'Akaraterő (1. szint)' }, { ertek: szam(s.mp_dobas), eredet: 'Dobás (1. szint)' });
+        mp.push({ ertek: mpAlap, eredet: 'Mágikus képzés', szint: 1 }, { ertek: akv, eredet: 'Akaraterő (1. szint)', szint: 1 }, { ertek: szam(s.mp_dobas), eredet: 'Dobás (1. szint)', szint: 1 });
         if (s.mp_dobas === null || s.mp_dobas === undefined) f('hianyzo_dobas', 'mp:1', 'Hiányzik a kezdő Mágiapont dobása (1d6).', 'osztaly');
       }
     } else {
       if (n <= 10) {
-        eg.push({ ertek: szam(s.egeszseg_dobas) + szv, eredet: `${szov}: dobás ${szam(s.egeszseg_dobas)} + Szívósság ${szv}` });
+        eg.push({ ertek: szam(s.egeszseg_dobas) + szv, eredet: `${szov}: dobás ${szam(s.egeszseg_dobas)} + Szívósság ${szv}`, szint: n });
         if (s.egeszseg_dobas === null || s.egeszseg_dobas === undefined) f('hianyzo_dobas', 'egeszseg:' + n, `Hiányzik az Egészség dobása (${szov}).`, 'szintlepes');
-      } else eg.push({ ertek: Math.max(1, szv), eredet: `${szov}: Szívósság (legalább 1)` });
+      } else eg.push({ ertek: Math.max(1, szv), eredet: `${szov}: Szívósság (legalább 1)`, szint: n });
       if (magus) {
         if (n <= 10) {
-          mp.push({ ertek: szam(s.mp_dobas) + akv, eredet: `${szov}: dobás ${szam(s.mp_dobas)} + Akaraterő ${akv}` });
+          mp.push({ ertek: szam(s.mp_dobas) + akv, eredet: `${szov}: dobás ${szam(s.mp_dobas)} + Akaraterő ${akv}`, szint: n });
           if (s.mp_dobas === null || s.mp_dobas === undefined) f('hianyzo_dobas', 'mp:' + n, `Hiányzik a Mágiapont dobása (${szov}).`, 'szintlepes');
-        } else mp.push({ ertek: akv, eredet: `${szov}: Akaraterő` });
+        } else mp.push({ ertek: akv, eredet: `${szov}: Akaraterő`, szint: n });
       }
       if (s.fejlesztes && tul[s.fejlesztes]) {
         const t = s.fejlesztes;
@@ -261,14 +268,20 @@ export function karakterSzamol(nyers, lapok) {
     } else if (k.cel.startsWith('fok_')) fokuszAd(k.cel, eredet, 1, ertek >= 3 ? 3 : undefined);
     else if (k.cel.startsWith('fcs_')) csoportAd(k.cel, eredet);
     else if (kezi[k.cel]) {
-      if (k.mod === 'felulir') felulir[k.cel] = { ertek, eredet: eredet + ' (felülírás)' };
+      // A felülírás `szint` mezője: addig a szintig érvényes (átvett karakter), a későbbi szintek gyarapodása hozzáadódik.
+      if (k.mod === 'felulir') felulir[k.cel] = { ertek, eredet: eredet + ' (felülírás)', szint: k.szint ? szam(k.szint) : null };
       else kezi[k.cel].push({ ertek, eredet });
     }
     f('kezi_modosito', String(i), `Kézi módosító: ${k.cel} ${k.mod === 'felulir' ? '= ' : (ertek >= 0 ? '+' : '')}${ertek}${k.megjegyzes ? ' (' + k.megjegyzes + ')' : ''}.`, 'karakterlap', 'info');
   });
   const vegso = (kulcs, reszek) => {
     const r = reszek.concat(kezi[kulcs] || []);
-    if (felulir[kulcs]) return { ertek: felulir[kulcs].ertek, reszek: [felulir[kulcs]], szamolt: ertekBol(r) };
+    const fe = felulir[kulcs];
+    if (fe && fe.szint) {
+      const utana = r.filter((x) => x.szint > fe.szint);
+      return { ertek: fe.ertek + ertekBol(utana), reszek: [fe].concat(utana), szamolt: ertekBol(r) };
+    }
+    if (fe) return { ertek: fe.ertek, reszek: [fe], szamolt: ertekBol(r) };
     return { ertek: ertekBol(r), reszek: r };
   };
 
@@ -400,6 +413,7 @@ export function karakterSzamol(nyers, lapok) {
   if (lap.magiapont) lap.magiapont.aktualis = adat.allapot.magiapont === null || adat.allapot.magiapont === undefined ? lap.magiapont.ertek : szam(adat.allapot.magiapont);
 
   lap.sotetlatas = sotetlatas;
+  lap.felkesz_szint = felkesz ? felkesz.szint : null;
   ellenorzes(adat, ix, lap, { f, faj, fr, osztaly, or, hatter, magus, talentumFokozat });
   lap.figyelmeztetesek = f.lista();
   return lap;

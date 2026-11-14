@@ -1,6 +1,6 @@
 // A DM és a játékos felület közös játékelemei: kampány élő állapota, dobás, dobásnapló, karakterlap.
 import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Jelolo, Ikon, idopont, elojel, SZEREP_NEV, tarOlvas, tarIr, gyorsKulcs, navigal, Parbeszed, useMuvelet } from './kozos.js';
-import { uresKarakter } from '../karakter/adat.js';
+import { uresKarakter, atallit, kulcsmezok } from '../karakter/adat.js';
 import { megjelenitettNev } from '../szabalyok.js';
 import { karakterSzamol } from '../karakter/szamol.js';
 
@@ -176,6 +176,26 @@ export function KeszitesGomb({ karakter, alap }) {
   return html`<${K.Button} variant=${piszkozat ? 'primary' : 'secondary'} onClick=${() => navigal(ut)}>${piszkozat ? 'Karakterkészítés folytatása' : 'Karakterkészítő megnyitása'}<//>`;
 }
 
+// Folyamatban lévő szintlépés (a félkész szint), vagy null.
+export function felkeszSzintE(karakter) {
+  const a = karakter && karakter.adat;
+  const sz = a && Array.isArray(a.szintek) ? a.szintek.find((s) => s.kesz === false) : null;
+  return sz ? sz.szint : null;
+}
+
+// A karakterlap fejlécébe: szintlépés indítása (egy szint), vagy a félbehagyott folytatása.
+// Bárki indíthatja, aki a karaktert szerkesztheti; a Fejlődés modul (XP) később erre épül.
+export function SzintlepesGomb({ karakter, alap }) {
+  if (!karakter || karakter.irhato === false || !karakter.adat || piszkozatE(karakter)) return null;
+  const a = atallit(karakter.adat);
+  if (!a.osztaly) return null;
+  const fk = felkeszSzintE({ adat: a });
+  const lezart = kulcsmezok(a).szint;
+  if (!fk && lezart >= 20) return null;
+  const lepes = fk && a.szintlepes && a.szintlepes.lepes ? '/' + a.szintlepes.lepes : '';
+  return html`<${K.Button} variant=${fk ? 'primary' : 'secondary'} onClick=${() => navigal(alap + '/szintlepes' + lepes)}>${fk ? `Szintlépés folytatása (${fk}. szint)` : `Szintlépés: ${lezart + 1}. szint`}<//>`;
+}
+
 // Új karakter egy kampányba (DM, mesterjátékos): név, létrehozás, utána a varázsló.
 export function UjKampanyKarakter({ kampanyId, onLetrejott, nagy }) {
   const { api } = useApp();
@@ -209,6 +229,7 @@ export function KarakterFejlec({ karakter, jatekosNev }) {
   const osztaly = elemNev(szabalyok, 'Osztályok', karakter.osztaly);
   return html`<div className="cimkek">
     ${piszkozatE(karakter) ? html`<${K.Badge} tone="warning">Piszkozat<//>` : null}
+    ${felkeszSzintE(karakter) ? html`<${K.Badge} tone="warning">Szintlépés folyamatban<//>` : null}
     ${faj ? html`<${K.Badge}>${faj}<//>` : null}
     ${osztaly ? html`<${K.Badge}>${osztaly}${karakter.szint ? ', ' + karakter.szint + '. szint' : ''}<//>` : null}
     ${jatekosNev !== undefined ? html`<span className="halvany kicsi">${jatekosNev ? 'Játékos: ' + jatekosNev : 'Játékos nélkül'}</span>` : null}
@@ -235,6 +256,7 @@ export function KarakterLap({ karakter, oszlopok }) {
     <${K.Panel} title="Tulajdonságok">
       ${ures ? html`<${Uzenet} tonus="warning">A tulajdonságokat, a fajt és az osztályt a karakterkészítő tölti ki.<//>` : null}
       ${adat.keszites && adat.keszites.allapot === 'piszkozat' && !ures ? html`<${Uzenet} tonus="neutral">Piszkozat: a karakterkészítés még nem fejeződött be.<//>` : null}
+      ${lap.felkesz_szint ? html`<${Uzenet} tonus="neutral">ⓘ A(z) ${lap.felkesz_szint}. szint szintlépése folyamatban: a lapon a lezárása után számít.<//>` : null}
       <${K.AbilityGrid} abilities=${kepessegek} columns=${oszlopok || 3}/>
     <//>
     <${K.Panel} title="Erőforrások">

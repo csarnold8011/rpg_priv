@@ -5,6 +5,7 @@ import { szam, reszletek, tartomanyban, index, altalanos } from './szabalyindex.
 import { TULAJDONSAGOK, tulajdonsagDobasbol, tarsadalmiOsztalyDobasbol, kezdoPenzRez, fokozatSzam } from './tablak.js';
 import { uresSzint, kulcsmezok } from './adat.js';
 import { kezdoCsomag } from './felszereles.js';
+import { fokozatVarazslatok } from './magia.js';
 
 // ---- Lépések ----
 export const LEPESEK = [
@@ -278,15 +279,7 @@ export function elofeltetelek(elem, lap, ix) {
 // Mágus: egy arkánum kezdő varázslatai. Ha a választási szabály forrása (Companion) aktív, a felsoroltakból
 // `db` választható; különben a fix varázslatok (az Alapkönyvből származó Kezdő varázslatok) járnak.
 export function kezdoVarazslatok(ix, arkanumId, forrasok) {
-  const r = reszletek(ix.elem('Arkánumok', arkanumId));
-  const v = (r.varazslatok || {})['Kezdő'] || ix.lista('Varázslatok').filter((x) => x.arkanum === arkanumId && x.fokozat === 'Kezdő').map((x) => x.id);
-  const letezo = v.filter((id) => ix.elem('Varázslatok', id));
-  const szabalyForras = r.valasztas_forras || 'Companion';
-  const valaszthato = !forrasok || !forrasok.length || forrasok.includes(szabalyForras);
-  const db = szam(((r.valasztas || {})['Kezdő'] || {}).db, 2);
-  if (valaszthato) return { valaszthato: true, db, lista: letezo };
-  const fix = letezo.filter((id) => (ix.elem('Varázslatok', id) || {}).forras === 'Alapkönyv');
-  return { valaszthato: false, db: fix.length, lista: fix };
+  return fokozatVarazslatok(ix, arkanumId, 'Kezdő', forrasok);
 }
 // Arkánumok cseréje: a kivett arkánum varázslatai is kikerülnek, a fix varázslatok automatikusan bekerülnek.
 export function arkanumokBeallit(adat, ix, arkanumIdk, forrasok) {

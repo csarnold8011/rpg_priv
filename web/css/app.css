@@ -432,3 +432,32 @@ a.kartya .kartya__cim { color: var(--accent); }
   padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-raised); border: 1px solid var(--line-strong);
   box-shadow: var(--shadow-overlay); font: 400 15px/22px var(--font-sans); color: var(--ink); text-align: left; white-space: normal; }
 .sugo__cim { display: block; margin-bottom: var(--space-1); font-weight: 700; }
+
+/* ---- Szintlépés-varázsló (a karakterkészítő keretét használja: szintsor, öt szakaszos lépéssáv,
+        laptopon a szintek és a nyitott szint lépései) ---- */
+.szintsor { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: var(--space-1); font-family: var(--font-sans); }
+.szintsor__cim { font: 700 13px/16px var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); margin-right: var(--space-1); }
+.szintpont { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 26px; padding: 0 var(--space-2);
+  border-radius: var(--radius-pill); border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink);
+  font: 700 13px/1 var(--font-sans); font-variant-numeric: tabular-nums lining-nums; }
+.szintpont--kesz { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.szintpont--most { background: var(--accent-soft); border: 2px solid var(--accent); color: var(--accent); }
+.szegmensek--ot { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.lepeslista__szint { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; font: 500 16px/20px var(--font-sans); color: var(--ink); }
+.lepeslista__szint--most { color: var(--accent); font-weight: 700; }
+.lepeslista--al { padding-left: var(--space-5); }
+.lepeslista--al button { min-height: 36px; font-size: 15px; }
+.lepeslista--al .lepeslista__pont { width: 20px; height: 20px; font-size: 12px; }
+.valt { font: 800 20px/28px var(--font-sans); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; color: var(--ink); }
+.valt small { font-weight: 500; font-size: 15px; color: var(--ink-muted); }
+.valt .uj { color: var(--accent); }
+.csik { display: block; height: 6px; margin-top: var(--space-2); border-radius: var(--radius-pill); background: var(--surface-sunken);
+  border: 1px solid var(--line); overflow: hidden; }
+.csik > span { display: block; height: 100%; background: var(--accent); }
+.valtlista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-family: var(--font-sans); }
+.valtlista li { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); padding: 10px 0;
+  border-bottom: 1px solid var(--line); font-size: 16px; line-height: 22px; }
+.valtlista li strong { text-align: right; font-variant-numeric: tabular-nums lining-nums; }
+.valtlista .uj { color: var(--accent); }
+.szintlepes .tabla--rovid { max-width: 360px; }
+.szintlepes .tabla--rovid caption { caption-side: top; }
