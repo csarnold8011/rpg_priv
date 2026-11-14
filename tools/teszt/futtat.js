@@ -114,6 +114,7 @@ ellenoriz(hivas('roll.list', { karakter_id: morg.id }, annaT).dobasok.some(d => 
 
 v = hivas('roll.update', { id: 'dobas-2', mutatvanyok: [{ id: 'mut_skirmish', mp: 2, db: 1 }, { id: 'mut_threaten', mp: 1 }] }, bencT);
 ellenoriz(v.ok && v.dobas.reszletek.mutatvanyok.length === 2 && v.dobas.reszletek.osszetevok.length === 1, 'roll.update: mutatványok a dobáshoz, a többi részlet marad', v);
+ellenoriz(hivas('roll.update', { id: 'dobas-2', mutatvanyok: [{ id: 'mut_threaten', mp: 1 }], plusz: [{ ertek: 1, eredet: 'Gengszter (Haladó)' }] }, bencT).dobas.reszletek.mp_plusz[0].ertek === 1, 'roll.update: a plusz Mutatványpont forrása is rögzül');
 ellenoriz(hivas('roll.update', { id: 'dobas-2', mutatvanyok: [] }, annaT).ok, 'a mesterjátékos is rögzíthet mutatványt');
 ellenoriz(hivas('roll.update', { id: 'dobas-2', felfedve: true }, bencT).hiba === 'nincs_jogosultsag', 'felfedni csak a DM tud');
 v = hivas('roll.log', { kampany_id: kampany.id, mire: 'Őr észlelése', kockak: [5, 5, 5], rejtett: true, id: 'dobas-rejtett' }, dm);

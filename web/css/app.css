@@ -515,3 +515,30 @@ a.kartya .kartya__cim { color: var(--accent); }
 .proba__hova { margin: 0; }
 .proba__eredmeny { display: flex; flex-direction: column; gap: var(--space-2); background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-md); padding: var(--space-4); }
+
+/* ---- Mutatványválasztó (a Próba lapon, a dobás alatt) ---- */
+.mutatvany { border-top: 1px solid var(--line); padding-top: var(--space-3); }
+.mutatvany__fej { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.mutatvany__maradt { font-family: var(--font-sans); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.mutatvany__maradt--tul { color: var(--danger); }
+.mutatvany__pluszok { display: flex; flex-direction: column; gap: var(--space-1); }
+.mutatvany__pluszok p { margin: 0; }
+.mutatvany__kezi { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.mutatvany__fulek { overflow-x: auto; }
+.mutatvany__fulek .kapcsolo { display: flex; flex-wrap: wrap; width: 100%; }
+.mutatvany__fulek .kapcsolo button { flex: 1 1 auto; }
+.mutatvany__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.mutatvany-kartya { border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); background: var(--surface-raised);
+  display: flex; flex-direction: column; gap: var(--space-1); }
+.mutatvany-kartya--valasztott { border-color: var(--dragon-ink); box-shadow: inset 3px 0 0 var(--dragon); }
+.mutatvany-kartya__fej { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.mutatvany-kartya__nev { font-weight: 700; }
+.mutatvany-kartya__ar { white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.mutatvany-kartya__kedv { margin: 0; color: var(--success); }
+.mutatvany-kartya__leiras { margin: 0; }
+.mutatvany-kartya__lab { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.mutatvany__kosar { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.mutatvany__tetel { cursor: default; background: var(--surface); border: 1px solid var(--dragon-ink); }
+.mutatvany__hibak { margin: 0; padding-left: var(--space-4); color: var(--warning); }
+.mutatvany__osszegzes { margin: 0; }
+.naplo__mutatvanyok { margin: var(--space-1) 0 0; color: var(--dragon-ink); }

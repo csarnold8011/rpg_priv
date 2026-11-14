@@ -3,7 +3,8 @@
 //   ProbaUrlap: a lap tartalma (beágyazható, például a kampány Dobás paneljébe)
 //   ProbaLap:   ugyanez párbeszédablakban (telefonon alsó lap)
 //   useProbaNaplo: naplózás a szinkronrétegen át (a karakterlapnak, ahol nincs kampánynézet)
-import { html, K, useApp, useState, Parbeszed, Jelolo, Valaszto, Sugo, elojel } from './kozos.js';
+import { html, K, useApp, useState, useMemo, Parbeszed, Jelolo, Valaszto, Sugo, elojel } from './kozos.js';
+import { MutatvanyValaszto } from './mutatvanyvalaszto.js';
 import { Kockadobo } from './kockadobo.js';
 import { Kapcsolo } from './varazslo_lepesek.js';
 import { taroltKampanyok } from './varazslo.js';
@@ -26,11 +27,16 @@ export function useProbaNaplo() {
 }
 
 // kezdet: { cim, tul, fokusz, fokuszok (kért fókuszok), modositok: [{ ertek, eredet }], celertek, celertek_rejtett,
-//           hosszuTav, hosszuBuntetes, megjegyzes, tipus: 'alap' | 'tamadas' | 'varazslas', mp_ar, proba_id }
-// karakter: { id, nev } vagy null (szabad dobás), kampany: { id, cim } vagy null (a karakter dobásai közé)
+//           hosszuTav, hosszuBuntetes, megjegyzes, tipus: 'alap' | 'tamadas' | 'varazslas', mp_ar, proba_id,
+//           fegyver: { id, csoport, ketkezes, tavolsagi } (támadásnál), kepesseg: 'arkanloves' }
+// karakter: { id, nev } vagy null (szabad dobás), kampany: { id, cim, beallitasok } vagy null (a karakter dobásai közé)
 // naploz(dobas): a dobás naplózása; onMpLevon(ar): varázslási próba után a Mágiapont levonása
-export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLevon, rejtettLehet }) {
-  const { felhasznalo } = useApp();
+// forrasok: aktív források a mutatványokhoz; valasztasok, onValasztas: a karakter mutatványdöntései (mentés)
+export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLevon, rejtettLehet, forrasok, valasztasok, onValasztas }) {
+  const { felhasznalo, sync, uzen, szabalyok } = useApp();
+  const lapok = szabalyok && szabalyok.adat && szabalyok.adat.lapok;
+  const [mutNyitva, setMutNyitva] = useState(false);
+  const [mutKesz, setMutKesz] = useState(null); // { mutatvanyok, plusz } a rögzített választás
   const [tul, setTul] = useState(kezdet.tul || 'tul_accuracy');
   const kertFokusz = kezdet.fokusz && lap.fokuszok[kezdet.fokusz] ? kezdet.fokusz : P.fokuszAjanlas(lap, kezdet.fokuszok, kezdet.tul);
   const [fok, setFok] = useState(kertFokusz || '');
@@ -48,11 +54,23 @@ export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLe
   const ossz = P.probaOsszeallit(lap, { tul, fokusz: fok, modositok });
   const celSzam = kezdet.celertek_rejtett ? kezdet.celertek : (cel === '' ? undefined : parseInt(cel, 10));
   const celIsmert = !kezdet.celertek_rejtett && Number.isFinite(celSzam);
-  const uj = () => { setDobasok([]); setMpLevonva(false); };
+  const uj = () => { setDobasok([]); setMpLevonva(false); setMutNyitva(false); setMutKesz(null); };
+  const fegyver = kezdet.fegyver;
+  const kontextus = useMemo(() => ({
+    tipus: kezdet.tipus || 'alap', tul, fokusz: fok || undefined, kepesseg: kezdet.kepesseg,
+    ...(fegyver ? { fegyver: fegyver.id, fegyvercsoport: fegyver.csoport, ketkezes: !!fegyver.ketkezes, tamadas: fegyver.tavolsagi ? 'tavolsagi' : 'kozelharci' } : {}),
+    ...(kezdet.kepesseg === 'arkanloves' ? { tamadas: 'tavolsagi' } : {})
+  }), [kezdet.tipus, tul, fok, kezdet.kepesseg, fegyver]);
+  const mutatvanyKesz = (v) => {
+    setMutKesz(v); setMutNyitva(false);
+    if (naploz && utolso) sync.push({ action: 'roll.update', adat: { id: utolso.dobas.id, mutatvanyok: v.mutatvanyok, plusz: v.plusz } })
+      .catch((e) => uzen('A mutatványok nem kerültek a naplóba: ' + e.message, 'danger'));
+  };
   const utolso = dobasok[dobasok.length - 1] || null;
 
   const dob = (kockak, beirt) => {
     const ert = P.probaKiertekel(kockak, ossz.bonusz, { celertek: celIsmert ? celSzam : undefined });
+    setMutNyitva(false); setMutKesz(null);
     const d = P.naploDobas({
       kampany_id: kampany && kampany.id, karakter_id: karakter && karakter.id,
       mire: kezdet.cim || P.probaNev(lap, tul, fok), kockak, osszeallitas: ossz, kiertekeles: ert,
@@ -89,6 +107,17 @@ export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLe
     ${rejtettLehet ? html`<${Jelolo} checked=${rejtett} onChange=${setRejtett}>Rejtett dobás (a játékosok nem látják)<//>` : null}
     <${Kockadobo} db=${3} kockak=${null} felirat=${utolso ? 'Újradobás' : 'Dobj 3d6-tal'} onDobas=${dob}/>
     ${utolso ? html`<${ProbaEredmeny} d=${utolso} celIsmert=${celIsmert} celSzam=${celSzam} ujradobva=${dobasok.length > 1}/>` : null}
+    ${utolso && utolso.ert.mutatvanypont && lapok && !mutNyitva && !mutKesz ? html`<div className="gombsor">
+      <${K.Button} variant="primary" onClick=${() => setMutNyitva(true)}>${utolso.ert.mutatvanypont} Mutatványpont elköltése<//>
+      <span className="halvany kicsi">Azonnal el kell költeni.</span>
+    </div>` : null}
+    ${utolso && mutNyitva ? html`<${MutatvanyValaszto} key=${utolso.dobas.id} lapok=${lapok} lap=${lap} pont=${utolso.ert.mutatvanypont}
+      kontextus=${kontextus} forrasok=${forrasok} beallitas=${kampany && kampany.beallitasok} valasztasok=${valasztasok || {}}
+      onValasztas=${onValasztas} kezdo=${mutKesz} onKesz=${mutatvanyKesz} onMegse=${() => setMutNyitva(false)}/>` : null}
+    ${mutKesz && !mutNyitva ? html`<div className="gombsor">
+      <p className="mutatvany__osszegzes">✓ ${mutKesz.mutatvanyok.length ? mutKesz.mutatvanyok.map((m) => `${m.nev}${m.db > 1 ? ' × ' + m.db : ''} (${m.mp})`).join(', ') : 'Nem költöttél pontot.'}</p>
+      <${K.Button} size="sm" variant="quiet" onClick=${() => setMutNyitva(true)}>Módosítás<//>
+    </div>` : null}
     ${utolso && kezdet.mp_ar && onMpLevon ? html`<div className="gombsor">
       <${K.Button} size="sm" variant=${mpLevonva ? 'quiet' : 'primary'} disabled=${mpLevonva}
         onClick=${() => { onMpLevon(kezdet.mp_ar); setMpLevonva(true); }}>${mpLevonva ? `✓ ${kezdet.mp_ar} MP levonva` : `−${kezdet.mp_ar} MP levonása`}<//>
@@ -106,8 +135,6 @@ function ProbaEredmeny({ d, celIsmert, celSzam, ujradobva }) {
       ${ert.eredmeny === '' ? 'Siker vagy kudarc: a DM dönt. ' : ''}
       ${dobas.kezi ? 'Beírt kockák. ' : ''}${ujradobva ? 'Újradobás (a napló az előzőt is őrzi). ' : ''}
     </p>
-    ${ert.mutatvanypont ? html`<p className="sugo kicsi">${ert.mutatvanypont} Mutatványpont jár, azonnal el kell költeni.
-      <${Sugo} cim="Mutatványpont">Sikeres próbán, ha bármely két kocka egyezik, annyi pont jár, amennyi a sárkánykockán áll. Egy mutatvány körönként egyszer választható. Felfedezési és szerepjátékos mutatványt a DM engedélyével.<//></p>` : null}
   </div>`;
 }
 

@@ -49,6 +49,9 @@ export function uresKarakter(o = {}) {
     elfogadott: [],
     // A készítés dobásai: { mire, kockak, kezi, idopont }.
     dobasok: [],
+    // Játék közbeni döntések: a mutatványkezelő választásai (Előadóművészet, Mulatozás, totem, Legendás típus),
+    // kulcs: a hatás `kulcs` mezője (például 'tal_performance:kezdo', 'legendas'), érték: a választott lehetőség.
+    jatek: { mutatvany_valasztasok: {} },
     // Gyorsítótár a listákhoz és a háttérhez; a felület mindig újraszámol.
     szamitott: {}
   };
@@ -60,7 +63,7 @@ const lemasol = (x) => JSON.parse(JSON.stringify(x));
 export function normalizal(adat) {
   const alap = uresKarakter();
   const ki = Object.assign(alap, lemasol(adat || {}));
-  ['keszites', 'alap', 'tulajdonsag_keszites', 'faj_dontes', 'hatter', 'osztaly_dontes', 'felszereles', 'allapot'].forEach((k) => {
+  ['keszites', 'alap', 'tulajdonsag_keszites', 'faj_dontes', 'hatter', 'osztaly_dontes', 'felszereles', 'allapot', 'jatek'].forEach((k) => {
     ki[k] = Object.assign(uresKarakter()[k], (adat && adat[k]) || {});
   });
   ki.tulajdonsag_alap = Object.assign(uresKarakter().tulajdonsag_alap, (adat && adat.tulajdonsag_alap) || {});

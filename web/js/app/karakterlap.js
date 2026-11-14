@@ -187,9 +187,16 @@ function ProbaAblak({ lap, kezdet, onBezar, karakter, adat, irhato, dm, valtozta
   const kampany = useKarakterKampanya(karakter);
   const naploz = useProbaNaplo();
   const mpLevon = valtoztat && lap.magiapont ? (ar) => valtoztat((d) => { d.allapot.magiapont = Math.max(0, lap.magiapont.aktualis - ar); }) : null;
+  const valasztasok = (adat.jatek && adat.jatek.mutatvany_valasztasok) || {};
+  const onValasztas = valtoztat ? (kulcs, ertek) => valtoztat((d) => {
+    d.jatek = d.jatek || {};
+    d.jatek.mutatvany_valasztasok = { ...(d.jatek.mutatvany_valasztasok || {}), [kulcs]: ertek };
+  }) : null;
+  const forrasok = (kampany && kampany.aktiv_forrasok && kampany.aktiv_forrasok.length ? kampany.aktiv_forrasok : (adat.keszites && adat.keszites.forrasok)) || [];
   return html`<${ProbaLap} lap=${lap} kezdet=${kezdet} onBezar=${onBezar}
     karakter=${{ id: karakter.id, nev: adat.nev || karakter.nev }} kampany=${kampany}
-    naploz=${irhato ? naploz : null} rejtettLehet=${dm && !!kampany} onMpLevon=${mpLevon}/>`;
+    naploz=${irhato ? naploz : null} rejtettLehet=${dm && !!kampany} onMpLevon=${mpLevon}
+    forrasok=${forrasok} valasztasok=${valasztasok} onValasztas=${onValasztas}/>`;
 }
 
 function Tulajdonsagok(p) {
@@ -220,6 +227,7 @@ function Fegyverek(p) {
   const tobbi = lap.fegyverek.filter((w) => !w.felszerelve);
   const sor = (w) => html`<li key=${w.id} className="sorlista__sor">
     <button type="button" className="sorgomb-teljes" onClick=${() => setProba({ tul: w.tulajdonsag, fokusz: w.fokusz, tipus: 'tamadas',
+      fegyver: { id: w.id, csoport: w.csoport, ketkezes: w.ketkezes, tavolsagi: w.tavolsagi },
       modositok: w.ismert ? [] : [{ ertek: -2, eredet: 'Nem ismert fegyvercsoport' }],
       hosszuTav: w.hosszu_tav, hosszuBuntetes: w.hosszu_buntetes,
       cim: 'Támadás: ' + w.nev_hu, megjegyzes: `Sebzés: ${w.sebzes}${w.hatotav ? ', hatótáv ' + w.hatotav : ''}.`
@@ -229,9 +237,21 @@ function Fegyverek(p) {
       <span className="fegyver-ertek"><span>${elojel(w.tamadas)}</span><span className="halvany kicsi">${w.sebzes}</span></span>
     </button>
   </li>`;
-  if (!lap.fegyverek.length) return null;
+  // Arkánlövés (mágus, 1. szint): Pontosság (Arkánlövés), 16 yard, 1d6 + Akaraterő; mutatvány lehetséges.
+  const arkan = lap.kepessegek.some((k) => k.nev_en === 'Arcane Blast');
+  const arkanFok = lap.fokuszok.fok_accuracy_arcane_blast ? 'fok_accuracy_arcane_blast' : null;
+  const arkanTamadas = (lap.tulajdonsagok.tul_accuracy ? lap.tulajdonsagok.tul_accuracy.ertek : 0) + (arkanFok ? lap.fokuszok[arkanFok].bonusz : 0);
+  const akarat = lap.tulajdonsagok.tul_willpower ? lap.tulajdonsagok.tul_willpower.ertek : 0;
+  const arkanSor = arkan ? html`<li key="arkan" className="sorlista__sor">
+    <button type="button" className="sorgomb-teljes" onClick=${() => setProba({ tul: 'tul_accuracy', fokusz: arkanFok, tipus: 'tamadas', kepesseg: 'arkanloves',
+      cim: 'Arkánlövés', megjegyzes: `Sebzés: 1d6${akarat ? ' ' + elojel(akarat) : ''}, hatótáv 16 yard. Az arkán eszköznek a kezedben kell lennie.` })}>
+      <span><strong>Arkánlövés</strong><br/><span className="halvany kicsi">mágikus távolsági támadás · 16 yard</span></span>
+      <span className="fegyver-ertek"><span>${elojel(arkanTamadas)}</span><span className="halvany kicsi">1d6${akarat ? elojel(akarat) : ''}</span></span>
+    </button>
+  </li>` : null;
+  if (!lap.fegyverek.length && !arkan) return null;
   return html`<${K.Panel} title="Fegyverek">
-    <ul className="sorlista">${felszerelt.map(sor)}</ul>
+    <ul className="sorlista">${arkanSor}${felszerelt.map(sor)}</ul>
     ${tobbi.length ? html`<details className="lenyilo"><summary>Nincs a kezében (${tobbi.length})</summary><ul className="sorlista">${tobbi.map(sor)}</ul></details>` : null}
     <p className="sugo kicsi" style=${{ margin: '8px 0 0' }}>Koppints egy fegyverre a támadópróbához. A kézben lévőket a Felszerelésnél állíthatod.</p>
     ${proba ? html`<${ProbaAblak} ...${p} kezdet=${proba} onBezar=${() => setProba(null)}/>` : null}

@@ -74,13 +74,16 @@ export function DobasPanel({ allapot, naploz, dm, nagy }) {
   const kar = dobhato.find((c) => c.id === karakterId) || null;
   const lapok = szabalyok && szabalyok.adat && szabalyok.adat.lapok;
   const lap = useMemo(() => (kar && lapok ? karakterSzamol(atallit(kar.adat || {}), lapok) : null), [kar, lapok]);
-  const kampany = { id: allapot.kampany.id, cim: allapot.kampany.cim };
+  const kampany = { id: allapot.kampany.id, cim: allapot.kampany.cim, beallitasok: allapot.kampany.beallitasok };
+  const forrasok = (allapot.kampany.aktiv_forrasok && allapot.kampany.aktiv_forrasok.length ? allapot.kampany.aktiv_forrasok
+    : kar && kar.adat && kar.adat.keszites && kar.adat.keszites.forrasok) || [];
   const opciok = dobhato.map((c) => ({ value: c.id, label: c.nev }));
   return html`<div className="dobas verem">
     ${opciok.length ? html`<${Valaszto} label="Ki dob" value=${karakterId} onChange=${setKarakterId}
       opciok=${opciok} ures=${dm ? 'A DM (szabad dobás)' : 'Szabad dobás'}/>` : null}
     ${lap ? html`<${ProbaUrlap} key=${kar.id} lap=${lap} karakter=${{ id: kar.id, nev: kar.nev }} kampany=${kampany}
-        naploz=${naploz} rejtettLehet=${dm}/>`
+        naploz=${naploz} rejtettLehet=${dm} forrasok=${forrasok}
+        valasztasok=${(kar.adat && kar.adat.jatek && kar.adat.jatek.mutatvany_valasztasok) || {}}/>`
       : html`<${SzabadDobas} allapot=${allapot} naploz=${naploz} dm=${dm} nagy=${nagy}/>`}
   </div>`;
 }
@@ -128,6 +131,14 @@ function SzabadDobas({ allapot, naploz, dm, nagy }) {
   </div>`;
 }
 
+// Az elköltött mutatványok a dobás alatt: „Hatalmas csapás (1), Helyezkedés (2) · +1 Gengszter (Haladó)”.
+function mutatvanyokSzoveg(d) {
+  const r = d && d.reszletek && typeof d.reszletek === 'object' ? d.reszletek : {};
+  const m = (r.mutatvanyok || []).map((x) => `${x.nev || x.id}${x.db > 1 ? ' × ' + x.db : ''} (${x.mp})`).join(', ');
+  const p = (r.mp_plusz || []).map((x) => `+${x.ertek} ${x.eredet}`).join(', ');
+  return [m, p].filter(Boolean).join(' · ');
+}
+
 export function DobasNaplo({ dobasok, karakterek, dm, max = 30 }) {
   const nevek = {};
   (karakterek || []).forEach((c) => { nevek[c.id] = c.nev; });
@@ -152,6 +163,7 @@ export function DobasNaplo({ dobasok, karakterek, dm, max = 30 }) {
           ${Number(d.mutatvanypont) ? html`<${K.Badge} tone="dragon">${d.mutatvanypont} mutatványpont<//>` : null}
           ${dm && d.rejtett ? html`<${K.Badge}>Rejtett<//>` : null}
         </div>
+        ${mutatvanyokSzoveg(d) ? html`<p className="naplo__mutatvanyok kicsi">${mutatvanyokSzoveg(d)}</p>` : null}
       </li>`;
     })}
   </ol>`;

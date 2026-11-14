@@ -1579,7 +1579,8 @@ function probahozDobas_(proba, dobas, a, szerep) {
   proba.allas = allas;
 }
 
-// action: roll.update   adat: { id, mutatvanyok?: [{ id, mp, db }], felfedve?: true }
+// action: roll.update   adat: { id, mutatvanyok?: [{ id, mp, db, nev }], plusz?: [{ ertek, eredet }], felfedve?: true }
+// A plusz a képességekből járó további Mutatványpont (Gengszter, Legendás, egy társ Lelkesítése).
 // A mutatványokat a dobó (vagy a DM, mesterjátékos) rögzítheti, felfedni csak a DM tud.
 function dobasModositasa_(a, felh) {
   if (!a.id) throw hiba_('hianyzo_adat', 'Hiányzik a dobás azonosítója.');
@@ -1598,6 +1599,9 @@ function dobasModositasa_(a, felh) {
       if (!Array.isArray(a.mutatvanyok)) throw hiba_('hibas_adat', 'A mutatványok listája hibás.');
       reszletek.mutatvanyok = a.mutatvanyok.slice(0, 20).map(function (m) {
         return { id: String(m.id || ''), mp: Number(m.mp) || 0, db: Number(m.db) || 1, nev: m.nev ? String(m.nev).slice(0, 80) : undefined };
+      });
+      if (Array.isArray(a.plusz)) reszletek.mp_plusz = a.plusz.slice(0, 10).map(function (x) {
+        return { ertek: Number(x.ertek) || 0, eredet: String(x.eredet || '').slice(0, 80) };
       });
     }
     dobas.reszletek = reszletek;
