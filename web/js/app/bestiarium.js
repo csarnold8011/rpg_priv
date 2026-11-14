@@ -16,7 +16,8 @@ const elemNev = (lapok, lap, id) => megjelenitettNev(((lapok && lapok[lap]) || [
 const fenyegetesTonus = (f) => ({ 'Csekély': undefined, 'Mérsékelt': 'accent', 'Komoly': 'warning', 'Súlyos': 'danger', 'Legendás': 'dragon' }[f]);
 
 // ut: ['bestiarium', id?]
-export function BestiariumOldal({ azon, Oldalfej }) {
+// onMasolat(sor): a „Másolat az NJK-tárba” gomb (a DM felület nyitja az új NJK párbeszédét).
+export function BestiariumOldal({ azon, Oldalfej, onMasolat }) {
   const { szabalyok } = useApp();
   const lapok = szabalyok.adat && szabalyok.adat.lapok;
   const sorok = (lapok && lapok['Szörnyek']) || [];
@@ -80,19 +81,24 @@ export function BestiariumOldal({ azon, Oldalfej }) {
         </ul>
       </div>
       <div>
-        ${valasztott ? html`<${Statblokk} key=${valasztott.id} sor=${valasztott} lapok=${lapok}/>`
+        ${valasztott ? html`<${Statblokk} key=${valasztott.id} sor=${valasztott} lapok=${lapok}
+            muveletek=${onMasolat ? html`<${K.Button} size="sm" variant="secondary" onClick=${() => onMasolat(valasztott)}>Másolat az NJK-tárba<//>` : null}/>`
           : html`<${K.Panel} title="Statblokk"><p className="halvany">Válassz egy lényt a listából.</p><//>`}
       </div>
     </div>
   </div>`;
 }
 
-// Egy szörny statblokkja. Az erősítés előnézete a DM-nek: a kiosztás az NJK-tár szerkesztőjében lesz (2. ütem).
-export function Statblokk({ sor, lapok }) {
+// Egy lény statblokk-kártyája. sor: a Szörnyek lap sora (bestiárium), vagy nezet és r: egy NJK számolt nézete és
+// statblokkja (NJK-tár). naplo: { kampany, njk: { id, nev }, naploz, rejtettLehet } a naplózott próbához (NJK);
+// nélküle a próba nem kerül naplóba. muveletek: további gombok a kártya fejlécébe. leiras: a rövid leírás.
+export function Statblokk({ sor, lapok, nezet, r: rKulso, naplo, muveletek, leiras, cimNelkul }) {
   const [proba, setProba] = useState(null);
-  const n = useMemo(() => LN.lenyNezet({ tipus: 'szorny', sor }, lapok), [sor, lapok]);
+  const szamolt = useMemo(() => (nezet ? null : LN.lenyNezet({ tipus: 'szorny', sor }, lapok)), [sor, lapok, nezet]);
+  const n = nezet || szamolt;
   if (!n) return null;
-  const r = typeof sor.reszletek === 'string' ? JSON.parse(sor.reszletek || '{}') : (sor.reszletek || {});
+  const r = rKulso || (sor ? (typeof sor.reszletek === 'string' ? JSON.parse(sor.reszletek || '{}') : (sor.reszletek || {})) : {});
+  sor = sor || {};
   const mozgas = n.sebesseg.mozgas.map((m) => `${MOZGAS_NEV[m.tipus] || m.tipus} ${m.ertek}`).join(', ');
   const tamadasProba = (t) => setProba({
     tipus: 'tamadas', tul: t.tulajdonsag || 'tul_fighting', fokusz: t.fokusz || '', cim: `${n.nev}: ${t.nev_hu}`,
@@ -107,18 +113,22 @@ export function Statblokk({ sor, lapok }) {
   const felszereles = r.felszereles_megjegyzes || (r.felszereles || []).map((f) => (f.id ? elemNev(lapok, f.id.startsWith('fgy_') ? 'Fegyverek' : f.id.startsWith('pan_') ? 'Páncélok' : 'Felszerelés', f.id) : f.nev_en)).join(', ');
   const modositok = n.mutatvany_ar_modositok;
 
-  return html`<${K.Panel} title=${n.nev} actions=${html`<${K.Button} size="sm" onClick=${() => setProba({ tul: 'tul_perception', cim: n.nev + ': próba' })}>Próba érte<//>`}>
+  const fejGombok = html`${muveletek || null}<${K.Button} size="sm" onClick=${() => setProba({ tul: 'tul_perception', cim: n.nev + ': próba' })}>Próba érte<//>`;
+  return html`<${K.Panel} title=${cimNelkul ? undefined : n.nev} actions=${cimNelkul ? undefined : html`<div className="gombsor gombsor--szoros">${fejGombok}</div>`}>
     <div className="verem statblokk">
+      ${cimNelkul ? html`<div className="gombsor gombsor--szoros">${fejGombok}</div>` : null}
       <div>
         ${n.nev_en && n.nev_en !== n.nev ? html`<p className="halvany kicsi statblokk__en">${n.nev_en}${r.mas_nevek ? ' · ' + r.mas_nevek : ''}</p>` : null}
         <div className="cimkek">
           ${n.fenyegetes ? html`<${K.Badge} tone=${fenyegetesTonus(n.fenyegetes)}>${n.fenyegetes}<//>` : null}
           ${n.csoport ? html`<${K.Badge}>${n.csoport}<//>` : null}
           ${n.leny_tipus === 'NJK' ? html`<${K.Badge}>NJK<//>` : null}
-          <${K.Badge} tone="accent">${sor.forras}${sor.oldal ? ', ' + Math.round(sor.oldal) + '. o.' : ''}<//>
+          ${n.erosites ? html`<${K.Badge} tone="dragon">${n.erosites.nev}<//>` : null}
+          ${n.nem_harcolo ? html`<${K.Badge}>nem harcoló<//>` : null}
+          ${sor.forras ? html`<${K.Badge} tone="accent">${sor.forras}${sor.oldal ? ', ' + Math.round(sor.oldal) + '. o.' : ''}<//>` : null}
         </div>
         ${r.fenyegetes_megjegyzes ? html`<p className="halvany kicsi">${r.fenyegetes_megjegyzes}</p>` : null}
-        ${sor.leiras_hu ? html`<p className="szoveg">${sor.leiras_hu}</p>` : null}
+        ${(leiras || sor.leiras_hu) ? html`<p className="szoveg">${leiras || sor.leiras_hu}</p>` : null}
       </div>
 
       <dl className="ka-abilities tul-racs statblokk__tul">${TULAJDONSAGOK.map((t) => {
@@ -201,7 +211,8 @@ export function Statblokk({ sor, lapok }) {
       </details>` : null}
       ${r.megjegyzes ? html`<p className="sugo kicsi">${r.megjegyzes}</p>` : null}
     </div>
-    ${proba ? html`<${ProbaLap} lap=${n} kezdet=${proba} karakter=${null} kampany=${null} onBezar=${() => setProba(null)}
+    ${proba ? html`<${ProbaLap} lap=${n} kezdet=${proba} karakter=${null} kampany=${naplo ? naplo.kampany : null} onBezar=${() => setProba(null)}
+      njk=${naplo ? naplo.njk : null} naploz=${naplo ? naplo.naploz : undefined} rejtettLehet=${naplo ? naplo.rejtettLehet : false}
       forrasok=${undefined} valasztasok=${{}}/>` : null}
   <//>`;
 }

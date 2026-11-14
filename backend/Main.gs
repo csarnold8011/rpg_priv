@@ -17,6 +17,7 @@ function muveletek_() {
     'character.save':          { fn: karakterMentese_ },
     'character.assign':        { fn: karakterTarsitasa_, szerep: 'dm' },
     'character.archive':       { fn: karakterArchivalasa_, szerep: 'dm' },
+    'character.npc':           { fn: karakterNjkJelzo_, szerep: 'dm' },
     'character.delete':        { fn: karakterTorlese_, szerep: 'dm' },
     'character.xp':            { fn: karakterXp_, szerep: 'dm' },
     'character.image.set':     { fn: karakterKepBeallitasa_ },
@@ -33,7 +34,13 @@ function muveletek_() {
     'test.request':            { fn: probaKerese_ },
     'test.update':             { fn: probaModositasa_ },
     'test.close':              { fn: probaLezarasa_ },
-    'share.send':              { fn: megosztasKuldese_, szerep: 'dm' }
+    'share.send':              { fn: megosztasKuldese_, szerep: 'dm' },
+    'npc.list':                { fn: njkLista_, szerep: 'dm' },
+    'npc.get':                 { fn: njkLekerese_ },
+    'npc.save':                { fn: njkMentese_, szerep: 'dm' },
+    'npc.archive':             { fn: njkArchivalasa_, szerep: 'dm' },
+    'npc.delete':              { fn: njkTorlese_, szerep: 'dm' },
+    'npc.image.set':           { fn: njkKepBeallitasa_, szerep: 'dm' }
     // 'ai.ask': a 4. fejlesztési lépésben
   };
 }

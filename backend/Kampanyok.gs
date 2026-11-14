@@ -94,6 +94,8 @@ function kampanyModositasa_(a, felh) {
 
 // action: campaign.addCharacter (DM)   adat: { kampany_id, karakter_id, allapot? }
 // allapot: aktív, távol, kilépett, elhunyt. Ha a karakter már a kampányban van, csak az állapota változik.
+// Egy karakter egyszerre csak egy kampányban aktív: ha itt aktív lesz, a többi kampányában, ahol aktív
+// volt, „kilépett” állapotba kerül (a válasz kileptetve listája mutatja, hol).
 function kampanyhozRendeles_(a, felh) {
   return zarolva_(function () {
     const k = kornyezet_();
@@ -107,9 +109,20 @@ function kampanyhozRendeles_(a, felh) {
     } else {
       sorHozzaadasa_('jatek', 'Kampánykarakterek', { kampany_id: a.kampany_id, karakter_id: a.karakter_id, allapot: allapot, csatlakozott: most_() });
     }
-    kampanyVerziokNovelese_([a.kampany_id], k.kampanyok);
+    const kileptetve = [];
+    if (allapot === 'aktív') {
+      k.kapcsolatok.forEach(function (x) {
+        if (x.karakter_id !== a.karakter_id || x.kampany_id === a.kampany_id) return;
+        if ((x.allapot || 'aktív') !== 'aktív') return;
+        x.allapot = 'kilépett';
+        sorFrissitese_('jatek', 'Kampánykarakterek', x);
+        kileptetve.push(x.kampany_id);
+        valtozasNaplozasa_(felh, 'kampany.karakter:kilépett (másik kampányban aktív)', a.karakter_id, '', x.kampany_id);
+      });
+    }
+    kampanyVerziokNovelese_([a.kampany_id].concat(kileptetve), k.kampanyok);
     valtozasNaplozasa_(felh, 'kampany.karakter:' + allapot, a.karakter_id, '', a.kampany_id);
-    return {};
+    return { kileptetve: kileptetve };
   });
 }
 
@@ -170,7 +183,9 @@ function allapotLekerese_(a, felh) {
       return d;
     });
 
-  const megosztasok = sorok_('jatek', 'Megosztások')
+  const osszesMegosztas = sorok_('jatek', 'Megosztások');
+  const njkk = kampanyNjkjai_(kampany, felh, k, osszesMegosztas);
+  const megosztasok = osszesMegosztas
     .filter(function (m) { return m.kampany_id === kampany.id; })
     .filter(function (m) { return mindentLat || m.cimzett === 'mindenki' || sajatKarakterek.indexOf(m.cimzett) >= 0; })
     .map(function (m) { delete m._sor; return m; });
@@ -181,7 +196,8 @@ function allapotLekerese_(a, felh) {
     karakterek: karakterek,
     dobasok: dobasok,
     probak: probak,
-    megosztasok: megosztasok
+    megosztasok: megosztasok,
+    njkk: njkk
   };
 }
 

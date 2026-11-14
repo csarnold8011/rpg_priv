@@ -120,7 +120,9 @@ export function statblokkNezet(statblokk, lapok, opciok = {}) {
   const tamadasok = (r.tamadasok || []).map((a, i) => {
     const t = a.tul || null;
     let bonusz = a.bonusz === null || a.bonusz === undefined ? null : szam(a.bonusz);
-    if (bonusz !== null && t) {
+    // szamolt: a szerkesztőben felvett támadás, a bónusz a (módosított) tulajdonságból és a fókuszból jön
+    if (a.szamolt && t) bonusz = tul[t].ertek + (a.fokusz && fokuszok[a.fokusz] ? fokuszok[a.fokusz].bonusz : 0);
+    else if (bonusz !== null && t) {
       bonusz += delta(t);
       if (a.fokusz && !(r.fokuszok || []).includes(a.fokusz) && fokuszok[a.fokusz]) bonusz += fokuszok[a.fokusz].bonusz;
     }
@@ -128,7 +130,7 @@ export function statblokkNezet(statblokk, lapok, opciok = {}) {
     const sebzesTul = a.sebzes_tul || (tavolsagi && /íj|bow|crossbow|számszeríj/i.test(`${a.nev_en} ${a.nev_hu}`) ? 'tul_perception' : 'tul_strength');
     const sebzes = a.sebzes && delta(sebzesTul) ? sebzesSzoveg(a.sebzes, delta(sebzesTul)) : (a.sebzes || '');
     return {
-      kulcs: a.kulcs || 'tamadas_' + i, nev_hu: a.nev_hu, nev_en: a.nev_en, tulajdonsag: t, fokusz: a.fokusz || null,
+      kulcs: a.kulcs || 'tamadas_' + i, nev_hu: a.nev_hu, nev_en: a.nev_en || '', tulajdonsag: t, fokusz: a.fokusz || null,
       tamadas: bonusz, sebzes, hatotav: a.hatotav || null, tavolsagi, atuto: !!a.atuto, megjegyzes: a.megjegyzes || '',
       fegyver: a.fegyver || null, termeszetes: !a.fegyver
     };
@@ -209,7 +211,7 @@ export function karakterNezet(adat, lapok, opciok = {}) {
 
 // Egységes belépési pont.
 // forras: { tipus: 'karakter', adat } | { tipus: 'szorny', sor } (a Szörnyek lap sora vagy id) |
-//         { tipus: 'njk', sor } (az NJK-k lap sora; az adat.statblokk-ot használja, 2. ütem).
+//         { tipus: 'njk', sor } (az NJK-k lap sora vagy a state.get njkk eleme; az adat.statblokk-ot használja).
 export function lenyNezet(forras, lapok, opciok = {}) {
   if (!forras) return null;
   if (forras.tipus === 'karakter') {
@@ -227,8 +229,17 @@ export function lenyNezet(forras, lapok, opciok = {}) {
   if (forras.tipus === 'njk') {
     const sor = forras.sor || {};
     const adat = typeof sor.adat === 'string' ? (() => { try { return JSON.parse(sor.adat); } catch (e) { return {}; } })() : (sor.adat || {});
-    return Object.assign(statblokkNezet(adat.statblokk || {}, lapok, { erosites: adat.erosites, kezi: adat.kezi, allapot: adat.allapot, ...opciok }), {
-      nev: sor.nev, fenyegetes: sor.fenyegetes || '', forras: { tipus: 'njk', id: sor.id }
+    let sb = adat.statblokk || {};
+    // rövid NJK (AK 105.): csak tulajdonság és fókusz; ha mégis kell, Egészség 10 + Szívósság, Védekezés 10 + Ügyesség
+    if (sor.fajta === 'rovid') {
+      const tul = sb.tulajdonsagok || {};
+      sb = { ...sb, nem_harcolo: true, tamadasok: sb.tamadasok || [],
+        egeszseg: sb.egeszseg === undefined || sb.egeszseg === null || sb.egeszseg === '' ? 10 + szam(tul.tul_constitution) : sb.egeszseg,
+        vedekezes: sb.vedekezes === undefined || sb.vedekezes === null || sb.vedekezes === '' ? 10 + szam(tul.tul_dexterity) : sb.vedekezes };
+    }
+    return Object.assign(statblokkNezet(sb, lapok, { erosites: adat.erosites, kezi: adat.kezi, allapot: adat.allapot, ...opciok }), {
+      nev: sor.nev, fenyegetes: sor.fenyegetes || '', csoport: sb.csoport || '', fajta: sor.fajta || 'statblokk',
+      forras: { tipus: 'njk', id: sor.id }
     });
   }
   return null;

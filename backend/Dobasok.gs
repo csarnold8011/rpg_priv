@@ -29,10 +29,11 @@ function dobasKiertekelese_(kockak, modosito, celertek, opciok) {
 
 // action: roll.log
 // adat: { id?, kampany_id?, karakter_id?, mire, kockak: [k1, k2, sarkanykocka], modosito, celertek?, eredmeny?,
-//         mutatvanypont?, rejtett?, proba_id?, tipus?, tulajdonsag?, fokusz?, kezi?, reszletek?, ellenfel? }
+//         mutatvanypont?, rejtett?, proba_id?, tipus?, tulajdonsag?, fokusz?, kezi?, reszletek?, ellenfel?, njk_id? }
 // Kampány nélkül is naplózható, ha van karakter, és a hívó szerkesztheti (a karakter saját dobásai).
+// njk_id: az NJK-tár elemének dobása (a DM, követőnél az irányító vagy a gazda karakter írója dobhat érte).
 function dobasNaplozasa_(a, felh) {
-  if (!a.kampany_id && !a.karakter_id) throw hiba_('hianyzo_adat', 'Hiányzik a kampány vagy a karakter azonosítója.');
+  if (!a.kampany_id && !a.karakter_id && !a.njk_id) throw hiba_('hianyzo_adat', 'Hiányzik a kampány, a karakter vagy az NJK azonosítója.');
   if (!Array.isArray(a.kockak) || a.kockak.length < 1) throw hiba_('hianyzo_adat', 'Hiányoznak a kockák.');
   return zarolva_(function () {
     const k = kornyezet_();
@@ -45,6 +46,10 @@ function dobasNaplozasa_(a, felh) {
     if (a.karakter_id) {
       const kar = karakterKeresese_(a.karakter_id, k);
       if (!karakterIrhato_(felh, kar, k)) throw hiba_('nincs_jogosultsag', 'Ennek a karakternek a nevében nem dobhatsz.');
+    }
+    if (a.njk_id) {
+      const n = njkKeresese_(a.njk_id);
+      if (!njkDobhat_(felh, n, k)) throw hiba_('nincs_jogosultsag', 'Ennek az NJK-nak a nevében nem dobhatsz.');
     }
     // kiesés utáni újraküldésnél ne kerüljön be kétszer ugyanaz a dobás
     if (a.id) {
@@ -59,7 +64,8 @@ function dobasNaplozasa_(a, felh) {
       rejtett: szerep === 'dm' && !!a.rejtett, // rejtett dobás csak a DM-é lehet
       proba_id: '', tipus: DOBAS_TIPUSOK.indexOf(a.tipus) >= 0 ? a.tipus : '',
       tulajdonsag: a.tulajdonsag || '', fokusz: a.fokusz || '', kezi: !!a.kezi, felfedve: false,
-      reszletek: a.reszletek && typeof a.reszletek === 'object' ? a.reszletek : ''
+      reszletek: a.reszletek && typeof a.reszletek === 'object' ? a.reszletek : '',
+      njk_id: a.njk_id || '', csata_id: a.csata_id || ''
     };
     let proba = null;
     if (a.proba_id && kampany) {
@@ -106,7 +112,8 @@ function probahozDobas_(proba, dobas, a, szerep) {
     e.osszeg += Number(dobas.kockak[2]) || 0;
     if (!e.kesz && e.osszeg >= (Number(proba.kuszob) || 0)) {
       e.kesz = true;
-      e.kesz_sorszam = Object.keys(allas).filter(function (x) { return allas[x].kesz; }).length + 1;
+      // a saját bejegyzés (amely már szerepelhet az állásban) nem számít bele
+      e.kesz_sorszam = Object.keys(allas).filter(function (x) { return x !== kulcs && allas[x].kesz; }).length + 1;
       e.probak_szama = e.dobasok.length;
     }
   }

@@ -28,6 +28,8 @@ const UTAK = {
   lepesek: html`<path d="M9 7h11M9 12h11M9 17h11"/><circle cx="4.5" cy="7" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="17" r="1"/>`,
   csere: html`<path d="M7 4 4 7l3 3M4 7h12M17 20l3-3-3-3M20 17H8"/>`,
   pipa: html`<path d="M5 12.5 10 17.5 19 7"/>`,
+  // csuklyás alak (NJK-tár), ideiglenes rajz
+  csuklya: html`<path d="M12 3.5c-3.6 0-6 2.9-6 6.6V20h12v-9.9c0-3.7-2.4-6.6-6-6.6z"/><path d="M9 11.5c.6 1.6 1.7 2.5 3 2.5s2.4-.9 3-2.5M9 20v-3.5M15 20v-3.5"/>`,
   karom: html`<path d="M6 4.5c3.5 3 5 7.5 4 15M11.5 4c3 3.5 4.2 8 3.2 15.5M17 4.5c2.3 3.5 3 7.5 2 13"/>`
 };
 

@@ -25,7 +25,10 @@ function szabalyokLekerese_() {
   if (lapokJson === null) {
     const lapok = {};
     SEMA.szabaly_lapok.forEach(function (nev) {
-      lapok[nev] = sorok_('szabaly', nev)
+      let sorok = [];
+      // az új lap az elsoBeallitas futtatásáig hiányozhat: addig üres
+      try { sorok = sorok_('szabaly', nev); } catch (e) { if (!e || e.kod !== 'hianyzo_lap') throw e; }
+      lapok[nev] = sorok
         .filter(function (s) { return igaz_(s.aktiv); })
         .map(function (s) { delete s._sor; return s; });
     });

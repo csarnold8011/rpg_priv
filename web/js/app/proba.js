@@ -34,7 +34,8 @@ export function useProbaNaplo() {
 // karakter: { id, nev } vagy null (szabad dobás), kampany: { id, cim, beallitasok } vagy null (a karakter dobásai közé)
 // naploz(dobas): a dobás naplózása; onMpLevon(ar): varázslási próba után a Mágiapont levonása
 // forrasok: aktív források a mutatványokhoz; valasztasok, onValasztas: a karakter mutatványdöntései (mentés)
-export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLevon, rejtettLehet, forrasok, valasztasok, onValasztas }) {
+// njk: { id, nev } az NJK-tár eleme, akiért a próba szól (a dobás njk_id-vel naplózódik)
+export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, njk, naploz, onMpLevon, rejtettLehet, forrasok, valasztasok, onValasztas }) {
   const { felhasznalo, sync, uzen, szabalyok } = useApp();
   const lapok = szabalyok && szabalyok.adat && szabalyok.adat.lapok;
   const [mutNyitva, setMutNyitva] = useState(false);
@@ -83,11 +84,13 @@ export function ProbaUrlap({ lap, kezdet = {}, karakter, kampany, naploz, onMpLe
       extra: utolso ? { ujradobas: utolso.dobas.id } : undefined
     });
     d.dobta = felhasznalo.nev;
+    if (njk && njk.id) d.njk_id = njk.id;
     setDobasok((x) => x.concat([{ dobas: d, ert, kockak }]));
     if (naploz) naploz(d);
   };
 
-  const hova = kampany ? `Napló: ${kampany.cim}` : karakter ? 'Napló: a karakter dobásai közé' : 'A dobás nem kerül naplóba';
+  const hova = kampany ? `Napló: ${kampany.cim}` : karakter ? 'Napló: a karakter dobásai közé'
+    : njk && naploz ? 'Napló: az NJK dobásai közé (kampány nélkül)' : 'A dobás nem kerül naplóba';
   return html`<div className="verem proba">
     <p className="halvany kicsi proba__hova">${hova}${kezdet.celertek_rejtett ? ' · a Célértéket a DM tudja' : ''}</p>
     <${Valaszto} label="Tulajdonság" value=${tul} onChange=${(x) => { setTul(x); setFok(''); uj(); }}

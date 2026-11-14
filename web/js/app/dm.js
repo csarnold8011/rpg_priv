@@ -1,7 +1,7 @@
 // DM felület (laptop az elsődleges): oldalsáv és tartalmi hasábok, pergamen vagy gyertyafény téma.
 import {
   html, K, useApp, useState, useEffect, useMemo, createContext, useContext, useLekeres, useMuvelet,
-  navigal, Ikon, Betoltes, Uzenet, Valaszto, Jelolo, Parbeszed, Megerosites, TemaKapcsolo, SzinkronJelzo,
+  navigal, Ikon, Betoltes, Uzenet, Valaszto, Jelolo, Parbeszed, Megerosites, TemaKapcsolo, SzinkronJelzo, Sugo,
   HibaVagyBetoltes, SZEREP_NEV, idopont, temaBeallitasa, gyorsKulcs, indulasLekerese
 } from './kozos.js';
 import {
@@ -17,6 +17,7 @@ import { KarakterKep } from './kepek.js';
 import { XpKiosztas } from './xpkiosztas.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
 import { BestiariumOldal } from './bestiarium.js';
+import { NjkTarOldal, UjNjkParbeszed, KampanyNjkPanel } from './njk.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -31,6 +32,7 @@ const useDm = () => useContext(DmKontextus);
 export function DmFelulet({ ut }) {
   const { api, felhasznalo, kilepes } = useApp();
   const [menu, setMenu] = useState(false);
+  const [masolat, setMasolat] = useState(null); // a Bestiárium „Másolat az NJK-tárba” gombjából
   useEffect(() => { temaBeallitasa('dm'); }, []);
   // Egyetlen induló hívás; az előző eredmény az eszközről azonnal látszik.
   const init = useLekeres(() => indulasLekerese(api, true), [], 'init');
@@ -93,7 +95,8 @@ export function DmFelulet({ ut }) {
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;
   else if (oldal === 'felhasznalok') tartalom = html`<${FelhasznalokOldal}/>`;
   else if (oldal === 'szabalyok') tartalom = html`<${SzabalyokOldal}/>`;
-  else if (oldal === 'bestiarium') tartalom = html`<${BestiariumOldal} key="bestiarium" azon=${azon} Oldalfej=${Oldalfej}/>`;
+  else if (oldal === 'bestiarium') tartalom = html`<${BestiariumOldal} key="bestiarium" azon=${azon} Oldalfej=${Oldalfej} onMasolat=${setMasolat}/>`;
+  else if (oldal === 'njk') tartalom = html`<${NjkTarOldal} key="njk" azon=${azon} Oldalfej=${Oldalfej} dm=${dm}/>`;
   else tartalom = html`<${Attekintes}/>`;
 
   const menupont = (cel, ikon, felirat, aktiv) => html`<a href=${'#/dm' + cel} className=${'menupont' + (aktiv ? ' menupont--aktiv' : '')}
@@ -121,6 +124,7 @@ export function DmFelulet({ ut }) {
           ${menupont('/karakterek', 'kard', 'Karakterek', oldal === 'karakterek' || oldal === 'karakter')}
           ${menupont('/felhasznalok', 'felhasznalo', 'Felhasználók', oldal === 'felhasznalok')}
           ${menupont('/bestiarium', 'karom', 'Bestiárium', oldal === 'bestiarium')}
+          ${menupont('/njk', 'csuklya', 'NJK-tár', oldal === 'njk')}
           ${menupont('/szabalyok', 'konyv', 'Szabályok', oldal === 'szabalyok')}
           <${K.Divider} ornament=${false}/>
           <div className="oldalsav__cim">Kampányok</div>
@@ -140,6 +144,8 @@ export function DmFelulet({ ut }) {
           ${tartalom}
         </main>
       </div>
+      ${masolat ? html`<${UjNjkParbeszed} dm=${dm} szorny=${masolat} onBezar=${() => setMasolat(null)}
+        onLetrejott=${(n) => { setMasolat(null); navigal('/dm/njk/' + n.id); }}/>` : null}
     </div>
   <//>`;
 }
@@ -278,6 +284,7 @@ function KampanyParbeszed({ onBezar }) {
 // ---------------- Egy kampány (élő nézet) ----------------
 
 function KampanyOldal({ id }) {
+  const dm = useDm();
   const { allapot, hiba, frissit } = useKampanyAllapot(id);
   const [dobasok, naploz] = useDobasok(allapot);
   if (hiba && !allapot) return html`<div><${Oldalfej} cim="Kampány" vissza=${['#/dm/kampanyok', 'Kampányok']}/><${Uzenet}>${hiba.message}<//></div>`;
@@ -294,6 +301,7 @@ function KampanyOldal({ id }) {
       </div>
       <div className="verem">
         <${ProbakPanel} allapot=${allapot} naploz=${naploz}/>
+        <${KampanyNjkPanel} allapot=${allapot} naploz=${naploz} dm=${dm} frissit=${frissit}/>
         <${K.Panel} title="Dobás"><${DobasPanel} allapot=${allapot} naploz=${naploz} dm=${true}/><//>
         <${K.Panel} title="Dobásnapló"><${KampanyNaplo} allapot=${allapot} dobasok=${dobasok}/><//>
       </div>
@@ -302,7 +310,7 @@ function KampanyOldal({ id }) {
 }
 
 function CsapatPanel({ allapot, frissit }) {
-  const { api } = useApp();
+  const { api, uzen } = useApp();
   const dm = useDm();
   const [ujKarakter, setUjKarakter] = useState('');
   const [kivesz, setKivesz] = useState(null);
@@ -310,16 +318,24 @@ function CsapatPanel({ allapot, frissit }) {
   const kampanyId = allapot.kampany.id;
   const bent = new Set(allapot.karakterek.map((c) => c.id));
   const szabad = dm.karakterek.filter((c) => !bent.has(c.id) && c.aktiv);
+  const kampanyCim = (kid) => { const k = dm.kampanyok.find((x) => x.id === kid); return k ? k.cim : 'egy másik kampány'; };
+  // egy karakter egyszerre egy kampányban aktív: a háttér a korábbi aktív kampányában „kilépett”-re állítja
+  const kileptetesUzenet = (v) => (v && v.kileptetve && v.kileptetve.length ? ` A korábbi kampányában (${v.kileptetve.map(kampanyCim).join(', ')}) „kilépett” lett.` : '');
+  const masholAktiv = (c) => (c && c.aktiv_kampanyok ? c.aktiv_kampanyok.filter((x) => x !== kampanyId) : []);
   const hozzaad = () => indit(async () => {
     if (!ujKarakter) throw new Error('Válassz karaktert.');
-    await api.hivas('campaign.addCharacter', { kampany_id: kampanyId, karakter_id: ujKarakter });
+    const v = await api.hivas('campaign.addCharacter', { kampany_id: kampanyId, karakter_id: ujKarakter });
     dm.karakterKampany(ujKarakter, kampanyId, true);
+    dm.karakterFrissit({ id: ujKarakter, aktiv_kampanyok: [kampanyId] });
     setUjKarakter('');
     await frissit();
-  }, 'A karakter a kampányba került.');
+    uzen('A karakter a kampányba került.' + kileptetesUzenet(v));
+  });
   const allapotValtas = (c, a) => indit(async () => {
-    await api.hivas('campaign.addCharacter', { kampany_id: kampanyId, karakter_id: c.id, allapot: a });
+    const v = await api.hivas('campaign.addCharacter', { kampany_id: kampanyId, karakter_id: c.id, allapot: a });
+    if (a === 'aktív') dm.karakterFrissit({ id: c.id, aktiv_kampanyok: [kampanyId] });
     await frissit();
+    if (v && v.kileptetve && v.kileptetve.length) uzen(c.nev + ' itt aktív lett.' + kileptetesUzenet(v));
   });
 
   const [xpAblak, setXpAblak] = useState(false);
@@ -353,6 +369,8 @@ function CsapatPanel({ allapot, frissit }) {
         opciok=${szabad.map((c) => ({ value: c.id, label: c.nev + (c.jatekos_id ? ' (' + dm.felhasznaloNev(c.jatekos_id) + ')' : '') }))}/>
       <${K.Button} disabled=${fut || !ujKarakter} onClick=${hozzaad}>Hozzáadás<//>
     </div>
+    ${masholAktiv(szabad.find((c) => c.id === ujKarakter)).length ? html`<${Uzenet} tonus="warning">
+      ${'Ez a karakter most ebben aktív: ' + masholAktiv(szabad.find((c) => c.id === ujKarakter)).map(kampanyCim).join(', ') + '. Ha ide aktívként kerül, ott „kilépett” lesz (egyszerre egy kampányban aktív).'}<//>` : null}
     ${kivesz ? html`<${Megerosites} cim="Kivétel a kampányból" gomb="Kivétel" veszelyes=${true}
       szoveg=${kivesz.nev + ' kikerül ebből a kampányból. A karakter megmarad, később visszarendelheted. Ha csak elment vagy meghalt, inkább az állapotát állítsd át.'}
       onMegse=${() => setKivesz(null)}
@@ -452,7 +470,7 @@ function KarakterekOldal() {
       <div className="tablazat-keret"><table className="tablazat">
         <thead><tr><th>Név</th><th>Faj és osztály</th><th>Játékos</th><th>Kampányok</th></tr></thead>
         <tbody>${lista.map((c) => html`<tr key=${c.id} className=${c.aktiv ? '' : 'tablazat__sor--halvany'}>
-          <td><span className="nevsor"><${KarakterKep} kep=${c.kep} nev=${c.nev}/><a href=${'#/dm/karakter/' + c.id}>${c.nev}</a>${c.aktiv ? null : html` <${K.Badge}>Archivált<//>`}</span></td>
+          <td><span className="nevsor"><${KarakterKep} kep=${c.kep} nev=${c.nev}/><a href=${'#/dm/karakter/' + c.id}>${c.nev}</a>${c.njk ? html` <${K.Badge} tone="accent">NJK<//>` : null}${c.aktiv ? null : html` <${K.Badge}>Archivált<//>`}</span></td>
           <td><${KarakterFejlec} karakter=${c}/></td>
           <td>${c.jatekos_id ? dm.felhasznaloNev(c.jatekos_id) : html`<span className="halvany">nincs</span>`}</td>
           <td>${(c.kampanyok || []).map(kampanyCim).filter(Boolean).join(', ') || html`<span className="halvany">nincs</span>`}</td>
@@ -469,10 +487,11 @@ function UjKarakterParbeszed({ onBezar }) {
   const [nev, setNev] = useState('');
   const [jatekos, setJatekos] = useState('');
   const [kampany, setKampany] = useState('');
+  const [njk, setNjk] = useState(false);
   const [fut, indit] = useMuvelet();
   const ment = () => indit(async () => {
     if (!nev.trim()) throw new Error('Adj nevet a karakternek.');
-    const v = await api.hivas('character.create', { nev: nev.trim(), adat: uresKarakter({ nev: nev.trim() }), jatekos_id: jatekos, kampany_id: kampany || undefined });
+    const v = await api.hivas('character.create', { nev: nev.trim(), adat: uresKarakter({ nev: nev.trim() }), jatekos_id: jatekos, kampany_id: kampany || undefined, njk });
     dm.karakterFrissit(v.karakter);
     onBezar();
     navigal('/dm/karakter/' + v.karakter.id + '/keszites');
@@ -486,6 +505,7 @@ function UjKarakterParbeszed({ onBezar }) {
         value=${jatekos} onChange=${setJatekos} ures="nincs" opciok=${dm.felhasznalok.filter((f) => f.aktiv).map((f) => ({ value: f.id, label: f.nev }))}/>
       <${Valaszto} label="Kampány" value=${kampany} onChange=${setKampany} ures="nincs"
         opciok=${dm.kampanyok.map((k) => ({ value: k.id, label: k.cim }))}/>
+      <${Jelolo} checked=${njk} onChange=${setNjk}>Karakter-szintű NJK (a DM irányítja, a csapattal együtt fejlődhet)<//>
       <p className="halvany kicsi">Létrehozás után a karakterkészítő varázsló nyílik meg (faj, osztály, tulajdonságok és a többi).</p>
     </div>
   <//>`;
@@ -500,6 +520,7 @@ function KarakterOldal({ id }) {
   return html`<div>
     <${HibaVagyBetoltes} lekeres=${lekeres}>${(c) => html`
       <${Oldalfej} cim=${c.nev} vissza=${['#/dm/karakterek', 'Karakterek']}>
+        ${c.njk ? html`<${K.Badge} tone="accent">NJK<//>` : null}
         ${c.aktiv === false ? html`<${K.Badge} tone="warning">⚠ Archivált<//>` : null}
       <//>
       <${KarakterLap} karakter=${c} beallitKarakter=${lekeres.beallit} alap=${'/dm/karakter/' + c.id} onValtozott=${(x) => dm.karakterFrissit(x)}/>
@@ -561,12 +582,21 @@ function TarsitasPanel({ karakter, valtozott }) {
   }, jatekos ? 'Társítás kész.' : 'A karakter játékos nélküli lett.');
   const kampanyba = () => indit(async () => {
     await api.hivas('campaign.addCharacter', { kampany_id: kampany, karakter_id: karakter.id });
-    valtozott({ kampanyok: Array.from(new Set((karakter.kampanyok || []).concat([kampany]))) });
+    valtozott({ kampanyok: Array.from(new Set((karakter.kampanyok || []).concat([kampany]))), aktiv_kampanyok: [kampany] });
     setKampany('');
   }, 'A karakter a kampányba került.');
   const kampanyai = karakter.kampanyok || [];
+  const njkJelzo = (be) => indit(async () => {
+    const v = await api.hivas('character.npc', { id: karakter.id, njk: be });
+    valtozott(v.karakter);
+  }, be ? 'A karakter karakter-szintű NJK lett.' : 'A karakter már nem NJK.');
+  const aktivMashol = (karakter.aktiv_kampanyok || []).filter((x) => x !== kampany);
   return html`<${K.Panel} title="Játékos és kampányok">
     <div className="verem">
+      <div className="sorban sorban--kozep">
+        <${Jelolo} checked=${!!karakter.njk} onChange=${(be) => { if (!fut) njkJelzo(be); }}>Karakter-szintű NJK<//>
+        <${Sugo} cim="Karakter-szintű NJK">Kiemelt NJK teljes karakterlappal (Companion 103.): a DM irányítja, néha vendég vagy hiányzó játékos is viheti, és a csapattal együtt léphet szintet. A karakterkészítő, a karakterlap és a szintlépés ugyanúgy működik.<//>
+      </div>
       <div className="sorban">
         <${Valaszto} label="Játékos" value=${jatekos} onChange=${setJatekos} ures="nincs (játékos nélküli)"
           opciok=${dm.felhasznalok.filter((f) => f.aktiv || f.id === karakter.jatekos_id).map((f) => ({ value: f.id, label: f.nev }))}/>
@@ -584,6 +614,7 @@ function TarsitasPanel({ karakter, valtozott }) {
           opciok=${dm.kampanyok.filter((k) => !kampanyai.includes(k.id)).map((k) => ({ value: k.id, label: k.cim }))}/>
         <${K.Button} disabled=${fut || !kampany} onClick=${kampanyba}>Hozzáadás<//>
       </div>
+      ${kampany && aktivMashol.length ? html`<${Uzenet} tonus="warning">${'Most ebben aktív: ' + aktivMashol.map((kid) => (dm.kampanyok.find((x) => x.id === kid) || { cim: kid }).cim).join(', ') + '. Az új kampányban aktív lesz, ott pedig „kilépett” (egyszerre egy kampányban aktív).'}<//>` : null}
     </div>
   <//>`;
 }

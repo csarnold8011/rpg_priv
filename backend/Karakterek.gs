@@ -8,11 +8,14 @@ function karakterOsszefoglalo_(kar, k, felh) {
     id: kar.id, nev: kar.nev, jatekos_id: kar.jatekos_id || '', faj: kar.faj, osztaly: kar.osztaly,
     szint: kar.szint, verzio: Number(kar.verzio) || 0, modositva: kar.modositva, aktiv: igaz_(kar.aktiv),
     kampanyok: karakterKampanyai_(kar.id, k),
+    aktiv_kampanyok: k.kapcsolatok.filter(function (x) { return x.karakter_id === kar.id && (x.allapot || 'aktív') === 'aktív'; })
+      .map(function (x) { return x.kampany_id; }),
     irhato: felh ? karakterIrhato_(felh, kar, k) : false,
     // a karakterkészítés állapota a listák „Piszkozat” címkéjéhez (piszkozat | kesz | atvett)
     keszites: kar.adat && typeof kar.adat === 'object' && kar.adat.keszites ? (kar.adat.keszites.allapot || '') : '',
     kep: karakterBelyeg_(kar),
-    xp: kar.adat && typeof kar.adat === 'object' && kar.adat.allapot ? (Number(kar.adat.allapot.xp) || 0) : 0
+    xp: kar.adat && typeof kar.adat === 'object' && kar.adat.allapot ? (Number(kar.adat.allapot.xp) || 0) : 0,
+    njk: igaz_rejtett_(kar.njk) // karakter-szintű NJK (a DM jelöli)
   };
 }
 
@@ -57,7 +60,7 @@ function karakterLekerese_(a, felh) {
   return { karakter: karakterTeljes_(kar, k, felh) };
 }
 
-// action: character.create   adat: { nev, adat?, jatekos_id?, kampany_id? }
+// action: character.create   adat: { nev, adat?, jatekos_id?, kampany_id?, njk? }  (njk: karakter-szintű NJK, csak a DM)
 // DM: bárkinek létrehozhat, és kampányhoz is rendelheti.
 // Mesterjátékos: kampany_id-vel a saját kampányába hoz létre játékos nélküli karaktert.
 // Játékos: saját magának hoz létre karaktert (kampányhoz a DM rendeli).
@@ -84,7 +87,7 @@ function karakterLetrehozasa_(a, felh) {
     if (kampanyId) kampanyKeresese_(kampanyId, k);
 
     const kar = { id: ujId_('k'), nev: nev, jatekos_id: jatekosId, faj: '', osztaly: '', szint: '', adat: adat,
-      verzio: 1, modositva: most_(), modositotta: felh.n, aktiv: true };
+      verzio: 1, modositva: most_(), modositotta: felh.n, aktiv: true, njk: felh.r === 'dm' && !!a.njk };
     kulcsmezok_(kar, adat);
     sorHozzaadasa_('jatek', 'Karakterek', kar);
     if (kampanyId) {
@@ -98,7 +101,7 @@ function karakterLetrehozasa_(a, felh) {
   });
 }
 
-// action: character.save   adat: { id, verzio, adat, aktiv? }
+// action: character.save   adat: { id, verzio, adat, aktiv?, njk? }
 // A verzio az a verziószám, amelyből a felület a módosítást készítette. Ha közben más mentett,
 // a válasz hiba: 'utkozes', és benne van az aktuális karakter az összefésüléshez.
 function karakterMentese_(a, felh) {
@@ -118,6 +121,7 @@ function karakterMentese_(a, felh) {
     kar.adat = adat;
     kulcsmezok_(kar, adat);
     if (a.aktiv !== undefined && (felh.r === 'dm')) kar.aktiv = !!a.aktiv;
+    if (a.njk !== undefined && felh.r === 'dm') kar.njk = !!a.njk;
     kar.verzio = regi + 1;
     kar.modositva = most_();
     kar.modositotta = felh.n;
@@ -146,6 +150,21 @@ function karakterTarsitasa_(a, felh) {
     sorFrissitese_('jatek', 'Karakterek', kar);
     kampanyVerziokNovelese_(karakterKampanyai_(kar.id, k), k.kampanyok);
     valtozasNaplozasa_(felh, 'karakter.tarsit:' + (jatekosId || 'nincs'), kar.id, regi, kar.verzio);
+    return { karakter: karakterOsszefoglalo_(kar, k, felh) };
+  });
+}
+
+// action: character.npc (csak DM)   adat: { id, njk }  A karakter-szintű NJK jelző (a csapattal együtt fejlődő NJK).
+function karakterNjkJelzo_(a, felh) {
+  return zarolva_(function () {
+    const k = kornyezet_();
+    const kar = karakterKeresese_(a.id, k);
+    kar.njk = !!a.njk;
+    kar.modositva = most_();
+    kar.modositotta = felh.n;
+    sorFrissitese_('jatek', 'Karakterek', kar);
+    kampanyVerziokNovelese_(karakterKampanyai_(kar.id, k), k.kampanyok);
+    valtozasNaplozasa_(felh, 'karakter.njk:' + (kar.njk ? 'igen' : 'nem'), kar.id, '', '');
     return { karakter: karakterOsszefoglalo_(kar, k, felh) };
   });
 }
@@ -239,6 +258,18 @@ function kepMappa_() {
   return mappa;
 }
 
+// A kép és a bélyeg feltöltése a Karakterképek mappába (karakter és NJK közös). Visszaad: { kep, belyeg, verzio }.
+function kepFajlok_(elemId, kep, belyeg, regi) {
+  const mappa = kepMappa_();
+  const v = (regi ? Number(regi.verzio) || 0 : 0) + 1;
+  const fajl = function (b64, nev) {
+    return mappa.createFile(Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', elemId + '_' + nev + '_' + v + '.jpg'));
+  };
+  const kepFajl = fajl(kep, 'kep');
+  const belyegFajl = belyeg ? fajl(belyeg, 'belyeg') : null;
+  return { kep: kepFajl.getId(), belyeg: belyegFajl ? belyegFajl.getId() : kepFajl.getId(), verzio: v };
+}
+
 function kepekKukaba_(kep) {
   if (!kep || typeof kep !== 'object') return;
   [kep.kep, kep.belyeg].filter(Boolean).forEach(function (id) {
@@ -261,16 +292,7 @@ function karakterKepBeallitasa_(a, felh) {
     adat.alap = adat.alap && typeof adat.alap === 'object' ? adat.alap : {};
     const regi = adat.alap.kep && typeof adat.alap.kep === 'object' ? adat.alap.kep : null;
     let uj = null;
-    if (a.kep) {
-      const mappa = kepMappa_();
-      const v = (regi ? Number(regi.verzio) || 0 : 0) + 1;
-      const fajl = function (b64, nev) {
-        return mappa.createFile(Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', kar.id + '_' + nev + '_' + v + '.jpg'));
-      };
-      const kepFajl = fajl(a.kep, 'kep');
-      const belyegFajl = a.belyeg ? fajl(a.belyeg, 'belyeg') : null;
-      uj = { kep: kepFajl.getId(), belyeg: belyegFajl ? belyegFajl.getId() : kepFajl.getId(), verzio: v };
-    }
+    if (a.kep) uj = kepFajlok_(kar.id, a.kep, a.belyeg, regi);
     kepekKukaba_(regi);
     adat.alap.kep = uj;
     const verzio = (Number(kar.verzio) || 0);
@@ -298,6 +320,7 @@ function kepekLekerese_(a, felh) {
       if (kep.belyeg) engedett[kep.belyeg] = true;
     }
   });
+  njkKepekEngedese_(felh, k, engedett);
   const kepek = {};
   idk.forEach(function (id) {
     if (!engedett[id]) return;

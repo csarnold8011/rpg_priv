@@ -8,6 +8,7 @@ import { JatekosProbak } from './probakeres.js';
 import { useKampanyAllapot, useDobasok, DobasPanel, KarakterFejlec, KampanyCimkek, UjKampanyKarakter } from './jatek.js';
 import { KarakterLap } from './karakterlap.js';
 import { KarakterKep } from './kepek.js';
+import { JatekosNjkPanel } from './njk.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo, taroltKampanyok } from './varazslo.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
@@ -125,6 +126,7 @@ function KampanyOldal({ id }) {
         })}
       </ul>` : html`<p className="halvany">Még nincs karakter a kampányban.</p>`}
     <//>
+    <${JatekosNjkPanel} allapot=${allapot} naploz=${naploz}/>
     ${k.sajat_szerep === 'mester' ? html`<${UjKampanyKarakter} kampanyId=${k.id} nagy=${true} onLetrejott=${(c) => navigal('/jatekos/karakter/' + c.id + '/keszites')}/>` : null}
     <${K.Panel} title="Dobásnapló"><${KampanyNaplo} allapot=${allapot} dobasok=${dobasok}/><//>
     <div className="alsosav">

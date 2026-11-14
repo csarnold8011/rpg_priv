@@ -31,6 +31,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, summary:focus-visib
 .cimkek { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); }
 .gombsor { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
 .gombsor--jobbra { justify-content: flex-end; margin-top: 0; }
+.gombsor--szoros { margin-top: 0; gap: var(--space-1); }
 .sorban { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2); }
 .sorban > :first-child { flex: 1 1 220px; }
 .betoltes { font-family: var(--font-sans); color: var(--ink-muted); margin: 0; }
@@ -598,3 +599,20 @@ a.sorgomb-teljes { text-decoration: none; }
   .bestiarium__talalatok { max-height: calc(100vh - 360px); overflow-y: auto; padding-right: var(--space-2); }
 }
 @media (max-width: 1023px) { .bestiarium__lista--rejtheto { display: none; } }
+
+/* ---- NJK-tár (3. lépés, 2. ütem) ---- */
+@media (min-width: 640px) { .urlap-racs--harom { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.sorban--kozep { align-items: center; }
+.sorban--kozep > :first-child { flex: 1 1 auto; }
+.sorban--szet { justify-content: space-between; }
+.egyszeru-lista .sorban { margin-bottom: var(--space-1); }
+.csip__gomb { min-width: 28px; min-height: 28px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.csip__gomb[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.njk-szerk > .ka-field { max-width: 420px; }
+@media (min-width: 1024px) {
+  .ket-hasab.njktar { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .njktar .bestiarium__talalatok { max-height: calc(100vh - 380px); overflow-y: auto; padding-right: var(--space-2); }
+}
+.njk-sor__gombok { padding-left: 52px; }
+.kartya--gomb { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }

@@ -157,6 +157,7 @@ ellenoriz(hivas('test.request', { kampany_id: kampany.id, tipus: 'osszetett' }, 
 [[[1, 2, 5], 5], [[1, 1, 2], 2], [[3, 4, 6], 5]].forEach(([k, m], i) => hivas('roll.log', { kampany_id: kampany.id, karakter_id: morg.id, proba_id: pOssz.id, mire: 'Kutatás', kockak: k, modosito: m, id: 'dobas-o' + i }, bencT));
 let allas = hivas('state.get', { kampany_id: kampany.id }, bencT).probak.find(p => p.id === pOssz.id).allas[morg.id];
 ellenoriz(allas.osszeg === 11 && allas.kesz && allas.probak_szama === 3 && allas.dobasok.length === 3, 'összetett próba: a sikeres dobások sárkánykockái (5 + 6, a 2-es kudarc nem számít), 3 próba alatt kész', allas);
+ellenoriz(allas.kesz_sorszam === 1, 'összetett próba: az egyetlen kész karakter az első (a saját korábbi bejegyzése nem számít bele)', allas);
 
 v = hivas('test.request', { kampany_id: kampany.id, tipus: 'ellen', cim: 'Lopakodás az őr mellett', ellenfel: { nev: 'Őr', bonusz: 3 } }, dm);
 const pEllen = v.proba;
@@ -276,6 +277,75 @@ v = hivas('character.image.set', { id: morg.id, kep: null }, annaT);
 ellenoriz(v.ok && v.kep === null && fajlok[kep2.kep].kuka && hivas('character.get', { id: morg.id }, dm2).karakter.adat.alap.kep === null, 'kép törlése', v);
 v = hivas('character.image.set', { id: morg.id, kep: b64('HARMADIK') }, annaT);
 const kep3 = v.kep;
+
+// ---------- NJK-tár (3. lépés, 2. ütem) ----------
+hivas('users.admin', { muvelet: 'engedelyez', id: bence.id }, dm2);
+const bencT3 = hivas('login', { nev: 'Bence', jelszo: 'bence1' }).token;
+ellenoriz(hivas('npc.save', { nev: 'Őr' }, annaT).hiba === 'nincs_jogosultsag', 'NJK-t csak a DM hozhat létre');
+v = hivas('npc.save', { nev: 'Grimbold, a kapuőr', fajta: 'statblokk', alap_szorny: 'szo_bandit', fenyegetes: 'Csekély', kampanyok: [kampany.id],
+  adat: { statblokk: { tulajdonsagok: { tul_fighting: 2 } }, szerep: { nyilvanos: 'Morcos öreg őr.', titkok: 'A bandák fizetik.', kep: { kep: 'hamis' } } } }, dm2);
+const grim = v.njk;
+ellenoriz(v.ok && grim.verzio === 1 && grim.kampanyok[0] === kampany.id && grim.adat.szerep.kep === null, 'DM NJK-t hoz létre kampányhoz rendelve (a kép mentéssel nem írható)', v);
+v = hivas('npc.save', { id: grim.id, verzio: 1, fenyegetes: 'Mérsékelt' }, dm2);
+ellenoriz(v.ok && v.verzio === 2 && v.njk.adat.szerep.titkok === 'A bandák fizetik.', 'NJK módosítása: a verzió nő, az adat megmarad', v);
+ellenoriz(hivas('npc.save', { id: grim.id, verzio: 1, nev: 'X' }, dm2).hiba === 'utkozes', 'régi verzióra mentés ütközést jelez');
+ellenoriz(jatek.getSheetByName('Változásnapló').adat.some(sor => sor.includes('njk.ment')), 'az NJK mentése a Változásnaplóba kerül');
+ellenoriz(hivas('npc.list', {}, dm2).njkk.some(n => n.id === grim.id && n.fenyegetes === 'Mérsékelt'), 'npc.list: a DM listájában ott van');
+let allNjk = hivas('state.get', { kampany_id: kampany.id }, dm2);
+ellenoriz(allNjk.njkk.some(n => n.id === grim.id && n.adat.szerep.titkok), 'a kampány állapotában a DM látja az NJK-t a titkokkal');
+ellenoriz(!hivas('state.get', { kampany_id: kampany.id }, annaT).njkk.some(n => n.id === grim.id), 'meg nem osztott NJK-t a mesterjátékos sem lát');
+ellenoriz(hivas('npc.get', { id: grim.id }, bencT3).hiba === 'nincs_jogosultsag', 'meg nem osztott NJK nem kérhető le játékosként');
+hivas('share.send', { kampany_id: kampany.id, cimzett: 'mindenki', tipus: 'njk', cim: 'Grimbold', hivatkozas: grim.id }, dm2);
+let bNjk = hivas('state.get', { kampany_id: kampany.id }, bencT3).njkk.find(n => n.id === grim.id);
+ellenoriz(bNjk && bNjk.lathatosag === 'nyilvanos' && bNjk.adat.szerep.nyilvanos === 'Morcos öreg őr.' && !bNjk.adat.statblokk && !bNjk.adat.szerep.titkok && bNjk.fenyegetes === undefined,
+  'megosztás után a játékos a nevet és a nyilvános leírást látja, a statblokkot és a titkot nem', bNjk);
+ellenoriz(hivas('roll.log', { kampany_id: kampany.id, njk_id: grim.id, mire: 'Grimbold: Észlelés', kockak: [1, 2, 3] }, bencT3).hiba === 'nincs_jogosultsag', 'játékos nem dobhat egy idegen NJK nevében');
+v = hivas('roll.log', { kampany_id: kampany.id, njk_id: grim.id, mire: 'Grimbold: Észlelés', kockak: [2, 2, 3], modosito: 1, tipus: 'alap' }, dm2);
+ellenoriz(v.ok && v.dobas.njk_id === grim.id && v.dobas.karakter_id === '', 'a DM próbája az NJK-ért naplózódik (njk_id)');
+ellenoriz(hivas('roll.log', { njk_id: grim.id, mire: 'Grimbold: Erő', kockak: [3, 3, 3] }, dm2).ok, 'NJK-próba kampány nélkül is naplózható (a DM-nek)');
+
+// követő: Morghoz (Bence karakteréhez) kötve, és a csapathoz kötve
+v = hivas('npc.save', { nev: 'Bolhás', fajta: 'koveto', kotodes: morg.id, kampanyok: [kampany.id], adat: { statblokk: { egeszseg: 12 }, szerep: { titkok: 'Valójában farkas.', feladatok: ['őrt áll'] } } }, dm2);
+const bolhas = v.njk;
+let kNjk = hivas('state.get', { kampany_id: kampany.id }, bencT3).njkk.find(n => n.id === bolhas.id);
+ellenoriz(kNjk && kNjk.lathatosag === 'kovetonek' && kNjk.adat.statblokk.egeszseg === 12 && !kNjk.adat.szerep.titkok, 'a gazda karakter játékosa látja a követő statblokkját, a titkát nem', kNjk);
+ellenoriz(hivas('roll.log', { kampany_id: kampany.id, njk_id: bolhas.id, mire: 'Bolhás: Észlelés', kockak: [4, 5, 6] }, bencT3).ok, 'a gazda karakter játékosa dobhat a követőért');
+hivas('npc.save', { id: bolhas.id, iranyito: anna.id }, dm2);
+ellenoriz(hivas('roll.log', { kampany_id: kampany.id, njk_id: bolhas.id, mire: 'Bolhás', kockak: [4, 5, 6] }, bencT3).hiba === 'nincs_jogosultsag', 'ha más az irányító, a gazda már nem dob érte');
+ellenoriz(hivas('roll.log', { kampany_id: kampany.id, njk_id: bolhas.id, mire: 'Bolhás', kockak: [4, 5, 6] }, annaT).ok, 'az irányító dobhat a követőért');
+v = hivas('npc.save', { nev: 'Aryss', fajta: 'koveto', kotodes: 'csapat', kampanyok: [kampany.id], adat: {} }, dm2);
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, bencT3).njkk.some(n => n.id === v.njk.id && n.lathatosag === 'kovetonek'), 'a csapathoz kötött követőt a kampány tagja látja');
+
+// kép
+v = hivas('npc.image.set', { id: grim.id, kep: Buffer.from('njkkep').toString('base64'), belyeg: Buffer.from('b').toString('base64') }, dm2);
+ellenoriz(v.ok && v.kep && v.kep.belyeg, 'NJK-kép feltöltése');
+ellenoriz(Object.keys(hivas('image.get', { idk: [v.kep.belyeg] }, bencT3).kepek).length === 1, 'a megosztott NJK képét a játékos lekérheti');
+const grimKep = v.kep;
+
+// archiválás, törlés
+ellenoriz(hivas('npc.delete', { id: grim.id }, dm2).hiba === 'hibas_adat', 'aktív NJK nem törölhető');
+hivas('npc.archive', { id: grim.id, aktiv: false }, dm2);
+ellenoriz(!hivas('state.get', { kampany_id: kampany.id }, bencT3).njkk.some(n => n.id === grim.id), 'archivált NJK-t a játékos nem lát');
+ellenoriz(!hivas('npc.list', {}, dm2).njkk.some(n => n.id === grim.id) && hivas('npc.list', { archivaltak: true }, dm2).njkk.some(n => n.id === grim.id), 'az archivált NJK csak kérésre szerepel a listában');
+ellenoriz(hivas('npc.delete', { id: grim.id }, dm2).ok && fajlok[grimKep.kep].kuka, 'archivált NJK törölhető, a képe a kukába kerül');
+
+// karakter-szintű NJK jelző
+v = hivas('character.npc', { id: pottom.id, njk: true }, dm2);
+ellenoriz(v.ok && v.karakter.njk === true, 'a DM karakter-szintű NJK-nak jelöli a karaktert');
+ellenoriz(hivas('character.npc', { id: pottom.id, njk: true }, annaT).hiba === 'nincs_jogosultsag', 'az NJK jelzőt csak a DM állíthatja');
+
+// egy karakter egyszerre egy kampányban aktív
+const masik = hivas('campaign.create', { cim: 'Mellékszál' }, dm2).kampany;
+v = hivas('campaign.addCharacter', { kampany_id: masik.id, karakter_id: pottom.id }, dm2);
+ellenoriz(v.ok && v.kileptetve.includes(kampany.id), 'új kampányban aktívvá téve a korábbi aktív kampányából kiléptetődik', v);
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, dm2).karakterek.find(c => c.id === pottom.id).kampany_allapot === 'kilépett', 'a korábbi kampányban „kilépett” az állapota');
+ellenoriz(JSON.stringify(hivas('characters.list', {}, dm2).karakterek.find(c => c.id === pottom.id).aktiv_kampanyok) === JSON.stringify([masik.id]), 'a karakter összefoglalója mutatja az aktív kampányát');
+v = hivas('campaign.addCharacter', { kampany_id: kampany.id, karakter_id: pottom.id, allapot: 'távol' }, dm2);
+ellenoriz(v.ok && !v.kileptetve.length, 'nem aktív állapot nem léptet ki máshonnan');
+hivas('campaign.update', { id: masik.id, allapot: 'archivált' }, dm2);
+hivas('campaign.delete', { id: masik.id }, dm2);
+
+hivas('users.admin', { muvelet: 'letilt', id: bence.id }, dm2);
 
 ellenoriz(hivas('character.delete', { id: morg.id }, dm2).hiba === 'hibas_adat', 'aktív karakter nem törölhető');
 ellenoriz(hivas('character.archive', { id: morg.id, aktiv: false }, annaT).hiba === 'nincs_jogosultsag', 'archiválni csak a DM tud');

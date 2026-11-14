@@ -206,6 +206,18 @@ const SEMA = {
           "reszletek",
           "aktiv",
           "fenyegetes",
+          "tipus",
+          "csoport"
+        ],
+        "Különleges képességek": [
+          "id",
+          "nev_hu",
+          "nev_en",
+          "forras",
+          "oldal",
+          "leiras_hu",
+          "reszletek",
+          "aktiv",
           "tipus"
         ],
         "Szótár": [
@@ -249,6 +261,22 @@ const SEMA = {
           "verzio",
           "modositva",
           "modositotta",
+          "aktiv",
+          "njk"
+        ],
+        "NJK-k": [
+          "id",
+          "nev",
+          "fajta",
+          "alap_szorny",
+          "fenyegetes",
+          "kampanyok",
+          "kotodes",
+          "iranyito",
+          "adat",
+          "verzio",
+          "modositva",
+          "modositotta",
           "aktiv"
         ],
         "Kampányok": [
@@ -287,7 +315,9 @@ const SEMA = {
           "fokusz",
           "kezi",
           "felfedve",
-          "reszletek"
+          "reszletek",
+          "njk_id",
+          "csata_id"
         ],
         "Próbák": [
           "id",
@@ -349,6 +379,7 @@ const SEMA = {
     "Felszerelés",
     "Mutatványok",
     "Szörnyek",
+    "Különleges képességek",
     "Szótár",
     "Házi szabályok"
   ],
@@ -363,6 +394,7 @@ const SEMA = {
     "modositok",
     "mutatvany",
     "ellenfel",
-    "allas"
+    "allas",
+    "kampanyok"
   ]
 };

@@ -10,6 +10,7 @@ import { karakterSzamol } from '../karakter/szamol.js';
 import { atallit } from '../karakter/adat.js';
 import { CELERTEKEK, KUSZOBOK, TUL_NEV, ujDobasId } from '../jatek/proba.js';
 import * as R from '../jatek/probakeres.js';
+import { lenyNezet } from '../jatek/leny.js';
 
 const kocka = () => 1 + Math.floor(Math.random() * 6);
 const szamBol = (s) => { const n = parseInt(String(s).replace('−', '-'), 10); return Number.isFinite(n) ? n : 0; };
@@ -106,12 +107,12 @@ export function UjProbaAblak({ kezdo, allapot, lapok, onBezar, onKuld }) {
     <${K.Button} variant="quiet" onClick=${onBezar}>Mégse<//>
     <${K.Button} variant="primary" disabled=${probalt && hibak.length > 0} onClick=${kuld}>${u.tipus === 'titkos' ? 'Titkos dobás' : 'Kérés küldése'}<//>`;
   return html`<${Parbeszed} cim="Új próba" onBezar=${onBezar} lab=${lab}>
-    <${ProbaKeresUrlap} u=${u} setU=${setU} karakterek=${karakterek} lapok=${lapok} fokuszNev=${fokuszNev} fokLap=${fokLap}/>
+    <${ProbaKeresUrlap} u=${u} setU=${setU} karakterek=${karakterek} lapok=${lapok} fokuszNev=${fokuszNev} fokLap=${fokLap} njkk=${(allapot.njkk || []).filter((n) => n.adat && n.adat.statblokk)}/>
     ${probalt && hibak.length ? html`<ul className="mutatvany__hibak">${hibak.map((h, i) => html`<li key=${i} className="kicsi">⚠ ${h}</li>`)}</ul>` : null}
   <//>`;
 }
 
-function ProbaKeresUrlap({ u, setU, karakterek, lapok, fokuszNev, fokLap }) {
+function ProbaKeresUrlap({ u, setU, karakterek, lapok, fokuszNev, fokLap, njkk = [] }) {
   const [kereses, setKereses] = useState('');
   const m = (kulcs) => (ertek) => setU((x) => ({ ...x, [kulcs]: ertek }));
   const tulFokuszai = (fokLap && fokLap['Fókuszok'] || []).filter((f) => f.tulajdonsag === u.tulajdonsag && f.aktiv !== false);
@@ -165,6 +166,16 @@ function ProbaKeresUrlap({ u, setU, karakterek, lapok, fokuszNev, fokLap }) {
     </fieldset>` : null}
     ${u.tipus === 'ellen' ? html`<fieldset className="szakasz">
       <legend className="cimke">Ellenfél (ha nem a karakterek egymás ellen)</legend>
+      ${njkk.length && fokLap ? html`<${Valaszto} label="NJK a kampányból" value="" ures="Válassz, és kitölti a nevet és a bónuszt…"
+        hint=${u.tulajdonsag ? 'A bónusz a választott tulajdonságból és a kért fókuszok közül a legjobból.' : 'Előbb válassz tulajdonságot.'}
+        opciok=${njkk.map((n) => ({ value: n.id, label: n.nev }))} onChange=${(id) => {
+          const n = njkk.find((x) => x.id === id);
+          const nz = n ? lenyNezet({ tipus: 'njk', sor: n }, fokLap) : null;
+          if (!nz) return;
+          const tul = nz.tulajdonsagok[u.tulajdonsag] ? nz.tulajdonsagok[u.tulajdonsag].ertek : 0;
+          const fok = Math.max(0, ...u.fokuszok.map((f) => (nz.fokuszok[f] ? nz.fokuszok[f].bonusz : 0)));
+          setU((x) => ({ ...x, ellenfel_nev: n.nev, ellenfel_bonusz: tul + fok }));
+        }}/>` : null}
       <div className="sorban">
         <${K.TextField} label="Név" placeholder="például Kapuőr" value=${u.ellenfel_nev} onChange=${(e) => m('ellenfel_nev')(e.target.value)}/>
         <${K.TextField} label="Bónusz" hint="Tulajdonság és fókusz" inputMode="numeric" value=${String(u.ellenfel_bonusz)}

@@ -166,9 +166,10 @@ function Kivago({ forras, onMegse, onKesz, fut }) {
   </div>`;
 }
 
-// Kép feltöltése, cseréje és törlése. karakterId: a karakter, kep: az adat.alap.kep (vagy null).
+// Kép feltöltése, cseréje és törlése. karakterId: a karakter (vagy az NJK), kep: az adat.alap.kep (vagy null).
 // onKesz(valasz): a háttér válasza ({ verzio, modositva, kep }), a hívó ezzel frissíti a karaktert.
-export function KepFeltolto({ karakterId, kep, nev, onKesz }) {
+// muvelet: a háttér művelete (alapból character.image.set; az NJK-tárban npc.image.set).
+export function KepFeltolto({ karakterId, kep, nev, onKesz, muvelet = 'character.image.set' }) {
   const { api, uzen } = useApp();
   const [forras, setForras] = useState(null);
   const [fut, setFut] = useState(false);
@@ -187,7 +188,7 @@ export function KepFeltolto({ karakterId, kep, nev, onKesz }) {
   const kuld = async (nagy, belyeg) => {
     setFut(true);
     try {
-      const v = await api.hivas('character.image.set', { id: karakterId, kep: nagy.split(',')[1], belyeg: belyeg.split(',')[1] });
+      const v = await api.hivas(muvelet, { id: karakterId, kep: nagy.split(',')[1], belyeg: belyeg.split(',')[1] });
       if (v.kep) { kepElore(v.kep.kep, nagy); kepElore(v.kep.belyeg, belyeg); }
       setForras(null);
       uzen('A kép elmentve.');
@@ -199,7 +200,7 @@ export function KepFeltolto({ karakterId, kep, nev, onKesz }) {
   const torol = async () => {
     setFut(true);
     try {
-      const v = await api.hivas('character.image.set', { id: karakterId, kep: null });
+      const v = await api.hivas(muvelet, { id: karakterId, kep: null });
       uzen('A kép törölve.');
       if (onKesz) onKesz(v);
     } catch (e) { setHiba(e.message || String(e)); } finally { setFut(false); }
