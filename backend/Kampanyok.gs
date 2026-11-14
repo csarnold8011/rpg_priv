@@ -41,7 +41,7 @@ function indulas_(a, felh) {
 
 // action: campaign.delete (csak DM)   adat: { id }
 // Csak archivált kampány törölhető. A kampánykapcsolatok törlődnek, a karakterek megmaradnak,
-// a dobásnapló és a megosztások sorai is maradnak.
+// a dobásnapló és a megosztások sorai is maradnak. A kampány összecsapásai törlődnek.
 function kampanyTorlese_(a, felh) {
   return zarolva_(function () {
     const k = kornyezet_();
@@ -49,6 +49,7 @@ function kampanyTorlese_(a, felh) {
     if (kampany.allapot !== ARCHIVALT) throw hiba_('hibas_adat', 'Csak archivált kampány törölhető. Előbb archiváld.');
     const kapcsolatok = k.kapcsolatok.filter(function (x) { return x.kampany_id === kampany.id; });
     sorokTorlese_('jatek', 'Kampánykarakterek', kapcsolatok.map(function (x) { return x._sor; }));
+    kampanyOsszecsapasainakTorlese_(kampany.id);
     sorTorlese_('jatek', 'Kampányok', kampany._sor);
     CacheService.getScriptCache().remove('kv_' + kampany.id);
     valtozasNaplozasa_(felh, 'kampany.torol', kampany.id, kampany.verzio, '');
@@ -190,7 +191,7 @@ function allapotLekerese_(a, felh) {
     .filter(function (m) { return mindentLat || m.cimzett === 'mindenki' || sajatKarakterek.indexOf(m.cimzett) >= 0; })
     .map(function (m) { delete m._sor; return m; });
 
-  return {
+  const o = {
     verzio: Number(kampany.verzio) || 0,
     kampany: kampanyNezet_(kampany, szerep),
     karakterek: karakterek,
@@ -199,6 +200,9 @@ function allapotLekerese_(a, felh) {
     megosztasok: megosztasok,
     njkk: njkk
   };
+  // az előkészített összecsapások csak a DM-é
+  if (szerep === 'dm') o.osszecsapasok = kampanyOsszecsapasai_(kampany);
+  return o;
 }
 
 // A rejtett mező üresen hamis (szemben az aktiv mezővel, ami üresen igaz).

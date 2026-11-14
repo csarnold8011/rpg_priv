@@ -18,6 +18,7 @@ import { XpKiosztas } from './xpkiosztas.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
 import { BestiariumOldal } from './bestiarium.js';
 import { NjkTarOldal, UjNjkParbeszed, KampanyNjkPanel } from './njk.js';
+import { KampanyOsszecsapasPanel, OsszecsapasOldal, OsszecsapasbaParbeszed, CsataBeallitasok } from './osszecsapas.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -33,6 +34,7 @@ export function DmFelulet({ ut }) {
   const { api, felhasznalo, kilepes } = useApp();
   const [menu, setMenu] = useState(false);
   const [masolat, setMasolat] = useState(null); // a Bestiárium „Másolat az NJK-tárba” gombjából
+  const [osszecsapasba, setOsszecsapasba] = useState(null); // a Bestiárium „Összecsapásba” gombjából
   useEffect(() => { temaBeallitasa('dm'); }, []);
   // Egyetlen induló hívás; az előző eredmény az eszközről azonnal látszik.
   const init = useLekeres(() => indulasLekerese(api, true), [], 'init');
@@ -90,12 +92,14 @@ export function DmFelulet({ ut }) {
   }
   let tartalom;
   if (oldal === 'kampanyok') tartalom = html`<${KampanyokOldal}/>`;
+  else if (oldal === 'kampany' && azon && ut[2] === 'osszecsapas' && ut[3]) tartalom = html`<${OsszecsapasOldal} key=${ut[3]} kampanyId=${azon} id=${ut[3]} Oldalfej=${Oldalfej}/>`;
   else if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon}/>`;
   else if (oldal === 'karakterek') tartalom = html`<${KarakterekOldal}/>`;
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;
   else if (oldal === 'felhasznalok') tartalom = html`<${FelhasznalokOldal}/>`;
   else if (oldal === 'szabalyok') tartalom = html`<${SzabalyokOldal}/>`;
-  else if (oldal === 'bestiarium') tartalom = html`<${BestiariumOldal} key="bestiarium" azon=${azon} Oldalfej=${Oldalfej} onMasolat=${setMasolat}/>`;
+  else if (oldal === 'bestiarium') tartalom = html`<${BestiariumOldal} key="bestiarium" azon=${azon} Oldalfej=${Oldalfej} onMasolat=${setMasolat}
+    onOsszecsapasba=${(s) => setOsszecsapasba({ tipus: 'szorny', id: s.id, nev: s.nev_hu })}/>`;
   else if (oldal === 'njk') tartalom = html`<${NjkTarOldal} key="njk" azon=${azon} Oldalfej=${Oldalfej} dm=${dm}/>`;
   else tartalom = html`<${Attekintes}/>`;
 
@@ -146,6 +150,7 @@ export function DmFelulet({ ut }) {
       </div>
       ${masolat ? html`<${UjNjkParbeszed} dm=${dm} szorny=${masolat} onBezar=${() => setMasolat(null)}
         onLetrejott=${(n) => { setMasolat(null); navigal('/dm/njk/' + n.id); }}/>` : null}
+      ${osszecsapasba ? html`<${OsszecsapasbaParbeszed} elem=${osszecsapasba} kampanyok=${dm.kampanyok} onBezar=${() => setOsszecsapasba(null)}/>` : null}
     </div>
   <//>`;
 }
@@ -301,6 +306,7 @@ function KampanyOldal({ id }) {
       </div>
       <div className="verem">
         <${ProbakPanel} allapot=${allapot} naploz=${naploz}/>
+        <${KampanyOsszecsapasPanel} allapot=${allapot} frissit=${frissit}/>
         <${KampanyNjkPanel} allapot=${allapot} naploz=${naploz} dm=${dm} frissit=${frissit}/>
         <${K.Panel} title="Dobás"><${DobasPanel} allapot=${allapot} naploz=${naploz} dm=${true}/><//>
         <${K.Panel} title="Dobásnapló"><${KampanyNaplo} allapot=${allapot} dobasok=${dobasok}/><//>
@@ -408,6 +414,7 @@ function KampanyBeallitasok({ kampany, frissit }) {
       </div>
     </details>
     <${ProbaBeallitasok} key=${kampany.id} kampany=${kampany} onMentve=${(v) => { if (v && v.kampany) dm.kampanyFrissit(v.kampany); frissit(); }}/>
+    <${CsataBeallitasok} key=${'csata' + kampany.id} kampany=${kampany} onMentve=${(v) => { if (v && v.kampany) dm.kampanyFrissit(v.kampany); frissit(); }}/>
   <//>`;
 }
 

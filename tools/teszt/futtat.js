@@ -345,6 +345,35 @@ ellenoriz(v.ok && !v.kileptetve.length, 'nem aktív állapot nem léptet ki más
 hivas('campaign.update', { id: masik.id, allapot: 'archivált' }, dm2);
 hivas('campaign.delete', { id: masik.id }, dm2);
 
+// ---------- Összecsapások (3. lépés, 3. ütem) ----------
+const eAdat = { leiras: 'Rajtaütés a hídnál', oldalak: [{ id: 'o_csapat', nev: 'Csapat' }, { id: 'o_ellen', nev: 'Ellenfelek' }],
+  viszonyok: { 'o_csapat|o_ellen': 'ellenseges' }, csoportok: [], resztvevok: [{ id: 'r1', forras: { tipus: 'szorny', id: 'szo_bandit' }, nev: 'Bandita', db: 3, oldal: 'o_ellen' }] };
+ellenoriz(hivas('encounter.save', { kampany_id: kampany.id, cim: 'Híd', adat: eAdat }, annaT).hiba === 'nincs_jogosultsag', 'összecsapást csak a DM készíthet');
+ellenoriz(hivas('encounter.save', { cim: 'Híd', adat: eAdat }, dm2).hiba === 'hianyzo_adat', 'kampány nélkül nem jön létre összecsapás');
+ellenoriz(hivas('encounter.save', { kampany_id: kampany.id, cim: '  ', adat: eAdat }, dm2).hiba === 'hianyzo_adat', 'cím nélkül nem jön létre összecsapás');
+const kvElotte = hivas('state.poll', { kampany_id: kampany.id }, dm2).verzio;
+v = hivas('encounter.save', { kampany_id: kampany.id, cim: 'Rajtaütés a hídnál', adat: eAdat }, dm2);
+const hid = v.osszecsapas;
+ellenoriz(v.ok && hid.verzio === 1 && hid.allapot === 'előkészítés' && hid.adat.resztvevok[0].db === 3, 'a DM összecsapást készít a kampányhoz', v);
+ellenoriz(hivas('state.poll', { kampany_id: kampany.id }, dm2).verzio > kvElotte, 'az összecsapás mentése növeli a kampány verzióját');
+let eAll = hivas('state.get', { kampany_id: kampany.id }, dm2);
+ellenoriz(eAll.osszecsapasok && eAll.osszecsapasok.some(e => e.id === hid.id && e.adat.leiras === 'Rajtaütés a hídnál'), 'a DM kampányállapotában ott az összecsapás');
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).osszecsapasok === undefined, 'a mesterjátékos nem látja az előkészített összecsapásokat');
+v = hivas('encounter.save', { id: hid.id, verzio: 1, allapot: 'kész', adat: Object.assign({}, eAdat, { terep: 'csúszós deszkák' }) }, dm2);
+ellenoriz(v.ok && v.verzio === 2 && v.osszecsapas.allapot === 'kész' && v.osszecsapas.adat.terep === 'csúszós deszkák' && v.osszecsapas.cim === 'Rajtaütés a hídnál', 'módosítás: verzió nő, a cím megmarad');
+ellenoriz(hivas('encounter.save', { id: hid.id, verzio: 1, cim: 'X' }, dm2).hiba === 'utkozes', 'régi verzióra mentés ütközést jelez');
+ellenoriz(hivas('encounter.save', { id: hid.id, allapot: 'valami' }, dm2).osszecsapas.allapot === 'előkészítés', 'ismeretlen állapot helyett előkészítés');
+ellenoriz(hivas('encounter.save', { id: hid.id, adat: [1, 2] }, dm2).hiba === 'hibas_adat', 'hibás adat nem menthető');
+ellenoriz(hivas('encounter.save', { id: hid.id, kampany_id: 'c_nincs' }, dm2).hiba === 'nem_talalhato', 'nem létező kampányba nem tehető');
+ellenoriz(jatek.getSheetByName('Változásnapló').adat.some(sor => sor.includes('osszecsapas.ment')), 'az összecsapás mentése a Változásnaplóba kerül');
+ellenoriz(hivas('encounter.list', {}, dm2).osszecsapasok.some(e => e.id === hid.id) && hivas('encounter.list', { kampany_id: 'masik' }, dm2).osszecsapasok.length === 0, 'encounter.list kampány szerint szűr');
+ellenoriz(hivas('encounter.delete', { id: hid.id }, dm2).hiba === 'hibas_adat', 'aktív összecsapás nem törölhető');
+hivas('encounter.archive', { id: hid.id, aktiv: false }, dm2);
+ellenoriz(!hivas('state.get', { kampany_id: kampany.id }, dm2).osszecsapasok.some(e => e.id === hid.id), 'az archivált összecsapás nincs a kampányállapotban');
+ellenoriz(!hivas('encounter.list', {}, dm2).osszecsapasok.some(e => e.id === hid.id) && hivas('encounter.list', { archivaltak: true }, dm2).osszecsapasok.some(e => e.id === hid.id && !e.aktiv), 'az archivált csak kérésre szerepel a listában');
+ellenoriz(hivas('encounter.delete', { id: hid.id }, dm2).ok && !hivas('encounter.list', { archivaltak: true }, dm2).osszecsapasok.some(e => e.id === hid.id), 'archivált összecsapás törölhető');
+const marado = hivas('encounter.save', { kampany_id: kampany.id, cim: 'Farkasok', adat: eAdat }, dm2).osszecsapas;
+
 hivas('users.admin', { muvelet: 'letilt', id: bence.id }, dm2);
 
 ellenoriz(hivas('character.delete', { id: morg.id }, dm2).hiba === 'hibas_adat', 'aktív karakter nem törölhető');
@@ -372,6 +401,7 @@ ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).hiba === 'nincs_
 ellenoriz(hivas('campaigns.list', {}, dm2).kampanyok.length === 1, 'a DM látja az archivált kampányt');
 ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).ok, 'archivált kampány törölhető');
 ellenoriz(hivas('campaigns.list', {}, dm2).kampanyok.length === 0 && hivas('character.get', { id: pottom.id }, dm2).ok, 'a kampány törlődött, a karakter megmaradt');
+ellenoriz(!jatek.getSheetByName('Összecsapások').adat.some(sor => sor.includes(marado.id)), 'a törölt kampány összecsapásai is törlődtek');
 
 console.log(hibak ? `\n${hibak} HIBA` : '\nMinden teszt sikeres.');
 process.exit(hibak ? 1 : 0);

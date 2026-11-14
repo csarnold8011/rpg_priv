@@ -6,6 +6,7 @@ import {
   Parbeszed, Megerosites, Sugo, elojel, idopont
 } from './kozos.js';
 import { Statblokk } from './bestiarium.js';
+import { OsszecsapasbaParbeszed } from './osszecsapas.js';
 import { KarakterKep, KepFeltolto } from './kepek.js';
 import { ProbaLap } from './proba.js';
 import * as LN from '../jatek/leny.js';
@@ -241,6 +242,7 @@ export function NjkSzerkeszto({ id, dm, lapok, onValtozott, onTorolve }) {
   const [kerdes, setKerdes] = useState(null);
   const [fut, indit] = useMuvelet();
   const [naploKampany, setNaploKampany] = useState('');
+  const [osszecsapasba, setOsszecsapasba] = useState(false);
   const n = lekeres.adat;
   // a betöltött (vagy máshol mentett) változat; a még nem szerkesztett vázlat követi
   useEffect(() => {
@@ -349,15 +351,18 @@ export function NjkSzerkeszto({ id, dm, lapok, onValtozott, onTorolve }) {
     ${nezet ? html`<${Statblokk} nezet=${nezet} r=${sb} lapok=${lapok} leiras=${(adat.szerep || {}).nyilvanos}
       naplo=${{ kampany: kampanyProbahoz(naploKampanyObj), njk: { id: vazlat.id, nev: vazlat.nev }, naploz, rejtettLehet: !!naploKampanyObj }}/>` : null}
 
-    <${K.Panel} title="Másolat, archiválás, törlés">
+    <${K.Panel} title="Másolat, összecsapás, archiválás">
       <div className="gombsor">
         <${K.Button} disabled=${fut} onClick=${masolat}>Másolat készítése<//>
+        ${vazlat.aktiv !== false ? html`<${K.Button} disabled=${fut} onClick=${() => setOsszecsapasba(true)}>Összecsapásba<//>` : null}
         ${vazlat.aktiv === false
           ? html`<${K.Button} disabled=${fut} onClick=${() => archival(true)}>Visszaállítás<//><${K.Button} variant="danger" disabled=${fut} onClick=${() => setKerdes('torol')}>Végleges törlés<//>`
           : html`<${K.Button} disabled=${fut} onClick=${() => setKerdes('archival')}>Archiválás<//>`}
       </div>
       <p className="halvany kicsi">A másolat a jelenlegi mentett állapotból készül (például „a farkasfalka vezére” a farkasból), kép és szereplések nélkül.</p>
     <//>
+    ${osszecsapasba ? html`<${OsszecsapasbaParbeszed} elem=${{ tipus: 'njk', id: vazlat.id, nev: alap.nev }} kampanyok=${dm.kampanyok}
+      kampanyId=${(alap.kampanyok || [])[0] || ''} onBezar=${() => setOsszecsapasba(false)}/>` : null}
     ${kerdes === 'archival' ? html`<${Megerosites} cim="Archiválás" gomb="Archiválás" szoveg=${vazlat.nev + ' eltűnik a kampányokból és a játékosok elől. Később visszaállíthatod.'}
       onMegse=${() => setKerdes(null)} onIgen=${() => { setKerdes(null); archival(false); }}/>` : null}
     ${kerdes === 'torol' ? html`<${Megerosites} cim="Végleges törlés" gomb="Végleges törlés" veszelyes=${true}

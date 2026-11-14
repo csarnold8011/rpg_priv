@@ -36,6 +36,7 @@
         "Kampánykarakterek": ["kampany_id", "karakter_id", "allapot", "csatlakozott"],
         "Dobásnapló": ["id", "idopont", "kampany_id", "karakter_id", "dobta", "mire", "kockak", "modosito", "celertek", "eredmeny", "mutatvanypont", "rejtett", "proba_id", "tipus", "tulajdonsag", "fokusz", "kezi", "felfedve", "reszletek", "njk_id", "csata_id"],
         "Próbák": ["id", "kampany_id", "letrehozva", "letrehozta", "tipus", "cim", "tulajdonsag", "fokuszok", "fokusz_kotelezo", "celertek", "celertek_rejtett", "kuszob", "haladas", "idoegyseg", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "allapot", "lezarva"],
+        "Összecsapások": ["id", "kampany_id", "cim", "allapot", "adat", "verzio", "letrehozva", "modositva", "modositotta", "aktiv"],
         "Megosztások": ["id", "kampany_id", "cimzett", "tipus", "cim", "hivatkozas", "idopont"],
         "Változásnapló": ["idopont", "ki", "mit", "elem_id", "regi_verzio", "uj_verzio"]
       }

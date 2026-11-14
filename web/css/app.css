@@ -619,3 +619,14 @@ a.sorgomb-teljes { text-decoration: none; }
 .ertekek dt { overflow-wrap: anywhere; hyphens: auto; }
 .ertekek dd.ertekek__megj { font-size: 14px; line-height: 20px; font-weight: 400; color: var(--ink-muted); }
 .ertekek--sablon { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+
+/* Összecsapás-építő (3. lépés, 3. ütem) */
+.leptetok { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-sm); }
+.leptetok .csip__gomb { min-width: 36px; min-height: 36px; font-size: 18px; }
+.osszecsapas__db { min-width: 2ch; text-align: center; }
+.osszecsapas__oldal + .osszecsapas__oldal { margin-top: var(--space-4); }
+.osszecsapas__oldal h3.cimke { margin: 0 0 var(--space-1); }
+.osszecsapas__vezerlok { align-items: flex-end; }
+.osszecsapas__vezerlok > * { flex: 1 1 160px; }
+.osszecsapas__vezerlok > .ka-field:first-child:has(.leptetok) { flex: 0 0 auto; }
+.osszecsapas__talalatok { max-height: 420px; overflow-y: auto; }

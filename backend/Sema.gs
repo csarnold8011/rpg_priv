@@ -342,6 +342,18 @@ const SEMA = {
           "allapot",
           "lezarva"
         ],
+        "Összecsapások": [
+          "id",
+          "kampany_id",
+          "cim",
+          "allapot",
+          "adat",
+          "verzio",
+          "letrehozva",
+          "modositva",
+          "modositotta",
+          "aktiv"
+        ],
         "Megosztások": [
           "id",
           "kampany_id",

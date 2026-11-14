@@ -17,7 +17,7 @@ const fenyegetesTonus = (f) => ({ 'Csekély': undefined, 'Mérsékelt': 'accent'
 
 // ut: ['bestiarium', id?]
 // onMasolat(sor): a „Másolat az NJK-tárba” gomb (a DM felület nyitja az új NJK párbeszédét).
-export function BestiariumOldal({ azon, Oldalfej, onMasolat }) {
+export function BestiariumOldal({ azon, Oldalfej, onMasolat, onOsszecsapasba }) {
   const { szabalyok } = useApp();
   const lapok = szabalyok.adat && szabalyok.adat.lapok;
   const sorok = (lapok && lapok['Szörnyek']) || [];
@@ -82,7 +82,7 @@ export function BestiariumOldal({ azon, Oldalfej, onMasolat }) {
       </div>
       <div>
         ${valasztott ? html`<${Statblokk} key=${valasztott.id} sor=${valasztott} lapok=${lapok}
-            muveletek=${onMasolat ? html`<${K.Button} size="sm" variant="secondary" onClick=${() => onMasolat(valasztott)}>Másolat az NJK-tárba<//>` : null}/>`
+            muveletek=${html`${onOsszecsapasba ? html`<${K.Button} size="sm" variant="secondary" onClick=${() => onOsszecsapasba(valasztott)}>Összecsapásba<//>` : null}${onMasolat ? html`<${K.Button} size="sm" variant="secondary" onClick=${() => onMasolat(valasztott)}>Másolat az NJK-tárba<//>` : null}`}/>`
           : html`<${K.Panel} title="Statblokk"><p className="halvany">Válassz egy lényt a listából.</p><//>`}
       </div>
     </div>

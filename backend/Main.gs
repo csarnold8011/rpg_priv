@@ -40,7 +40,11 @@ function muveletek_() {
     'npc.save':                { fn: njkMentese_, szerep: 'dm' },
     'npc.archive':             { fn: njkArchivalasa_, szerep: 'dm' },
     'npc.delete':              { fn: njkTorlese_, szerep: 'dm' },
-    'npc.image.set':           { fn: njkKepBeallitasa_, szerep: 'dm' }
+    'npc.image.set':           { fn: njkKepBeallitasa_, szerep: 'dm' },
+    'encounter.list':          { fn: osszecsapasLista_, szerep: 'dm' },
+    'encounter.save':          { fn: osszecsapasMentese_, szerep: 'dm' },
+    'encounter.archive':       { fn: osszecsapasArchivalasa_, szerep: 'dm' },
+    'encounter.delete':        { fn: osszecsapasTorlese_, szerep: 'dm' }
     // 'ai.ask': a 4. fejlesztési lépésben
   };
 }
