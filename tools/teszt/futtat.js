@@ -54,6 +54,8 @@ ellenoriz(v.ok && v.verzio === 2, 'mesterjátékos ment, a verzió nő', v);
 v = hivas('character.save', { id: pottom.id, verzio: 1, adat: { nev: 'Pöttöm' } }, dm);
 ellenoriz(v.hiba === 'utkozes' && v.aktualis && v.aktualis.verzio === 2, 'régi verzióra mentés ütközést jelez, visszaadja az aktuálisat', v);
 ellenoriz(hivas('character.save', { id: pottom.id, verzio: 2, adat: { nev: 'X' } }, bencT).hiba === 'nincs_jogosultsag', 'Bence nem szerkesztheti');
+v = hivas('character.save', { id: pottom.id, verzio: 2, adat: { nev: 'Pöttöm', faj: 'Félszerzet', osztaly: 'Tolvaj', szint: 2, keszites: { allapot: 'piszkozat' } } }, annaT);
+ellenoriz(v.ok && hivas('characters.list', {}, annaT).karakterek[0].keszites === 'piszkozat', 'a listában látszik, hogy a karakter piszkozat (karakterkészítés folyamatban)');
 ellenoriz(hivas('state.get', { kampany_id: kampany.id }, bencT).hiba === 'nincs_jogosultsag', 'Bence nem látja a kampányt, amíg nincs benne karaktere');
 
 v = hivas('character.create', { nev: 'Bence önálló hőse' }, bencT);

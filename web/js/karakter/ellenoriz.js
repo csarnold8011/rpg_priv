@@ -36,9 +36,13 @@ export function ellenorzes(adat, ix, lap, k) {
       if (v < 0 || v > 3) f('vasarlas_korlat', t, `Vásárlásnál minden tulajdonság 0 és 3 között lehet (${tulNev(ix, t)}: ${v}).`, 'tulajdonsagok');
     });
   } else if ((modszer === 'sorban' || modszer === 'elrendezes') && (adat.tulajdonsag_keszites.dobasok || []).length) {
-    const dobasok = adat.tulajdonsag_keszites.dobasok.map((d) => tulajdonsagDobasbol(szam(d), ix));
-    if (dobasok.length !== 9) f('dobas_darab', String(dobasok.length), `A tulajdonságokhoz kilenc dobás kell (most ${dobasok.length}).`, 'tulajdonsagok');
-    else if (modszer === 'sorban') {
+    // A varázsló a még nem dobott helyeket null értékkel tartja (sorban dobásnál a tulajdonság helyén).
+    const nyers = adat.tulajdonsag_keszites.dobasok;
+    const megvan = nyers.filter((d) => d !== null && d !== undefined && d !== '').length;
+    const dobasok = nyers.map((d) => tulajdonsagDobasbol(szam(d), ix));
+    if (megvan !== 9 || dobasok.length !== 9) {
+      if (kesz || megvan > 9) f('dobas_darab', String(megvan), `A tulajdonságokhoz kilenc dobás kell (most ${megvan}).`, 'tulajdonsagok');
+    } else if (modszer === 'sorban') {
       const vart = {};
       TULAJDONSAGOK.forEach((t, i) => { vart[t] = dobasok[i]; });
       const cs = adat.tulajdonsag_keszites.csere;

@@ -8,7 +8,9 @@ function karakterOsszefoglalo_(kar, k, felh) {
     id: kar.id, nev: kar.nev, jatekos_id: kar.jatekos_id || '', faj: kar.faj, osztaly: kar.osztaly,
     szint: kar.szint, verzio: Number(kar.verzio) || 0, modositva: kar.modositva, aktiv: igaz_(kar.aktiv),
     kampanyok: karakterKampanyai_(kar.id, k),
-    irhato: felh ? karakterIrhato_(felh, kar, k) : false
+    irhato: felh ? karakterIrhato_(felh, kar, k) : false,
+    // a karakterkészítés állapota a listák „Piszkozat” címkéjéhez (piszkozat | kesz | atvett)
+    keszites: kar.adat && typeof kar.adat === 'object' && kar.adat.keszites ? (kar.adat.keszites.allapot || '') : ''
   };
 }
 

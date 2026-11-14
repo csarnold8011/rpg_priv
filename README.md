@@ -12,9 +12,9 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 | `dist/Kod.gs` | A háttér egy fájlba fűzve, az Apps Script szerkesztőbe másoláshoz (generált) |
 | `schema/sema.json` | A két táblázat lapjai és oszlopai; ebből készül a `backend/Sema.gs` |
 | `index.html` | A felület nyitóoldala (belépés, utána a szerep szerint DM vagy játékos nézet): https://csarnold8011.github.io/rpg_priv/ |
-| `web/js/app/` | A felület: `main.js` (belépési pont), `belepes.js`, `dm.js`, `jatekos.js`, `jatek.js` (közös játékelemek), `kozos.js`, `ikonok.js` |
+| `web/js/app/` | A felület: `main.js` (belépési pont), `belepes.js`, `dm.js`, `jatekos.js`, `jatek.js` (közös játékelemek), `kozos.js`, `ikonok.js`, a karakterkészítő varázsló (`varazslo.js` keret és mentés, `varazslo_lepesek.js` a tíz lépés és az élő karakterlap) és a kockadobó (`kockadobo.js`, Dobj vagy Beírom) |
 | `web/js/` | Közös modulok: `api.js` (háttérhívások), `sync.js` (szinkronréteg), `szabalyok.js` (szabályadat a böngészőben) |
-| `web/js/karakter/` | A karakter adatszerkezete és számolása: `adat.js` (szerkezet, átállás a korábbiról), `szamol.js` (végértékek a döntésekből, magyarázattal), `ellenoriz.js` (figyelmeztetések), `felszereles.js` (kezdő csomag), `tablak.js`, `szabalyindex.js` |
+| `web/js/karakter/` | A karakter adatszerkezete és számolása: `adat.js` (szerkezet, átállás a korábbiról), `szamol.js` (végértékek a döntésekből, magyarázattal), `ellenoriz.js` (figyelmeztetések), `felszereles.js` (kezdő csomag), `varazslo.js` (a varázsló lépéseinek logikája), `tablak.js`, `szabalyindex.js` |
 | `web/kaland/` | A design rendszer másolata (komponensek, tokenek), lásd `web/kaland/README.md` |
 | `web/css/app.css` | A felület elrendezése, csak tokenekkel |
 | `web/vendor/` | React 18 és htm helyben (nincs fordítási lépés) |
@@ -27,12 +27,13 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 ```bash
 python3 tools/sema_general.py      # schema/sema.json -> backend/Sema.gs
 python3 tools/backend_osszefuz.py  # backend/*.gs -> dist/Kod.gs
-node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 63 ellenőrzés)
+node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 64 ellenőrzés)
 node tools/teszt/karakter.mjs      # a karakterszámoló tesztje (az Alapkönyv példakarakterével, 73 ellenőrzés)
+node tools/teszt/varazslo.mjs      # a karakterkészítő varázsló logikájának tesztje (46 ellenőrzés)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 
-A helyi szerver a felületet és a háttérkódot is kiszolgálja (utánzott Google szolgáltatásokkal, csak memóriában). Megnyitás: `http://localhost:8080/#kapcsolat=http%3A%2F%2Flocalhost%3A8080%2Fapi`, belépés: Arnold / sarkany1 (DM), Anna / anna1 (mesterjátékos), Bence / bence1.
+A helyi szerver a felületet és a háttérkódot is kiszolgálja (utánzott Google szolgáltatásokkal, csak memóriában). A szabályadat alapból a karakterteszt minta sorai; `--szabalyok <fájl.json>` kapcsolóval a valódi Szabályadatbázis exportja tölthető be (ez a fájl a szabálykönyvek szövegét tartalmazza, ezért soha nem kerülhet a repóba). Megnyitás: `http://localhost:8080/#kapcsolat=http%3A%2F%2Flocalhost%3A8080%2Fapi`, belépés: Arnold / sarkany1 (DM), Anna / anna1 (mesterjátékos), Bence / bence1.
 
 A felület fordítási lépés nélkül fut: a `web/js/app/` modulok böngészőben futó ES modulok, a sablonok a `htm` könyvtárral készülnek (JSX helyett), a komponensek a `window.Kaland` névtérből jönnek.
 

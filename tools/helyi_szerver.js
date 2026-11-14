@@ -4,9 +4,13 @@
 //   node tools/helyi_szerver.js            bemutató adatokkal (DM: Arnold / sarkany1, játékosok: Anna / anna1, Bence / bence1)
 //   node tools/helyi_szerver.js --ures     üres adatbázissal (a legelső belépő lesz a DM)
 //   node tools/helyi_szerver.js --port 8090
+//   node tools/helyi_szerver.js --szabalyok /utvonal/lapok.json   valódi szabályadat egy JSON fájlból
+//       ({ "Fajok": [ { id, nev_hu, ... } ], ... }, például a Szabályadatbázis exportja). A fájl soha
+//       ne kerüljön a repóba: a szabálykönyvek szövegét tartalmazza.
 //
 // Megnyitás: http://localhost:8080/#kapcsolat=http%3A%2F%2Flocalhost%3A8080%2Fapi
-// Minden adat csak a memóriában van, leállításkor elvész. A szabályadat itt csak néhány minta sor.
+// Minden adat csak a memóriában van, leállításkor elvész. A szabályadat alapból a karakterszámoló
+// tesztjének minta sorai (tools/teszt/karakter_minta.mjs, leírások nélkül), --szabalyok kapcsolóval valódi adat.
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -16,6 +20,7 @@ const argumentumok = process.argv.slice(2);
 const PORT = Number(argumentumok[argumentumok.indexOf('--port') + 1]) || 8080;
 const URES = argumentumok.includes('--ures');
 const KESLELTETES = Number(argumentumok[argumentumok.indexOf('--keses') + 1]) || 300; // ms, az Apps Script lassúságának utánzása
+const SZABALY_FAJL = argumentumok.includes('--szabalyok') ? argumentumok[argumentumok.indexOf('--szabalyok') + 1] : null;
 const GYOKER = path.resolve(__dirname, '..');
 
 const U = require('./teszt/utanzat').letrehoz();
@@ -26,32 +31,37 @@ function hivas(action, adat, token) {
   return JSON.parse(k.doPost({ postData: { contents: JSON.stringify({ action, token, adat }) } }).getContent());
 }
 
-if (!URES) bemutatoAdatok();
+// A szabályadat betöltése a memóriabeli Szabályadatbázisba (a valódi lapok oszlopai szerint).
+function szabalyokBetoltese(lapok) {
+  const szabaly = U.tablazatok[U.tulajdonsagok.SZABALY_ID];
+  Object.keys(lapok).forEach((lap) => {
+    const lapObj = szabaly.getSheetByName(lap);
+    if (!lapObj || !Array.isArray(lapok[lap])) return;
+    const fej = lapObj.getRange(1, 1, 1, lapObj.getLastColumn()).getValues()[0];
+    lapok[lap].forEach((o) => lapObj.appendRow(fej.map((f) => {
+      const v = o[f] === undefined || o[f] === null ? (f === 'aktiv' ? true : '') : o[f];
+      return typeof v === 'object' ? JSON.stringify(v) : v;
+    })));
+  });
+  k.szabalyVerzioNovelese();
+}
+
+async function indulas() {
+  let lapok;
+  if (SZABALY_FAJL) lapok = JSON.parse(fs.readFileSync(SZABALY_FAJL, 'utf8'));
+  else {
+    lapok = (await import('./teszt/karakter_minta.mjs')).LAPOK;
+    // a bemutató karakterek fajai (a régi szerkezetű karakterekhez)
+    lapok = { ...lapok, 'Fajok': lapok['Fajok'].concat([
+      { id: 'faj_dwarf', nev_hu: 'Törp', nev_en: 'Dwarf', forras: 'Alapkönyv', reszletek: { tulajdonsag_bonusz: { tul_constitution: 1 }, sebesseg_alap: 8, elonydobasok: 2, elonytabla: [] } },
+      { id: 'faj_halfling', nev_hu: 'Félszerzet', nev_en: 'Halfling', forras: 'Alapkönyv', reszletek: { tulajdonsag_bonusz: { tul_dexterity: 1 }, sebesseg_alap: 8, elonydobasok: 2, elonytabla: [] } }]) };
+  }
+  szabalyokBetoltese(lapok);
+  if (!URES) bemutatoAdatok();
+  inditas();
+}
 
 function bemutatoAdatok() {
-  const szabaly = U.tablazatok[U.tulajdonsagok.SZABALY_ID];
-  const sor = (lap, o) => {
-    const lapObj = szabaly.getSheetByName(lap);
-    const fej = lapObj.getRange(1, 1, 1, lapObj.getLastColumn()).getValues()[0];
-    lapObj.appendRow(fej.map((f) => {
-      const v = o[f] === undefined ? (f === 'aktiv' ? true : '') : o[f];
-      return typeof v === 'object' ? JSON.stringify(v) : v;
-    }));
-  };
-  [['accuracy', 'Pontosság', 'Accuracy'], ['communication', 'Kommunikáció', 'Communication'], ['constitution', 'Szívósság', 'Constitution'],
-    ['dexterity', 'Ügyesség', 'Dexterity'], ['fighting', 'Harc', 'Fighting'], ['intelligence', 'Intelligencia', 'Intelligence'],
-    ['perception', 'Észlelés', 'Perception'], ['strength', 'Erő', 'Strength'], ['willpower', 'Akaraterő', 'Willpower']]
-    .forEach(([id, hu, en], i) => sor('Tulajdonságok', { id: 'tul_' + id, nev_hu: hu, nev_en: en, forras: 'Alapkönyv', sorrend: i + 1, leiras_hu: 'Minta sor a helyi szerverhez.' }));
-  [['perception_searching', 'Keresés', 'Searching', 'perception'], ['dexterity_stealth', 'Lopakodás', 'Stealth', 'dexterity'],
-    ['fighting_bludgeons', 'Zúzófegyverek', 'Bludgeons', 'fighting'], ['constitution_drinking', 'Ivás', 'Drinking', 'constitution']]
-    .forEach(([id, hu, en, t]) => sor('Fókuszok', { id: 'fok_' + id, nev_hu: hu, nev_en: en, forras: 'Alapkönyv', tulajdonsag: 'tul_' + t }));
-  sor('Fajok', { id: 'faj_dwarf', nev_hu: 'Törp', nev_en: 'Dwarf', forras: 'Alapkönyv' });
-  sor('Fajok', { id: 'faj_halfling', nev_hu: 'Félszerzet', nev_en: 'Halfling', forras: 'Alapkönyv' });
-  sor('Osztályok', { id: 'osz_warrior', nev_hu: 'Harcos', nev_en: 'Warrior', forras: 'Alapkönyv' });
-  sor('Osztályok', { id: 'osz_rogue', nev_hu: 'Tolvaj', nev_en: 'Rogue', forras: 'Alapkönyv' });
-  sor('Osztályok', { id: 'osz_mage', nev_hu: 'Mágus', nev_en: 'Mage', forras: 'Alapkönyv' });
-  k.szabalyVerzioNovelese();
-
   const dm = hivas('login', { nev: 'Arnold', jelszo: 'sarkany1' }).token;
   const anna = hivas('users.admin', { muvelet: 'letrehoz', nev: 'Anna', jelszo: 'anna1', szerep: 'jatekos' }, dm).felhasznalo;
   const bence = hivas('users.admin', { muvelet: 'letrehoz', nev: 'Bence', jelszo: 'bence1', szerep: 'jatekos' }, dm).felhasznalo;
@@ -75,6 +85,7 @@ function bemutatoAdatok() {
 const TIPUSOK = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.md': 'text/markdown; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
 
+function inditas() {
 http.createServer((req, res) => {
   if (req.method === 'POST' && req.url.startsWith('/api')) {
     let torzs = '';
@@ -100,4 +111,8 @@ http.createServer((req, res) => {
   const api = `http://localhost:${PORT}/api`;
   console.log(`Helyi szerver: http://localhost:${PORT}/#kapcsolat=${encodeURIComponent(api)}`);
   console.log(URES ? 'Üres adatbázis: a legelső belépő lesz a DM.' : 'Belépés: Arnold / sarkany1 (DM), Anna / anna1 (mesterjátékos), Bence / bence1');
+  console.log(SZABALY_FAJL ? 'Szabályadat: ' + SZABALY_FAJL : 'Szabályadat: a karakterszámoló tesztjének minta sorai.');
 });
+}
+
+indulas().catch((e) => { console.error(e); process.exit(1); });

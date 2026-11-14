@@ -1,5 +1,6 @@
 // A DM és a játékos felület közös játékelemei: kampány élő állapota, dobás, dobásnapló, karakterlap.
-import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Jelolo, Ikon, idopont, elojel, SZEREP_NEV, tarOlvas, tarIr, gyorsKulcs } from './kozos.js';
+import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Valaszto, Jelolo, Ikon, idopont, elojel, SZEREP_NEV, tarOlvas, tarIr, gyorsKulcs, navigal, Parbeszed, useMuvelet } from './kozos.js';
+import { uresKarakter } from '../karakter/adat.js';
 import { megjelenitettNev } from '../szabalyok.js';
 import { karakterSzamol } from '../karakter/szamol.js';
 
@@ -160,12 +161,54 @@ export function elemNev(szabalyok, lap, ertek) {
   return e ? e.nev_hu : (ertek || '');
 }
 
+// Félbehagyott karakterkészítés: a teljes adatból, vagy a listák összefoglalójának `keszites` mezőjéből.
+export function piszkozatE(karakter) {
+  const k = karakter && karakter.adat && karakter.adat.keszites;
+  return k ? k.allapot === 'piszkozat' : !!(karakter && karakter.keszites === 'piszkozat');
+}
+
+// A karakterlap fejlécébe: a varázsló folytatása (piszkozatnál a félbehagyott lépésnél) vagy újranyitása.
+export function KeszitesGomb({ karakter, alap }) {
+  if (!karakter || karakter.irhato === false) return null;
+  const k = karakter.adat && karakter.adat.keszites;
+  const piszkozat = piszkozatE(karakter);
+  const ut = alap + '/keszites' + (piszkozat && k && k.lepes ? '/' + k.lepes : '');
+  return html`<${K.Button} variant=${piszkozat ? 'primary' : 'secondary'} onClick=${() => navigal(ut)}>${piszkozat ? 'Karakterkészítés folytatása' : 'Karakterkészítő megnyitása'}<//>`;
+}
+
+// Új karakter egy kampányba (DM, mesterjátékos): név, létrehozás, utána a varázsló.
+export function UjKampanyKarakter({ kampanyId, onLetrejott, nagy }) {
+  const { api } = useApp();
+  const [nyitva, setNyitva] = useState(false);
+  const [nev, setNev] = useState('');
+  const [fut, indit] = useMuvelet();
+  const ment = () => indit(async () => {
+    if (!nev.trim()) throw new Error('Adj nevet a karakternek.');
+    const v = await api.hivas('character.create', { nev: nev.trim(), kampany_id: kampanyId, adat: uresKarakter({ nev: nev.trim() }) });
+    setNyitva(false);
+    setNev('');
+    onLetrejott(v.karakter);
+  }, 'Létrejött a karakter, jöhet a karakterkészítés.');
+  return html`<div>
+    <${K.Button} variant="quiet" size=${nagy ? 'lg' : 'md'} onClick=${() => setNyitva(true)} icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Új karakter ebbe a kampányba<//>
+    ${nyitva ? html`<${Parbeszed} cim="Új karakter a kampányba" onBezar=${() => setNyitva(false)} lab=${html`
+      <${K.Button} variant="quiet" onClick=${() => setNyitva(false)}>Mégse<//>
+      <${K.Button} variant="primary" disabled=${fut} onClick=${ment}>Létrehozás<//>`}>
+      <div className="verem">
+        <${K.TextField} label="A karakter neve" hint="Ideiglenes is lehet." autoCapitalize="words" value=${nev} onChange=${(e) => setNev(e.target.value)}/>
+        <p className="halvany kicsi">A karakter rögtön a kampányba kerül, utána a karakterkészítő varázsló nyílik meg.</p>
+      </div>
+    <//>` : null}
+  </div>`;
+}
+
 export function KarakterFejlec({ karakter, jatekosNev }) {
   const { szabalyok: sz } = useApp();
   const szabalyok = sz.adat;
   const faj = elemNev(szabalyok, 'Fajok', karakter.faj);
   const osztaly = elemNev(szabalyok, 'Osztályok', karakter.osztaly);
   return html`<div className="cimkek">
+    ${piszkozatE(karakter) ? html`<${K.Badge} tone="warning">Piszkozat<//>` : null}
     ${faj ? html`<${K.Badge}>${faj}<//>` : null}
     ${osztaly ? html`<${K.Badge}>${osztaly}${karakter.szint ? ', ' + karakter.szint + '. szint' : ''}<//>` : null}
     ${jatekosNev !== undefined ? html`<span className="halvany kicsi">${jatekosNev ? 'Játékos: ' + jatekosNev : 'Játékos nélkül'}</span>` : null}

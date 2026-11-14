@@ -3,14 +3,19 @@ import {
   html, K, useApp, useState, useEffect, temaBeallitasa, useLekeres, useMuvelet, navigal, Ikon, Betoltes, Uzenet, Parbeszed,
   TemaKapcsolo, SzinkronJelzo, HibaVagyBetoltes, indulasLekerese
 } from './kozos.js';
-import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek } from './jatek.js';
+import { useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, KeszitesGomb, UjKampanyKarakter } from './jatek.js';
 import { uresKarakter } from '../karakter/adat.js';
+import { KarakterVarazslo, taroltKampanyok } from './varazslo.js';
 
 export function JatekosFelulet({ ut }) {
   const { felhasznalo, kilepes } = useApp();
   const [menu, setMenu] = useState(false);
   useEffect(() => { temaBeallitasa('jatekos'); }, []);
   const [oldal, azon] = ut;
+  // A karakterkészítő varázsló a teljes képernyőt kapja.
+  if (oldal === 'karakter' && azon && ut[2] === 'keszites') {
+    return html`<${KarakterVarazslo} key=${azon} id=${azon} lepes=${ut[3]} birodalom="jatekos" kampanyok=${taroltKampanyok(felhasznalo.id)}/>`;
+  }
   let tartalom;
   if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon}/>`;
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;
@@ -73,14 +78,14 @@ function UjKarakter({ onBezar }) {
     if (!nev.trim()) throw new Error('Adj nevet a karakternek.');
     const v = await api.hivas('character.create', { nev: nev.trim(), adat: uresKarakter({ nev: nev.trim() }) });
     onBezar();
-    navigal('/jatekos/karakter/' + v.karakter.id);
-  }, 'Létrejött a karakter.');
+    navigal('/jatekos/karakter/' + v.karakter.id + '/keszites');
+  }, 'Létrejött a karakter, jöhet a karakterkészítés.');
   return html`<${Parbeszed} cim="Új karakter" onBezar=${onBezar} lab=${html`
     <${K.Button} variant="quiet" size="lg" onClick=${onBezar}>Mégse<//>
     <${K.Button} variant="primary" size="lg" disabled=${fut} onClick=${ment}>Létrehozás<//>`}>
     <div className="verem">
       <${K.TextField} label="A karakter neve" autoCapitalize="words" value=${nev} onChange=${(e) => setNev(e.target.value)}/>
-      <p className="halvany kicsi">A fajt, az osztályt és a tulajdonságokat a karakterkészítő tölti ki (hamarosan). Kampányba a DM rendeli.</p>
+      <p className="halvany kicsi">Létrehozás után a karakterkészítő varázsló nyílik meg. Kampányba a DM rendeli.</p>
     </div>
   <//>`;
 }
@@ -110,6 +115,7 @@ function KampanyOldal({ id }) {
         })}
       </ul>` : html`<p className="halvany">Még nincs karakter a kampányban.</p>`}
     <//>
+    ${k.sajat_szerep === 'mester' ? html`<${UjKampanyKarakter} kampanyId=${k.id} nagy=${true} onLetrejott=${(c) => navigal('/jatekos/karakter/' + c.id + '/keszites')}/>` : null}
     <${K.Panel} title="Dobásnapló"><${DobasNaplo} dobasok=${dobasok} karakterek=${allapot.karakterek}/><//>
     <div className="alsosav">
       <${K.Button} variant="primary" size="lg" onClick=${() => setDobasNyitva(true)} icon=${html`<${Ikon} nev="kocka" meret=${20}/>`}>Dobás<//>
@@ -129,6 +135,7 @@ function KarakterOldal({ id }) {
       <div className="oldalfej">
         <h1 className="oldalcim">${c.nev}</h1>
         <${KarakterFejlec} karakter=${c}/>
+        <div className="gombsor"><${KeszitesGomb} karakter=${c} alap=${'/jatekos/karakter/' + c.id}/></div>
       </div>
       <${KarakterLap} karakter=${c}/>`}
     <//>

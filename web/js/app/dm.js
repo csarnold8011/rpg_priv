@@ -5,9 +5,11 @@ import {
   HibaVagyBetoltes, SZEREP_NEV, idopont, temaBeallitasa, gyorsKulcs, indulasLekerese
 } from './kozos.js';
 import {
-  useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, megjelenitettNev
+  useKampanyAllapot, useDobasok, DobasPanel, DobasNaplo, KarakterLap, KarakterFejlec, KampanyCimkek, megjelenitettNev,
+  KeszitesGomb, UjKampanyKarakter
 } from './jatek.js';
 import { uresKarakter } from '../karakter/adat.js';
+import { KarakterVarazslo } from './varazslo.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -59,6 +61,18 @@ export function DmFelulet({ ut }) {
   };
 
   const [oldal, azon] = ut;
+  // A karakterkészítő varázsló a teljes képernyőt kapja (saját fejléc, lépéslista, élő karakterlap).
+  if (oldal === 'karakter' && azon && ut[2] === 'keszites') {
+    return html`<${DmKontextus.Provider} value=${dm}>
+      <${KarakterVarazslo} key=${azon} id=${azon} lepes=${ut[3]} birodalom="dm" kampanyok=${dm.kampanyok}
+        extra=${{ jatekosok: dm.felhasznalok.filter((f) => f.aktiv), tarsit: async (karakterId, jatekosId) => {
+          const v = await api.hivas('character.assign', { karakter_id: karakterId, jatekos_id: jatekosId });
+          dm.karakterFrissit(v.karakter);
+          return v.karakter;
+        } }}
+        onValtozott=${(c) => dm.karakterFrissit(c)}/>
+    <//>`;
+  }
   let tartalom;
   if (oldal === 'kampanyok') tartalom = html`<${KampanyokOldal}/>`;
   else if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon}/>`;
@@ -309,6 +323,7 @@ function CsapatPanel({ allapot, frissit }) {
       </li>`)}
     </ul>` : html`<p className="halvany">Még nincs karakter a kampányban.</p>`}
     <${K.Divider} ornament=${false}/>
+    <${UjKampanyKarakter} kampanyId=${kampanyId} onLetrejott=${(c) => { dm.karakterFrissit(c); dm.karakterKampany(c.id, kampanyId, true); navigal('/dm/karakter/' + c.id + '/keszites'); }}/>
     <div className="sorban">
       <${Valaszto} label="Karakter hozzáadása" value=${ujKarakter} onChange=${setUjKarakter} ures="Válassz…"
         opciok=${szabad.map((c) => ({ value: c.id, label: c.nev + (c.jatekos_id ? ' (' + dm.felhasznaloNev(c.jatekos_id) + ')' : '') }))}/>
@@ -435,8 +450,8 @@ function UjKarakterParbeszed({ onBezar }) {
     const v = await api.hivas('character.create', { nev: nev.trim(), adat: uresKarakter({ nev: nev.trim() }), jatekos_id: jatekos, kampany_id: kampany || undefined });
     dm.karakterFrissit(v.karakter);
     onBezar();
-    navigal('/dm/karakter/' + v.karakter.id);
-  }, 'Létrejött a karakter.');
+    navigal('/dm/karakter/' + v.karakter.id + '/keszites');
+  }, 'Létrejött a karakter, jöhet a karakterkészítés.');
   return html`<${Parbeszed} cim="Új karakter" onBezar=${onBezar} lab=${html`
     <${K.Button} variant="quiet" onClick=${onBezar}>Mégse<//>
     <${K.Button} variant="primary" disabled=${fut} onClick=${ment}>Karakter létrehozása<//>`}>
@@ -446,7 +461,7 @@ function UjKarakterParbeszed({ onBezar }) {
         value=${jatekos} onChange=${setJatekos} ures="nincs" opciok=${dm.felhasznalok.filter((f) => f.aktiv).map((f) => ({ value: f.id, label: f.nev }))}/>
       <${Valaszto} label="Kampány" value=${kampany} onChange=${setKampany} ures="nincs"
         opciok=${dm.kampanyok.map((k) => ({ value: k.id, label: k.cim }))}/>
-      <p className="halvany kicsi">A tulajdonságokat, fajt és osztályt a karakterkészítő tölti ki (következő fejlesztési lépés).</p>
+      <p className="halvany kicsi">Létrehozás után a karakterkészítő varázsló nyílik meg (faj, osztály, tulajdonságok és a többi).</p>
     </div>
   <//>`;
 }
@@ -462,6 +477,7 @@ function KarakterOldal({ id }) {
       <${Oldalfej} cim=${c.nev} vissza=${['#/dm/karakterek', 'Karakterek']}>
         <${KarakterFejlec} karakter=${c}/>
         ${c.aktiv === false ? html`<${K.Badge} tone="warning">⚠ Archivált<//>` : null}
+        <${KeszitesGomb} karakter=${c} alap=${'/dm/karakter/' + c.id}/>
       <//>
       <div className="ket-hasab">
         <${KarakterLap} karakter=${c}/>
