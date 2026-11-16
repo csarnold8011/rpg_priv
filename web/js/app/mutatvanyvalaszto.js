@@ -10,14 +10,15 @@ const rovid = (s, n = 170) => (s && s.length > n ? s.slice(0, n).replace(/\s+\S*
 
 // pont: a dobásból járó Mutatványpont; valasztasok: a karakter mentett döntései; onValasztas(kulcs, ertek): mentés
 // (ha nincs, a döntés csak erre a dobásra szól); onKesz({ mutatvanyok, plusz }): a választás rögzítése.
-export function MutatvanyValaszto({ lapok, lap, pont, kontextus, forrasok, beallitas, valasztasok = {}, onValasztas, onKesz, onMegse, kezdo }) {
+// celpont: a célpont lény-nézete (csatában): az ő ár-módosítói és immunitásai a kártyákon.
+export function MutatvanyValaszto({ lapok, lap, pont, kontextus, forrasok, beallitas, valasztasok = {}, onValasztas, onKesz, onMegse, kezdo, celpont = null }) {
   const [kapcsolok, setKapcsolok] = useState({});
   const [helyi, setHelyi] = useState({});
   const [kosar, setKosar] = useState((kezdo && kezdo.mutatvanyok) || []);
   const [kezi, setKezi] = useState(0);
   const val = { ...valasztasok, ...helyi };
-  const kinalat = useMemo(() => M.mutatvanyKinalat(lapok, lap, { forrasok, beallitas, kontextus, valasztasok: val, kapcsolok }),
-    [lapok, lap, forrasok, beallitas, kontextus, JSON.stringify(val), JSON.stringify(kapcsolok)]);
+  const kinalat = useMemo(() => M.mutatvanyKinalat(lapok, lap, { forrasok, beallitas, kontextus, valasztasok: val, kapcsolok, celpont }),
+    [lapok, lap, forrasok, beallitas, kontextus, JSON.stringify(val), JSON.stringify(kapcsolok), celpont]);
   const [tipus, setTipus] = useState(kinalat.elso);
   const pluszok = kinalat.plusz.filter((p) => p.be).map((p) => ({ ertek: p.ertek, eredet: p.eredet }));
   if (kezi) pluszok.push({ ertek: kezi, eredet: 'Társ képessége vagy DM' });
@@ -73,6 +74,7 @@ export function MutatvanyValaszto({ lapok, lap, pont, kontextus, forrasok, beall
         ${m.kedvezmenyek.map((x, i) => html`<p key=${'k' + i} className="mutatvany-kartya__kedv kicsi">✓ ${x.leiras}: ${x.eredet}</p>`)}
         ${m.feltetelesek.map((f) => html`<${Jelolo} key=${f.kulcs} checked=${!!kapcsolok[f.kulcs]} onChange=${(b) => kapcsol(f.kulcs, b)}>${f.feltetel}: ${f.leiras} (${f.eredet})<//>`)}
         ${m.megjegyzesek.map((x, i) => html`<p key=${'m' + i} className="kicsi">${x.szoveg} <span className="halvany">(${x.eredet})</span></p>`)}
+        ${(m.immunis || []).map((x, i) => html`<p key=${'i' + i} className="mutatvany-kartya__kedv kicsi">⚠ A célpont immunis: ${x}</p>`)}
         <p className="mutatvany-kartya__leiras kicsi">${rovid(m.leiras)}</p>
         <div className="mutatvany-kartya__lab">
           <span className="halvany kicsi">${m.forras}${m.oldal ? `, ${Math.round(m.oldal)}. o.` : ''}${m.ismetelheto ? ' · ismételhető' : ''}${m.osszetevok ? ' · csomag' : ''}${m.feltetel_szoveg ? ' · ' + m.feltetel_szoveg : ''}</span>

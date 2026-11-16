@@ -374,6 +374,41 @@ ellenoriz(!hivas('encounter.list', {}, dm2).osszecsapasok.some(e => e.id === hid
 ellenoriz(hivas('encounter.delete', { id: hid.id }, dm2).ok && !hivas('encounter.list', { archivaltak: true }, dm2).osszecsapasok.some(e => e.id === hid.id), 'archivált összecsapás törölhető');
 const marado = hivas('encounter.save', { kampany_id: kampany.id, cim: 'Farkasok', adat: eAdat }, dm2).osszecsapas;
 
+// ---------- Csaták (3. lépés, 4. ütem) ----------
+const csAdat = (extra) => Object.assign({ v: 1, allapot: 'kezdemenyezes', kor: 0, soron: null, sorrend: [], leptek: [], oldalak: eAdat.oldalak, viszonyok: eAdat.viszonyok, csoportok: [],
+  resztvevok: [{ id: 'p1', forras: { tipus: 'karakter', id: pottom.id }, nev: 'Pöttöm', oldal: 'o_csapat', egeszseg: 30, egeszseg_max: 30, allapot: 'aktiv' },
+    { id: 'r1_1', forras: { tipus: 'szorny', id: 'szo_bandit' }, nev: 'Bandita 1', oldal: 'o_ellen', egeszseg: 12, egeszseg_max: 12, allapot: 'aktiv' }],
+  naplo: [], visszavonas: [], kulcsok: [] }, extra || {});
+ellenoriz(hivas('combat.start', { kampany_id: kampany.id, cim: 'X', adat: csAdat() }, annaT).hiba === 'nincs_jogosultsag', 'csatát (a 4. ütemben) csak a DM indíthat');
+ellenoriz(hivas('combat.start', { kampany_id: kampany.id, cim: 'X', adat: { resztvevok: 'x' } }, dm2).hiba === 'hibas_adat', 'hibás csataállapot nem indul');
+v = hivas('combat.start', { kampany_id: kampany.id, osszecsapas_id: marado.id, cim: 'Farkasok', adat: csAdat(), pillanatkepek: { 'szorny:szo_bandit': { nev_hu: 'Bandita' } } }, dm2);
+const csata = v.csata;
+ellenoriz(v.ok && csata.verzio === 1 && csata.allapot === 'kezdemenyezes' && csata.pillanatkepek['szorny:szo_bandit'].nev_hu === 'Bandita', 'a DM csatát indít az összecsapásból', v);
+let csAll = hivas('state.get', { kampany_id: kampany.id }, dm2);
+ellenoriz(csAll.csatak && csAll.csatak.some(c => c.id === csata.id && c.adat.resztvevok.length === 2), 'a DM kampányállapotában ott a csata');
+ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).csatak === undefined, 'a 4. ütemben a játékosok még nem kapják meg a csatát');
+const karVerzio = hivas('character.get', { id: pottom.id }, dm2).karakter.verzio;
+v = hivas('combat.act', { id: csata.id, verzio: 1, kulcs: 'l1', adat: csAdat({ allapot: 'fut', kor: 1, kulcsok: ['l1'] }), karakterek: { [pottom.id]: 21, k_idegen: 5 } }, dm2);
+ellenoriz(v.ok && v.verzio === 2 && v.csata.kor === 1 && v.csata.allapot === 'fut' && JSON.stringify(v.karakterek) === JSON.stringify([pottom.id]), 'lépés: az állapot ment, a résztvevő karakter Egészsége íródik (idegen nem)', v);
+const potKar = hivas('character.get', { id: pottom.id }, dm2).karakter;
+ellenoriz(potKar.adat.allapot.egeszseg === 21 && potKar.verzio === karVerzio + 1, 'a karakter állapotában az új Egészség, a verziója nő');
+v = hivas('combat.act', { id: csata.id, verzio: 1, kulcs: 'l1', adat: csAdat({ kor: 9 }) }, dm2);
+ellenoriz(v.ok && v.ismetelt && v.csata.kor === 1, 'ugyanaz a lépés újra: nincs változás (dupla küldés)');
+v = hivas('combat.act', { id: csata.id, verzio: 1, kulcs: 'l2', adat: csAdat() }, dm2);
+ellenoriz(v.hiba === 'utkozes' && v.aktualis && v.aktualis.verzio === 2, 'elavult verzió: ütközés, az aktuális csatával');
+ellenoriz(hivas('combat.act', { id: csata.id, verzio: 2, kulcs: 'l3', adat: csAdat() }, annaT).hiba === 'nincs_jogosultsag', 'a játékos (még) nem léptethet');
+v = hivas('combat.close', { id: csata.id }, dm2);
+ellenoriz(v.ok && v.csata.allapot === 'lezart' && v.csata.lezarva && v.csata.adat.allapot === 'lezart', 'a csata lezárul');
+ellenoriz(hivas('encounter.list', { kampany_id: kampany.id }, dm2).osszecsapasok.find(e => e.id === marado.id).allapot === 'lefutott', 'az összecsapása „lefutott” lesz');
+ellenoriz(hivas('combat.act', { id: csata.id, verzio: 3, kulcs: 'l4', adat: csAdat() }, dm2).hiba === 'hibas_adat', 'lezárt csata nem léptethető');
+csAll = hivas('state.get', { kampany_id: kampany.id }, dm2);
+ellenoriz(csAll.csatak.some(c => c.id === csata.id && c.allapot === 'lezart' && !c.adat), 'a lezárt csata röviden szerepel (a napló szűrőjéhez)');
+v = hivas('roll.log', { kampany_id: kampany.id, mire: 'Sebzés', kockak: [4, 5], modosito: 2, tipus: 'sebzes', csata_id: csata.id }, dm2);
+ellenoriz(v.ok && v.dobas.tipus === 'sebzes' && v.dobas.csata_id === csata.id, 'sebzésdobás a naplóban a csata azonosítójával');
+const csata2 = hivas('combat.start', { kampany_id: kampany.id, cim: 'Gyors csata', adat: csAdat() }, dm2).csata;
+ellenoriz(csata2 && !csata2.osszecsapas_id, 'gyors csata összecsapás nélkül');
+ellenoriz(hivas('combat.delete', { id: csata2.id }, dm2).ok && !hivas('state.get', { kampany_id: kampany.id }, dm2).csatak.some(c => c.id === csata2.id), 'csata törlése');
+
 hivas('users.admin', { muvelet: 'letilt', id: bence.id }, dm2);
 
 ellenoriz(hivas('character.delete', { id: morg.id }, dm2).hiba === 'hibas_adat', 'aktív karakter nem törölhető');
@@ -402,6 +437,7 @@ ellenoriz(hivas('campaigns.list', {}, dm2).kampanyok.length === 1, 'a DM látja 
 ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).ok, 'archivált kampány törölhető');
 ellenoriz(hivas('campaigns.list', {}, dm2).kampanyok.length === 0 && hivas('character.get', { id: pottom.id }, dm2).ok, 'a kampány törlődött, a karakter megmaradt');
 ellenoriz(!jatek.getSheetByName('Összecsapások').adat.some(sor => sor.includes(marado.id)), 'a törölt kampány összecsapásai is törlődtek');
+ellenoriz(!jatek.getSheetByName('Csaták').adat.some(sor => sor.includes(csata.id)), 'a törölt kampány csatái is törlődtek');
 
 console.log(hibak ? `\n${hibak} HIBA` : '\nMinden teszt sikeres.');
 process.exit(hibak ? 1 : 0);

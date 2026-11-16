@@ -354,6 +354,21 @@ const SEMA = {
           "modositotta",
           "aktiv"
         ],
+        "Csaták": [
+          "id",
+          "kampany_id",
+          "osszecsapas_id",
+          "cim",
+          "allapot",
+          "kor",
+          "adat",
+          "pillanatkepek",
+          "verzio",
+          "letrehozva",
+          "modositva",
+          "modositotta",
+          "lezarva"
+        ],
         "Megosztások": [
           "id",
           "kampany_id",
@@ -407,6 +422,7 @@ const SEMA = {
     "mutatvany",
     "ellenfel",
     "allas",
-    "kampanyok"
+    "kampanyok",
+    "pillanatkepek"
   ]
 };

@@ -19,6 +19,7 @@ import { SzintlepesVarazslo } from './szintlepes.js';
 import { BestiariumOldal } from './bestiarium.js';
 import { NjkTarOldal, UjNjkParbeszed, KampanyNjkPanel } from './njk.js';
 import { KampanyOsszecsapasPanel, OsszecsapasOldal, OsszecsapasbaParbeszed, CsataBeallitasok } from './osszecsapas.js';
+import { KampanyCsatakPanel, CsataOldal } from './csata.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -93,6 +94,7 @@ export function DmFelulet({ ut }) {
   let tartalom;
   if (oldal === 'kampanyok') tartalom = html`<${KampanyokOldal}/>`;
   else if (oldal === 'kampany' && azon && ut[2] === 'osszecsapas' && ut[3]) tartalom = html`<${OsszecsapasOldal} key=${ut[3]} kampanyId=${azon} id=${ut[3]} Oldalfej=${Oldalfej}/>`;
+  else if (oldal === 'kampany' && azon && ut[2] === 'csata' && ut[3]) tartalom = html`<${CsataOldal} key=${ut[3]} kampanyId=${azon} id=${ut[3]} Oldalfej=${Oldalfej}/>`;
   else if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon}/>`;
   else if (oldal === 'karakterek') tartalom = html`<${KarakterekOldal}/>`;
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;
@@ -306,6 +308,7 @@ function KampanyOldal({ id }) {
       </div>
       <div className="verem">
         <${ProbakPanel} allapot=${allapot} naploz=${naploz}/>
+        <${KampanyCsatakPanel} allapot=${allapot} frissit=${frissit}/>
         <${KampanyOsszecsapasPanel} allapot=${allapot} frissit=${frissit}/>
         <${KampanyNjkPanel} allapot=${allapot} naploz=${naploz} dm=${dm} frissit=${frissit}/>
         <${K.Panel} title="Dobás"><${DobasPanel} allapot=${allapot} naploz=${naploz} dm=${true}/><//>

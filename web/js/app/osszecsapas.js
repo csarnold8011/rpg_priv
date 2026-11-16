@@ -10,6 +10,7 @@ import { Statblokk } from './bestiarium.js';
 import { KarakterKep } from './kepek.js';
 import * as O from '../jatek/osszecsapas.js';
 import * as LN from '../jatek/leny.js';
+import { CsataInditasParbeszed, csataUt } from './csata.js';
 
 const masol = (x) => JSON.parse(JSON.stringify(x));
 const lapokBol = (szabalyok) => (szabalyok && szabalyok.adat && szabalyok.adat.lapok) || null;
@@ -47,6 +48,7 @@ export function KampanyOsszecsapasPanel({ allapot, frissit }) {
   const [fut, indit] = useMuvelet();
   const [uj, setUj] = useState(false);
   const [archivalt, setArchivalt] = useState(false);
+  const [inditas, setInditas] = useState(null);
   const kampany = allapot.kampany;
   const lista = (allapot.osszecsapasok || []).slice().sort((a, b) => String(b.modositva || '').localeCompare(String(a.modositva || '')));
   const korny = useMemo(() => kornyezetBol(allapot, lapok), [allapot, lapok]);
@@ -77,12 +79,15 @@ export function KampanyOsszecsapasPanel({ allapot, frissit }) {
           ${o.helyszin ? html`<div className="halvany kicsi">${o.helyszin}</div>` : null}
         </div>
         <div className="gombsor gombsor--szoros">
+          <${K.Button} size="sm" variant="primary" disabled=${!ossz.oldalak.some((x) => x.db)} onClick=${() => setInditas(e)}>Indítás<//>
           <${K.Button} size="sm" onClick=${() => navigal(`/dm/kampany/${kampany.id}/osszecsapas/${e.id}`)}>Szerkesztés<//>
           <${K.Button} size="sm" variant="quiet" disabled=${fut} onClick=${() => masolat(e)}>Másolat<//>
           <${K.Button} size="sm" variant="quiet" disabled=${fut} onClick=${() => archival(e)}>Archiválás<//>
         </div>
       </li>`;
-    })}</ul>` : html`<p className="halvany">Még nincs előkészített összecsapás. A csatát (4. ütem) ezekből lehet majd indítani.</p>`}
+    })}</ul>` : html`<p className="halvany">Még nincs előkészített összecsapás. Az „Indítás” gomb ebből csatát indít.</p>`}
+    ${inditas ? html`<${CsataInditasParbeszed} allapot=${allapot} osszecsapas=${inditas} onBezar=${() => setInditas(null)}
+      onKesz=${async (cs) => { setInditas(null); await frissit(); navigal(csataUt(kampany.id, cs.id)); }}/>` : null}
     <details className="lenyilo" onToggle=${(ev) => setArchivalt(ev.target.open)}>
       <summary>Archivált összecsapások</summary>
       ${archivalt ? html`<${ArchivaltOsszecsapasok} kampanyId=${kampany.id} frissit=${frissit}/>` : null}
@@ -359,7 +364,8 @@ function ResztvevokPanel({ o, setO, korny, onKartya }) {
 
 const FULEK = [{ value: 'szorny', label: 'Bestiárium' }, { value: 'njk', label: 'NJK-k' }, { value: 'karakter', label: 'Karakterek' }];
 
-function HozzaadasPanel({ o, setO, allapot, lapok, tar }) {
+// A csatanézet is ezt használja a csata közbeni hozzáadáshoz (web/js/app/csata.js).
+export function HozzaadasPanel({ o, setO, allapot, lapok, tar }) {
   const [ful, setFul] = useState('szorny');
   const [oldal, setOldal] = useState('');
   const [szoveg, setSzoveg] = useState('');
@@ -430,7 +436,7 @@ function HozzaadasPanel({ o, setO, allapot, lapok, tar }) {
 }
 
 // A résztvevő statblokkja (szörny a szabályadatból, NJK a kampányból vagy az NJK-tárból lekérve).
-function StatblokkAblak({ r, allapot, lapok, onBezar }) {
+export function StatblokkAblak({ r, allapot, lapok, onBezar }) {
   const { api } = useApp();
   const helyi = r.forras.tipus === 'njk' ? (allapot.njkk || []).find((n) => n.id === r.forras.id && n.adat) : null;
   const njk = useLekeres(async () => (r.forras.tipus === 'njk' && !helyi ? (await api.hivas('npc.get', { id: r.forras.id })).njk : null), [r.forras.id]);

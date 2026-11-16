@@ -41,7 +41,7 @@ function indulas_(a, felh) {
 
 // action: campaign.delete (csak DM)   adat: { id }
 // Csak archivált kampány törölhető. A kampánykapcsolatok törlődnek, a karakterek megmaradnak,
-// a dobásnapló és a megosztások sorai is maradnak. A kampány összecsapásai törlődnek.
+// a dobásnapló és a megosztások sorai is maradnak. A kampány összecsapásai és csatái törlődnek.
 function kampanyTorlese_(a, felh) {
   return zarolva_(function () {
     const k = kornyezet_();
@@ -50,6 +50,7 @@ function kampanyTorlese_(a, felh) {
     const kapcsolatok = k.kapcsolatok.filter(function (x) { return x.kampany_id === kampany.id; });
     sorokTorlese_('jatek', 'Kampánykarakterek', kapcsolatok.map(function (x) { return x._sor; }));
     kampanyOsszecsapasainakTorlese_(kampany.id);
+    kampanyCsatainakTorlese_(kampany.id);
     sorTorlese_('jatek', 'Kampányok', kampany._sor);
     CacheService.getScriptCache().remove('kv_' + kampany.id);
     valtozasNaplozasa_(felh, 'kampany.torol', kampany.id, kampany.verzio, '');
@@ -201,7 +202,10 @@ function allapotLekerese_(a, felh) {
     njkk: njkk
   };
   // az előkészített összecsapások csak a DM-é
-  if (szerep === 'dm') o.osszecsapasok = kampanyOsszecsapasai_(kampany);
+  if (szerep === 'dm') {
+    o.osszecsapasok = kampanyOsszecsapasai_(kampany);
+    o.csatak = kampanyCsatai_(kampany); // a játékosok a csatát az 5. ütemtől látják
+  }
   return o;
 }
 

@@ -21,7 +21,7 @@ export function mutatvanyokSzovege(lista) {
 }
 
 // ctx: { felhasznalo: { id, nev }, szerep: 'dm' | 'mester' | 'jatekos', karakterek: [{ id, nev, kep, jatekos_id, irhato }],
-//        probak: [{ id, cim }], reszletekLathatok: bool (a kampány beállítása) }
+//        probak: [{ id, cim }], csatak: [{ id, cim }], reszletekLathatok: bool (a kampány beállítása) }
 // A saját dobás: én dobtam, vagy a karakter az enyém (a játékosa vagyok).
 export function sajatDobasE(d, ctx) {
   const f = (ctx && ctx.felhasznalo) || {};
@@ -97,13 +97,14 @@ export function vanReszlet(sor) {
   return !!(r.osszetevok.length || r.celertek !== null || r.celertekRejtett || r.fok || r.plusz.length || r.probaCim);
 }
 
-// Szűrő: 'mindenki' | 'sajat' | 'k:<karakter azonosító>' | 'p:<próbakérés azonosító>'.
+// Szűrő: 'mindenki' | 'sajat' | 'k:<karakter azonosító>' | 'p:<próbakérés azonosító>' | 'cs:<csata azonosító>'.
 export function naploSzur(dobasok, szuro, ctx = {}) {
   const s = szuro || 'mindenki';
   if (s === 'mindenki') return dobasok;
   if (s === 'sajat') return dobasok.filter((d) => sajatDobasE(d, ctx));
   if (s.startsWith('k:')) return dobasok.filter((d) => d.karakter_id === s.slice(2));
   if (s.startsWith('p:')) return dobasok.filter((d) => d.proba_id === s.slice(2));
+  if (s.startsWith('cs:')) return dobasok.filter((d) => d.csata_id === s.slice(3));
   return dobasok;
 }
 
@@ -117,6 +118,9 @@ export function szuroOpciok(dobasok, ctx = {}) {
   // a próbakérések, amelyekhez már van dobás (a próba címével)
   const probas = new Set(dobasok.map((d) => d.proba_id).filter(Boolean));
   ((ctx && ctx.probak) || []).forEach((p) => { if (probas.has(p.id)) opciok.push({ value: 'p:' + p.id, label: 'Próba: ' + (p.cim || 'kérés') }); });
+  // a csaták, amelyekhez van dobás (ctx.csatak: [{ id, cim }], a DM-nek)
+  const csatas = new Set(dobasok.map((d) => d.csata_id).filter(Boolean));
+  ((ctx && ctx.csatak) || []).forEach((c) => { if (csatas.has(c.id)) opciok.push({ value: 'cs:' + c.id, label: 'Csata: ' + (c.cim || 'csata') }); });
   return opciok;
 }
 

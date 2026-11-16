@@ -114,7 +114,7 @@ export function KampanyNaplo({ allapot, dobasok }) {
   const k = allapot.kampany;
   const lapok = szabalyok && szabalyok.adat && szabalyok.adat.lapok;
   const ctx = {
-    felhasznalo, szerep: k.sajat_szerep, karakterek: allapot.karakterek || [], probak: allapot.probak || [],
+    felhasznalo, szerep: k.sajat_szerep, karakterek: allapot.karakterek || [], probak: allapot.probak || [], csatak: allapot.csatak || [],
     reszletekLathatok: !(k.beallitasok && k.beallitasok.dobas_reszletek_lathatok === false)
   };
   const lapTar = useMemo(() => ({}), [allapot, lapok]);

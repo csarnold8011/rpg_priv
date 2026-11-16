@@ -37,11 +37,12 @@
         "Dobásnapló": ["id", "idopont", "kampany_id", "karakter_id", "dobta", "mire", "kockak", "modosito", "celertek", "eredmeny", "mutatvanypont", "rejtett", "proba_id", "tipus", "tulajdonsag", "fokusz", "kezi", "felfedve", "reszletek", "njk_id", "csata_id"],
         "Próbák": ["id", "kampany_id", "letrehozva", "letrehozta", "tipus", "cim", "tulajdonsag", "fokuszok", "fokusz_kotelezo", "celertek", "celertek_rejtett", "kuszob", "haladas", "idoegyseg", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "allapot", "lezarva"],
         "Összecsapások": ["id", "kampany_id", "cim", "allapot", "adat", "verzio", "letrehozva", "modositva", "modositotta", "aktiv"],
+        "Csaták": ["id", "kampany_id", "osszecsapas_id", "cim", "allapot", "kor", "adat", "pillanatkepek", "verzio", "letrehozva", "modositva", "modositotta", "lezarva"],
         "Megosztások": ["id", "kampany_id", "cimzett", "tipus", "cim", "hivatkozas", "idopont"],
         "Változásnapló": ["idopont", "ki", "mit", "elem_id", "regi_verzio", "uj_verzio"]
       }
     }
   },
   "szabaly_lapok": ["Tulajdonságok", "Fókuszok", "Fajok", "Hátterek", "Osztályok", "Szintlépés", "Talentumok", "Specializációk", "Arkánumok", "Varázslatok", "Fegyvercsoportok", "Fegyverek", "Páncélok", "Felszerelés", "Mutatványok", "Szörnyek", "Különleges képességek", "Szótár", "Házi szabályok"],
-  "json_oszlopok": ["reszletek", "adat", "aktiv_forrasok", "kockak", "beallitasok", "fokuszok", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "kampanyok"]
+  "json_oszlopok": ["reszletek", "adat", "aktiv_forrasok", "kockak", "beallitasok", "fokuszok", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "kampanyok", "pillanatkepek"]
 }

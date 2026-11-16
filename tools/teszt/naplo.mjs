@@ -108,5 +108,11 @@ const l = N.lapozasFuz([{ id: 'a', idopont: '3' }, { id: 'b', idopont: '2' }], [
 ellenoriz(l.map((x) => x.id).join() === 'a,b,c' && N.kovetkezoElotte(l) === '1', 'lapozás: összefésülés és a következő kezdőpont');
 ellenoriz(N.kovetkezoElotte([]) === undefined, 'üres lista: nincs kezdőpont');
 
+// csata szerinti szűrő (4. ütem)
+const csd = [{ id: 'x1', csata_id: 'b_1', mire: 'Támadás' }, { id: 'x2', mire: 'Próba' }];
+ellenoriz(N.szuroOpciok(csd, { csatak: [{ id: 'b_1', cim: 'Híd' }, { id: 'b_2', cim: 'Üres' }] }).some((o) => o.value === 'cs:b_1' && o.label === 'Csata: Híd')
+  && !N.szuroOpciok(csd, { csatak: [{ id: 'b_2', cim: 'Üres' }] }).some((o) => o.value.startsWith('cs:')), 'csata szűrőcsip, ha van dobása');
+ellenoriz(N.naploSzur(csd, 'cs:b_1').map((d) => d.id).join() === 'x1', 'szűrés csatára');
+
 console.log(`\n${db - hibak}/${db} rendben${hibak ? `, ${hibak} hiba` : ''}.`);
 process.exit(hibak ? 1 : 0);

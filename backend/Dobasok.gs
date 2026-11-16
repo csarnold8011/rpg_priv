@@ -2,7 +2,7 @@
 // A próbák szabályai (a felületen): web/js/jatek/proba.js. Itt csak annyi számolás van, amennyi a rejtett
 // Célértékhez és a próbakérés állásához kell (a játékos böngészője a rejtett Célértéket nem ismeri).
 
-const DOBAS_TIPUSOK = ['alap', 'ellen', 'osszetett', 'tamadas', 'varazslas', 'szabad', 'titkos'];
+const DOBAS_TIPUSOK = ['alap', 'ellen', 'osszetett', 'tamadas', 'varazslas', 'szabad', 'titkos', 'kezdemenyezes', 'sebzes'];
 const PROBA_TIPUSOK = ['alap', 'ellen', 'osszetett', 'titkos'];
 const KERESES_HOSSZ = 1000; // ennyi utolsó dobássorban keres a roll.update és a dupla küldés szűrése
 
@@ -29,7 +29,8 @@ function dobasKiertekelese_(kockak, modosito, celertek, opciok) {
 
 // action: roll.log
 // adat: { id?, kampany_id?, karakter_id?, mire, kockak: [k1, k2, sarkanykocka], modosito, celertek?, eredmeny?,
-//         mutatvanypont?, rejtett?, proba_id?, tipus?, tulajdonsag?, fokusz?, kezi?, reszletek?, ellenfel?, njk_id? }
+//         mutatvanypont?, rejtett?, proba_id?, tipus?, tulajdonsag?, fokusz?, kezi?, reszletek?, ellenfel?, njk_id?, csata_id? }
+// A csata dobásai (kezdeményezés, támadás, sebzés) csata_id-vel kerülnek a naplóba (4. ütem).
 // Kampány nélkül is naplózható, ha van karakter, és a hívó szerkesztheti (a karakter saját dobásai).
 // njk_id: az NJK-tár elemének dobása (a DM, követőnél az irányító vagy a gazda karakter írója dobhat érte).
 function dobasNaplozasa_(a, felh) {

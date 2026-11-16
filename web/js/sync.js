@@ -156,8 +156,8 @@ export class AppsScriptSync {
           if (var_) var_.elutasit(hiba);
         } else {
           // ugyanannak a karakternek a következő, még várakozó mentése már az új verzióra épül
-          if (elem.action === 'character.save') {
-            this.sor.filter(x => x.action === 'character.save' && x.adat.id === elem.adat.id)
+          if (elem.action === 'character.save' || elem.action === 'combat.act') {
+            this.sor.filter(x => x.action === elem.action && x.adat.id === elem.adat.id)
               .forEach(x => { x.adat.verzio = valasz.verzio; });
             sorIras(this.sor);
           }

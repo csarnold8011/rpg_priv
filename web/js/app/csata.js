@@ -1,0 +1,801 @@
+// DM csatanézet (3. lépés, 4. ütem): indítás összecsapásból vagy gyors csataként, kezdeményezés, körök a
+// cselekvések számlálásával, támadás célponttal, sebzés Páncélértékkel, harci mutatványok gépi hatással,
+// egyéb cselekvések, feltételek, haldoklás, rejtett résztvevők belépése, visszavonás.
+// Szabályok: web/js/jatek/csata.js (tiszta függvények). Terv: claude/csata-terv.md („A csata menete”).
+// Minden lépés előbb a képernyőn változik, aztán a háttérbe megy (combat.act, sorba állítva, kulccsal).
+import {
+  html, K, useApp, useState, useEffect, useMemo, useRef, useLekeres, useMuvelet, navigal, Ikon, Betoltes, Uzenet, Valaszto, Jelolo,
+  Parbeszed, Sugo, elojel
+} from './kozos.js';
+import { useKampanyAllapot, useDobasok } from './jatek.js';
+import { KampanyNaplo } from './dobasnaplo.js';
+import { Kockadobo } from './kockadobo.js';
+import { MutatvanyValaszto } from './mutatvanyvalaszto.js';
+import { HozzaadasPanel, StatblokkAblak } from './osszecsapas.js';
+import { Kapcsolo } from './varazslo_lepesek.js';
+import { atallit } from '../karakter/adat.js';
+import * as C from '../jatek/csata.js';
+import * as O from '../jatek/osszecsapas.js';
+import * as LN from '../jatek/leny.js';
+import * as P from '../jatek/proba.js';
+
+const lapokBol = (szabalyok) => (szabalyok && szabalyok.adat && szabalyok.adat.lapok) || null;
+const aktivKarakter = (c) => !c.kampany_allapot || c.kampany_allapot === 'aktív';
+const masol = (x) => JSON.parse(JSON.stringify(x));
+const osszeg = (k) => (k || []).reduce((a, b) => a + (Number(b) || 0), 0);
+const ALLAPOT_TONUS = { aktiv: undefined, haldoklik: 'danger', kiesett: 'warning', halott: 'danger' };
+const pkKulcs = (forras) => `${forras.tipus}:${forras.id}`;
+export const csataUt = (kampanyId, csataId) => `/dm/kampany/${kampanyId}/csata/${csataId}`;
+
+// ---------------- Lény-nézetek és pillanatképek ----------------
+
+// Az NJK sorából a csatához szükséges rész (a szerep és a szereplések nélkül), hogy a pillanatkép kicsi legyen.
+function njkKivonat(n) {
+  const a = n.adat || {};
+  return { id: n.id, nev: n.nev, fajta: n.fajta, fenyegetes: n.fenyegetes || '', adat: { statblokk: a.statblokk || {}, erosites: a.erosites || null, kezi: a.kezi || [], allapot: a.allapot || {} } };
+}
+function szornyKivonat(s) {
+  return { id: s.id, nev_hu: s.nev_hu, nev_en: s.nev_en, fenyegetes: s.fenyegetes, csoport: s.csoport, forras: s.forras, oldal: s.oldal, tipus: s.tipus, reszletek: s.reszletek };
+}
+
+// A résztvevők forrásaihoz tartozó pillanatképek (szörny: a statblokk, NJK: a kivonat). Ami nem fér el egy cellában,
+// az kimarad: az a lény a szabályadatból (vagy a kampány NJK-iból) számol.
+async function pillanatkepekGyujtese(forrasok, { lapok, allapot, api }) {
+  const pk = {};
+  for (const f of forrasok) {
+    const k = pkKulcs(f);
+    if (pk[k] || f.tipus === 'karakter') continue;
+    if (f.tipus === 'szorny') {
+      const s = ((lapok && lapok['Szörnyek']) || []).find((x) => x.id === f.id);
+      if (s) pk[k] = szornyKivonat(s);
+    } else if (f.tipus === 'njk') {
+      let n = (allapot.njkk || []).find((x) => x.id === f.id && x.adat);
+      if (!n) { try { n = (await api.hivas('npc.get', { id: f.id })).njk; } catch (e) { n = null; } }
+      if (n) pk[k] = njkKivonat(n);
+    }
+  }
+  while (JSON.stringify(pk).length > 45000) {
+    const kulcs = Object.keys(pk).sort((a, b) => JSON.stringify(pk[b]).length - JSON.stringify(pk[a]).length).find((x) => x.startsWith('szorny:')) || Object.keys(pk)[0];
+    if (!kulcs) break;
+    delete pk[kulcs];
+  }
+  return pk;
+}
+
+// Egy forrás lény-nézete: karakter a kampány állapotából (a karakterlap számolójával), szörny és NJK a pillanatképből.
+function forrasNezet(forras, { allapot, lapok, pk }) {
+  if (!lapok) return null;
+  if (forras.tipus === 'karakter') {
+    const kar = (allapot.karakterek || []).find((c) => c.id === forras.id && c.adat);
+    if (!kar) return null;
+    try { return LN.lenyNezet({ tipus: 'karakter', adat: atallit(kar.adat), id: kar.id }, lapok); } catch (e) { return null; }
+  }
+  if (forras.tipus === 'szorny') {
+    const sor = pk[pkKulcs(forras)] || ((lapok && lapok['Szörnyek']) || []).find((x) => x.id === forras.id);
+    return sor ? LN.lenyNezet({ tipus: 'szorny', sor }, lapok) : null;
+  }
+  if (forras.tipus === 'njk') {
+    const sor = pk[pkKulcs(forras)] || (allapot.njkk || []).find((x) => x.id === forras.id && x.adat);
+    return sor ? LN.lenyNezet({ tipus: 'njk', sor }, lapok) : null;
+  }
+  return null;
+}
+
+// A csatához szükséges értékek egy nézetből: Egészség, maximum, Szívósság.
+function egeszsegAdat(nz) {
+  if (!nz) return { egeszseg: 0, egeszseg_max: 0, szivossag: 0 };
+  return { egeszseg: nz.egeszseg.aktualis, egeszseg_max: nz.egeszseg.ertek, szivossag: (nz.tulajdonsagok.tul_constitution || {}).ertek || 0 };
+}
+
+const kezdemenyezesOssze = (nz) => P.probaOsszeallit(nz, { tul: 'tul_dexterity', fokusz: C.KEZDEMENYEZES_FOKUSZ });
+
+// ================= A kampány csatái (DM kampánynézet) =================
+
+export function KampanyCsatakPanel({ allapot, frissit }) {
+  const [uj, setUj] = useState(false);
+  const kampany = allapot.kampany;
+  const futo = (allapot.csatak || []).filter((c) => c.allapot !== 'lezart');
+  const lezart = (allapot.csatak || []).filter((c) => c.allapot === 'lezart').slice().reverse();
+  return html`<${K.Panel} title="Csaták" actions=${html`<${K.Button} size="sm" variant="secondary" onClick=${() => setUj(true)}
+      icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Gyors csata<//>`}>
+    ${futo.length ? html`<ul className="sorlista">${futo.map((c) => html`<li key=${c.id} className="sorlista__sor">
+      <span><a className="sorlista__nev" href=${'#' + csataUt(kampany.id, c.id)}>${c.cim}</a><br/>
+        <span className="halvany kicsi">${c.allapot === 'kezdemenyezes' ? 'Kezdeményezés' : `${c.kor}. kör`} · ${(c.adat.resztvevok || []).length} résztvevő</span></span>
+      <${K.Button} size="sm" variant="primary" onClick=${() => navigal(csataUt(kampany.id, c.id))}>Folytatás<//>
+    </li>`)}</ul>` : html`<p className="halvany">Nincs folyamatban lévő csata. Az összecsapások „Indítás” gombjával, vagy gyors csataként indítható.</p>`}
+    ${lezart.length ? html`<details className="lenyilo"><summary>Lezárt csaták</summary>
+      <ul className="sorlista">${lezart.map((c) => html`<li key=${c.id} className="sorlista__sor"><span>${c.cim}</span><span className="halvany kicsi">lezárva</span></li>`)}</ul>
+    </details>` : null}
+    ${uj ? html`<${CsataInditasParbeszed} allapot=${allapot} onBezar=${() => setUj(false)}
+      onKesz=${async (cs) => { setUj(false); await frissit(); navigal(csataUt(kampany.id, cs.id)); }}/>` : null}
+  <//>`;
+}
+
+// Indítás párbeszéd. osszecsapas: az előkészített összecsapás (Összecsapások panel), vagy null (gyors csata:
+// a kampány aktív karakterei a Csapat oldalon, az ellenfeleket a csatanézetben lehet hozzáadni).
+export function CsataInditasParbeszed({ allapot, osszecsapas = null, onBezar, onKesz }) {
+  const { api, szabalyok } = useApp();
+  const lapok = lapokBol(szabalyok);
+  const [fut, indit] = useMuvelet();
+  const o = useMemo(() => (osszecsapas ? O.normalizal(osszecsapas.adat)
+    : O.csapatHozzaadas(O.uresOsszecsapas(), (allapot.karakterek || []).filter(aktivKarakter).map((c) => ({ id: c.id, nev: c.nev })))), [osszecsapas, allapot]);
+  const [cim, setCim] = useState(osszecsapas ? osszecsapas.cim : 'Gyors csata');
+  const [meglepett, setMeglepett] = useState([]);
+  const futo = (allapot.csatak || []).filter((c) => c.allapot !== 'lezart' && osszecsapas && c.osszecsapas_id === osszecsapas.id);
+  const peldanyok = O.resztvevokKibontasa(o);
+  const hianyzoKarakter = peldanyok.filter((p) => p.forras.tipus === 'karakter' && !(allapot.karakterek || []).some((c) => c.id === p.forras.id && c.adat));
+  const inditas = () => indit(async () => {
+    if (!cim.trim()) throw new Error('Adj címet a csatának.');
+    if (!lapok) throw new Error('A szabályadat még töltődik.');
+    const pk = await pillanatkepekGyujtese(peldanyok.map((p) => p.forras), { lapok, allapot, api });
+    const cs = C.csataOsszecsapasbol(o, (p) => egeszsegAdat(forrasNezet(p.forras, { allapot, lapok, pk })), { meglepettOldalak: meglepett });
+    const v = await api.hivas('combat.start', { kampany_id: allapot.kampany.id, osszecsapas_id: osszecsapas ? osszecsapas.id : '', cim: cim.trim(), adat: cs, pillanatkepek: pk });
+    onKesz(v.csata);
+  });
+  return html`<${Parbeszed} cim=${osszecsapas ? 'Csata indítása' : 'Gyors csata'} onBezar=${onBezar} lab=${html`
+    <${K.Button} variant="quiet" onClick=${onBezar}>Mégse<//>
+    <${K.Button} variant="primary" disabled=${fut} onClick=${inditas}>Indítás<//>`}>
+    <div className="verem">
+      <${K.TextField} label="A csata címe" value=${cim} onChange=${(e) => setCim(e.target.value)}/>
+      ${futo.length ? html`<${Uzenet} tonus="warning">Ebből az összecsapásból már fut egy csata (${futo.map((c) => c.cim).join(', ')}). Újat indítasz?<//>` : null}
+      <p className="kicsi" style=${{ margin: 0 }}>${peldanyok.length ? O.osszegzes(o).oldalak.filter((x) => x.db).map((x) => `${x.nev}: ${x.db}`).join(' · ') : 'Még nincs résztvevő.'}
+        ${osszecsapas ? '' : ' Az ellenfeleket a csatanézetben adhatod hozzá.'}</p>
+      ${hianyzoKarakter.length ? html`<${Uzenet} tonus="warning">Nem látom a karakterlapját: ${hianyzoKarakter.map((p) => p.nev).join(', ')}. Az Egészsége a csatanézetben állítható.<//>` : null}
+      <div>
+        <p className="cimke" style=${{ margin: 0 }}>Meglepetés (AK 101.): ezek az oldalak az első körben nem cselekszenek</p>
+        ${o.oldalak.map((x) => html`<${Jelolo} key=${x.id} checked=${meglepett.includes(x.id)}
+          onChange=${(b) => setMeglepett((m) => (b ? m.concat([x.id]) : m.filter((y) => y !== x.id)))}>${x.nev}<//>`)}
+      </div>
+    </div>
+  <//>`;
+}
+
+// ================= A csata állapota: optimista lépések, sorba állított mentés =================
+
+function useCsata(kampanyId, id) {
+  const { sync, uzen } = useApp();
+  const ka = useKampanyAllapot(kampanyId);
+  const szerver = ka.allapot && (ka.allapot.csatak || []).find((c) => c.id === id);
+  const [cs, setCsAllapot] = useState(null);
+  const [pk, setPk] = useState({});
+  const csRef = useRef(null);
+  const verzioRef = useRef(0);
+  const fuggoRef = useRef(0);
+  const setCs = (x) => { csRef.current = x; setCsAllapot(x); };
+
+  useEffect(() => {
+    if (!szerver || !szerver.adat || !szerver.adat.resztvevok) return;
+    if (fuggoRef.current > 0 || (csRef.current && szerver.verzio < verzioRef.current)) return;
+    verzioRef.current = szerver.verzio;
+    setCs(szerver.adat);
+    setPk(szerver.pillanatkepek || {});
+  }, [szerver && szerver.verzio, szerver && szerver.id]);
+
+  const kuld = (elotte, uj, kulcs, pillanatkepek) => {
+    setCs(uj);
+    if (pillanatkepek) setPk((p) => ({ ...p, ...pillanatkepek }));
+    fuggoRef.current += 1;
+    sync.push({ action: 'combat.act', adat: { id, verzio: verzioRef.current, kulcs, adat: uj, karakterek: C.karakterValtozasok(elotte, uj), pillanatkepek } })
+      .then((v) => { verzioRef.current = Math.max(verzioRef.current, v.csata.verzio); })
+      .catch((e) => {
+        if (e.kod === 'utkozes' && e.valasz && e.valasz.aktualis) {
+          verzioRef.current = e.valasz.aktualis.verzio;
+          setCs(e.valasz.aktualis.adat);
+          uzen('A csatát közben máshol is léptették: a friss állapot látszik, az utolsó lépésedet ismételd meg.', 'warning');
+        } else uzen('A lépés nem mentődött: ' + e.message, 'danger');
+      })
+      .finally(() => { fuggoRef.current -= 1; if (!fuggoRef.current) ka.frissit(); });
+  };
+
+  // Egy lépés: fn a csata másolatán dolgozik. Visszaadja az új állapotot (vagy null, ha a lépés hibát dobott).
+  const lep = (leiras, fn, { pillanatkepek } = {}) => {
+    const elotte = csRef.current;
+    if (!elotte) return null;
+    const kulcs = C.ujKulcs();
+    let uj;
+    try { uj = C.lepes(elotte, leiras, fn, kulcs); } catch (e) { uzen(e.message, 'danger'); return null; }
+    kuld(elotte, uj, kulcs, pillanatkepek);
+    return uj;
+  };
+  const visszavon = () => {
+    const elotte = csRef.current;
+    if (!elotte || !C.visszavonhato(elotte)) return;
+    const kulcs = C.ujKulcs();
+    kuld(elotte, C.visszavon(elotte, kulcs), kulcs);
+  };
+  // a karakterlapon közben változott Egészség átvétele (helyben; a következő lépéssel mentődik)
+  const helyi = (fn) => { const uj = masol(csRef.current); if (fn(uj)) setCs(uj); };
+  return { ...ka, szerver, cs, pk, lep, visszavon, helyi, fuggo: () => fuggoRef.current };
+}
+
+// ================= A csatanézet =================
+
+export function CsataOldal({ kampanyId, id, Oldalfej }) {
+  const { api, szabalyok, felhasznalo, uzen } = useApp();
+  const lapok = lapokBol(szabalyok);
+  const c = useCsata(kampanyId, id);
+  const { allapot, cs, pk, lep } = c;
+  const [dobasok, naploz] = useDobasok(allapot);
+  const [kijelolt, setKijelolt] = useState(null);
+  const [ablak, setAblak] = useState(null); // { tipus: 'tamadas' | 'gyogyitas' | 'hozzaadas' | 'lezaras' | 'statblokk' | 'torles', ... }
+  const [fut, indit] = useMuvelet();
+
+  // lény-nézetek forrásonként (egy szörnyfajta egyszer számol)
+  const nezetek = useMemo(() => {
+    const m = {};
+    if (!cs || !allapot) return m;
+    const forras = {};
+    cs.resztvevok.forEach((r) => {
+      const k = pkKulcs(r.forras);
+      if (!(k in forras)) forras[k] = forrasNezet(r.forras, { allapot, lapok, pk });
+      m[r.id] = forras[k];
+    });
+    return m;
+  }, [cs && cs.resztvevok.map((r) => pkKulcs(r.forras)).join(), allapot, lapok, pk]);
+
+  // a játékos karakterek Egészsége a karakterlapról
+  useEffect(() => {
+    if (!cs || !allapot || c.fuggo()) return;
+    const ertekek = {};
+    cs.resztvevok.forEach((r) => { if (r.forras.tipus === 'karakter' && nezetek[r.id]) ertekek[r.forras.id] = egeszsegAdat(nezetek[r.id]); });
+    if (Object.keys(ertekek).length) c.helyi((x) => C.karakterekFrissitese(x, ertekek));
+  }, [allapot && allapot.karakterek, nezetek]);
+
+  const vissza = [`#/dm/kampany/${kampanyId}`, allapot ? allapot.kampany.cim : 'Kampány'];
+  if (c.hiba && !allapot) return html`<div><${Oldalfej} cim="Csata" vissza=${vissza}/><${Uzenet}>${c.hiba.message}<//></div>`;
+  if (!allapot) return html`<${Betoltes} szoveg="Kampány betöltése…"/>`;
+  const sz = c.szerver;
+  if (!sz) return html`<div><${Oldalfej} cim="Csata" vissza=${vissza}/><${Uzenet} tonus="warning">Ez a csata nincs a kampány csatái közt (törölték).<//></div>`;
+  if (sz.allapot === 'lezart' && !sz.adat) return html`<div><${Oldalfej} cim=${sz.cim} vissza=${vissza}/><${Uzenet} tonus="neutral">Ez a csata lezárult.<//></div>`;
+  if (!cs) return html`<${Betoltes} szoveg="Csata betöltése…"/>`;
+
+  const kampany = allapot.kampany;
+  const forrasok = kampany.aktiv_forrasok || [];
+  const kij = C.resztvevo(cs, kijelolt) || C.resztvevo(cs, cs.soron) || null;
+
+  // dobás naplózása a csata azonosítójával (karakternél a karakter, NJK-nál az NJK nevében)
+  const dobasNaplo = ({ r, mire, kockak, osszeallitas, ert, celertek, tipus, kezi, extra }) => {
+    const d = P.naploDobas({ kampany_id: kampany.id, karakter_id: r && r.forras.tipus === 'karakter' ? r.forras.id : '', mire, kockak, osszeallitas,
+      kiertekeles: ert || { eredmeny: '', mutatvanypont: 0, fok: '' }, celertek, tipus, kezi, extra });
+    d.csata_id = cs && id;
+    d.dobta = felhasznalo.nev;
+    if (r && r.forras.tipus === 'njk') d.njk_id = r.forras.id;
+    naploz(d);
+    return d;
+  };
+  const ctx = { cs, nezetek, lapok, kampany, forrasok, lep, dobasNaplo, setAblak, setKijelolt };
+  const lezart = cs.allapot === 'lezart';
+
+  return html`<div>
+    <${Oldalfej} cim=${sz.cim} vissza=${vissza}>
+      <${K.Button} variant="quiet" disabled=${!C.visszavonhato(cs) || lezart} onClick=${c.visszavon}
+        title=${C.utolsoLepes(cs)}>${C.visszavonhato(cs) ? `Visszavonás: ${C.utolsoLepes(cs).slice(0, 40)}` : 'Visszavonás'}<//>
+      <${K.Button} variant="secondary" disabled=${lezart} onClick=${() => setAblak({ tipus: 'hozzaadas' })}>Hozzáadás<//>
+      <${K.Button} variant="quiet" disabled=${lezart} onClick=${() => setAblak({ tipus: 'lezaras' })}>Lezárás<//>
+    <//>
+    ${lezart ? html`<div className="oldalfej__uzenet"><${Uzenet} tonus="neutral">A csata lezárult.<//></div>` : null}
+    ${cs.allapot === 'kezdemenyezes' ? html`<${KezdemenyezesNezet} ...${ctx}/>` : html`<div className="ket-hasab">
+      <div className="verem">
+        <${KorPanel} ...${ctx} lezart=${lezart}/>
+        <${SorrendPanel} ...${ctx} kij=${kij}/>
+        <${VarakozokPanel} ...${ctx}/>
+      </div>
+      <div className="verem">
+        ${kij ? html`<${ResztvevoPanel} key=${kij.id} ...${ctx} r=${kij} nz=${nezetek[kij.id]}/>` : html`<${K.Panel} title="Résztvevő"><p className="halvany">Válassz résztvevőt a sorrendből.</p><//>`}
+        <${CsataNaploPanel} cs=${cs}/>
+      </div>
+    </div>`}
+    <div className="verem" style=${{ marginTop: 'var(--space-5)' }}>
+      <${K.Panel} title="Dobásnapló"><${KampanyNaplo} allapot=${allapot} dobasok=${dobasok}/><//>
+    </div>
+    ${ablak && ablak.tipus === 'tamadas' ? html`<${TamadasAblak} ...${ctx} tamadoId=${ablak.tamado} cselekves=${ablak.cselekves} onBezar=${() => setAblak(null)}/>` : null}
+    ${ablak && ablak.tipus === 'gyogyitas' ? html`<${GyogyitasAblak} ...${ctx} gyogyitoId=${ablak.gyogyito} onBezar=${() => setAblak(null)}/>` : null}
+    ${ablak && ablak.tipus === 'hozzaadas' ? html`<${HozzaadasAblak} ...${ctx} allapot=${allapot} onBezar=${() => setAblak(null)}/>` : null}
+    ${ablak && ablak.tipus === 'statblokk' ? html`<${StatblokkAblak} r=${ablak.r} allapot=${allapot} lapok=${lapok} onBezar=${() => setAblak(null)}/>` : null}
+    ${ablak && ablak.tipus === 'lezaras' ? html`<${Parbeszed} cim="A csata lezárása" onBezar=${() => setAblak(null)} lab=${html`
+      <${K.Button} variant="quiet" onClick=${() => setAblak(null)}>Mégse<//>
+      <${K.Button} variant="danger" disabled=${fut} onClick=${() => indit(async () => {
+        await api.hivas('combat.delete', { id });
+        setAblak(null); navigal(`/dm/kampany/${kampanyId}`);
+      }, 'A csata törlődött.')}>Törlés (kipróbálás volt)<//>
+      <${K.Button} variant="primary" disabled=${fut} onClick=${() => indit(async () => {
+        await api.hivas('combat.close', { id, adat: cs });
+        setAblak(null); await c.frissit(); navigal(`/dm/kampany/${kampanyId}`);
+      }, 'A csata lezárult.')}>Lezárás<//>`}>
+      <${CsataOsszegzes} cs=${cs}/>
+      <p className="halvany kicsi">Lezáráskor az összecsapás „lefutott” lesz. Az összesítő XP-javaslattal és az NJK-k állapotának visszaírása az 5. ütemben jön; addig az XP a karakterlapon osztható.</p>
+    <//>` : null}
+  </div>`;
+}
+
+function CsataOsszegzes({ cs }) {
+  const o = C.csataOsszegzes(cs);
+  return html`<div className="verem">
+    <p className="kicsi" style=${{ margin: 0 }}>${o.oldalak.map((x) => `${x.nev}: ${x.harcol}/${x.osszes} harcol`).join(' · ')}</p>
+    ${o.kiesettek.length ? html`<p className="kicsi" style=${{ margin: 0 }}>Kiesett vagy meghalt: ${o.kiesettek.join(', ')}</p>` : null}
+    ${o.haldoklok.length ? html`<p className="kicsi" style=${{ margin: 0 }}>Haldoklik: ${o.haldoklok.join(', ')}</p>` : null}
+    ${o.serultek.length ? html`<p className="kicsi" style=${{ margin: 0 }}>Sérült: ${o.serultek.join(', ')}</p>` : null}
+  </div>`;
+}
+
+// ---------------- Kezdeményezés ----------------
+
+function KezdemenyezesNezet({ cs, nezetek, lep, dobasNaplo, setAblak }) {
+  // csoportonként egy sor (a csoport egyszer dob, AK 100.)
+  const sorok = [];
+  const latott = new Set();
+  cs.resztvevok.filter((r) => !r.rejtett).forEach((r) => {
+    if (r.csoport) {
+      if (latott.has(r.csoport)) return;
+      latott.add(r.csoport);
+      const tagok = cs.resztvevok.filter((x) => x.csoport === r.csoport && !x.rejtett);
+      const g = (cs.csoportok || []).find((x) => x.id === r.csoport);
+      sorok.push({ r, nev: `${(g && g.nev) || r.nev} (${tagok.length})`, tagok });
+    } else sorok.push({ r, nev: r.nev, tagok: [r] });
+  });
+  const dob = (sor, kockak, kezi, egyben) => {
+    const nz = nezetek[sor.r.id];
+    const ossz = kezdemenyezesOssze(nz);
+    const k = { osszeg: osszeg(kockak) + ossz.bonusz, sarkany: kockak[2], tul: ossz.tulajdonsag_ertek, kockak, kezi };
+    dobasNaplo({ r: sor.r, mire: `Kezdeményezés: ${sor.nev}`, kockak, osszeallitas: ossz, tipus: 'kezdemenyezes', kezi });
+    if (!egyben) lep(`${sor.nev}: kezdeményezés ${k.osszeg}`, (x) => C.kezdemenyezesBeallitas(x, sor.r.id, k));
+    return k;
+  };
+  const npcSorok = sorok.filter((s) => s.r.forras.tipus !== 'karakter' && !s.r.kezdemenyezes);
+  const mindDob = () => {
+    const eredmenyek = npcSorok.map((s) => [s, dob(s, [0, 0, 0].map(() => 1 + Math.floor(Math.random() * 6)), false, true)]);
+    lep(`Kezdeményezés: ${eredmenyek.length} NJK-sor`, (x) => { eredmenyek.forEach(([s, k]) => C.kezdemenyezesBeallitas(x, s.r.id, k)); });
+  };
+  const { holtversenyek } = C.sorrendSzamol(cs);
+  const hiany = C.kezdemenyezesHianyzik(cs);
+  const rejtettek = cs.resztvevok.filter((r) => r.rejtett);
+  const holtNevek = new Set(holtversenyek.flat());
+
+  return html`<div className="ket-hasab">
+    <div className="verem">
+      <${K.Panel} title="Kezdeményezés" actions=${html`<${K.Button} size="sm" variant="secondary" disabled=${!npcSorok.length} onClick=${mindDob}>Dobás minden NJK-ért<//>`}>
+        <p className="halvany kicsi" style=${{ marginTop: 0 }}>Ügyesség (Kezdeményezés) próba, 3d6: a harmadik a sárkánykocka. A játékosok kockáját beírhatod.</p>
+        <ul className="sorlista">${sorok.map((s) => {
+          const nz = nezetek[s.r.id];
+          const ossz = kezdemenyezesOssze(nz);
+          const k = s.r.kezdemenyezes;
+          return html`<li key=${s.r.id} className="sorlista__sor sorlista__sor--fuggoleges">
+            <div className="sorban sorban--szet">
+              <span><strong>${s.nev}</strong> <span className="halvany kicsi">${elojel(ossz.bonusz)}${s.r.meglepett ? ' · meglepett' : ''}</span></span>
+              ${k ? html`<${K.Badge} tone="accent">${k.osszeg} (sárkány ${k.sarkany})<//>` : html`<span className="halvany kicsi">még nincs</span>`}
+            </div>
+            <${Kockadobo} db=${3} kicsi=${true} kockak=${k ? k.kockak : null} kezi=${k && k.kezi} felirat="Dobás" onDobas=${(kk, kezi) => dob(s, kk, kezi)}
+              eredmeny=${(o) => html`<span className="halvany">${elojel(ossz.bonusz)} → ${o + ossz.bonusz}</span>`}/>
+          </li>`;
+        })}</ul>
+      <//>
+    </div>
+    <div className="verem">
+      <${K.Panel} title="Sorrend">
+        ${cs.sorrend.length ? html`<ol className="egyszeru-lista">${cs.sorrend.map((rid, i) => {
+          const r = C.resztvevo(cs, rid);
+          return html`<li key=${rid} className="sorban sorban--szet">
+            <span>${r.nev} <span className="halvany kicsi">${r.kezdemenyezes.osszeg}${holtNevek.has(rid) ? ' · holtverseny' : ''}</span></span>
+            <span className="gombsor gombsor--szoros">
+              <button type="button" className="sorgomb" aria-label="Feljebb" disabled=${i === 0} onClick=${() => lep(`${r.nev} feljebb`, (x) => C.athelyezes(x, rid, -1))}>↑</button>
+              <button type="button" className="sorgomb" aria-label="Lejjebb" disabled=${i === cs.sorrend.length - 1} onClick=${() => lep(`${r.nev} lejjebb`, (x) => C.athelyezes(x, rid, 1))}>↓</button>
+            </span>
+          </li>`;
+        })}</ol>` : html`<p className="halvany">A sorrend a kezdeményezésekből áll össze.</p>`}
+        ${holtversenyek.length ? html`<${Uzenet} tonus="warning">Teljes holtverseny (összeg, sárkánykocka és Ügyesség is egyezik): rendezd kézzel a nyilakkal.<//>` : null}
+        ${hiany.length ? html`<p className="halvany kicsi">Még nincs kezdeményezése: ${hiany.map((r) => r.nev).join(', ')}.</p>` : null}
+        ${rejtettek.length ? html`<p className="halvany kicsi">Rejtett, később lép be: ${rejtettek.map((r) => r.nev).join(', ')}.</p>` : null}
+        <div className="gombsor">
+          <${K.Button} variant="primary" disabled=${hiany.length > 0} onClick=${() => lep('A csata elkezdődik: 1. kör', (x) => C.csataKezdes(x))}>A csata indítása<//>
+          <${K.Button} variant="quiet" onClick=${() => setAblak({ tipus: 'hozzaadas' })}>Résztvevő hozzáadása<//>
+        </div>
+      <//>
+    </div>
+  </div>`;
+}
+
+// ---------------- Kör és sorrend ----------------
+
+function KorPanel({ cs, lep, lezart }) {
+  const soron = C.resztvevo(cs, cs.soron);
+  const kov = C.kovetkezoNev(cs);
+  return html`<${K.Panel} title=${`${cs.kor}. kör`}>
+    ${soron ? html`<p style=${{ margin: 0 }}>Soron: <strong>${soron.nev}</strong> <span className="halvany kicsi">(${C.cselekvesSzoveg(soron)})</span></p>`
+      : html`<${Uzenet} tonus="warning">Nincs, aki cselekedhetne (mindenki kiesett, haldoklik vagy rejtett).<//>`}
+    <div className="gombsor">
+      <${K.Button} variant="primary" disabled=${lezart || !soron} onClick=${() => lep(`${soron.nev} köre véget ért`, (x) => C.kovetkezo(x))}>Kész, következő${kov ? `: ${kov}` : ''}<//>
+    </div>
+  <//>`;
+}
+
+function EgeszsegSzoveg({ r }) {
+  return html`<span className="kicsi">${r.egeszseg}/${r.egeszseg_max}</span>`;
+}
+
+function SorrendPanel({ cs, nezetek, lep, kij, setKijelolt, setAblak }) {
+  return html`<${K.Panel} title="Sorrend">
+    <ul className="sorlista">${cs.sorrend.map((rid, i) => {
+      const r = C.resztvevo(cs, rid);
+      if (!r) return null;
+      const nz = nezetek[rid];
+      const oldal = (cs.oldalak.find((o) => o.id === r.oldal) || {}).nev || '';
+      const valasztott = kij && kij.id === rid;
+      return html`<li key=${rid} className=${'sorlista__sor sorlista__sor--fuggoleges' + (valasztott ? ' bestiarium__sor--aktiv' : '')}>
+        <div className="sorban sorban--szet">
+          <button type="button" className="naplo__gomb" style=${{ textAlign: 'left' }} onClick=${() => setKijelolt(rid)}>
+            ${cs.soron === rid ? '▶ ' : ''}<strong>${r.nev}</strong> <span className="halvany kicsi">${oldal}${cs.leptek.includes(rid) && cs.soron !== rid ? ' · lépett' : ''}</span>
+          </button>
+          <span className="gombsor gombsor--szoros">
+            <button type="button" className="sorgomb" aria-label="Feljebb" disabled=${i === 0} onClick=${() => lep(`${r.nev} feljebb`, (x) => C.athelyezes(x, rid, -1))}>↑</button>
+            <button type="button" className="sorgomb" aria-label="Lejjebb" disabled=${i === cs.sorrend.length - 1} onClick=${() => lep(`${r.nev} lejjebb`, (x) => C.athelyezes(x, rid, 1))}>↓</button>
+          </span>
+        </div>
+        <div className="cimkek">
+          ${r.allapot !== 'aktiv' ? html`<${K.Badge} tone=${ALLAPOT_TONUS[r.allapot]}>${C.ALLAPOT_NEV[r.allapot]}${r.allapot === 'haldoklik' && r.haldoklas_kor ? ` (${r.haldoklas_kor}. kör)` : ''}<//>` : null}
+          <span className="kicsi">Egészség <strong>${r.egeszseg}</strong>/${r.egeszseg_max}</span>
+          ${nz ? html`<span className="kicsi halvany">Véd. ${C.vedekezes(r, nz.vedekezes.ertek)} · PÉ ${nz.pancelertek.ertek}</span>` : html`<span className="kicsi halvany">nincs adat</span>`}
+          ${r.feltetelek.map((f) => html`<span key=${f.id} className="csip csip--kicsi csip--statikus">${f.nev}${f.lejar_kor ? ` (${f.lejar_kor}. körig)` : ''}</span>`)}
+          ${r.hatasok.map((h) => html`<span key=${h.id} className="csip csip--kicsi csip--statikus">${h.nev} ${elojel(h.ertek)}</span>`)}
+        </div>
+      </li>`;
+    })}</ul>
+  <//>`;
+}
+
+// Rejtett és belépésre váró résztvevők: kezdeményezés és belépés.
+function VarakozokPanel({ cs, nezetek, lep, dobasNaplo }) {
+  const varok = cs.resztvevok.filter((r) => r.rejtett);
+  if (!varok.length) return null;
+  const belep = (r, kockak, kezi) => {
+    const ossz = kezdemenyezesOssze(nezetek[r.id]);
+    const k = { osszeg: osszeg(kockak) + ossz.bonusz, sarkany: kockak[2], tul: ossz.tulajdonsag_ertek, kockak, kezi };
+    dobasNaplo({ r, mire: `Kezdeményezés: ${r.nev}`, kockak, osszeallitas: ossz, tipus: 'kezdemenyezes', kezi });
+    lep(`${r.nev} belép (kezdeményezés ${k.osszeg})`, (x) => C.belepes(x, r.id, k));
+  };
+  return html`<${K.Panel} title="Belépésre vár">
+    <p className="halvany kicsi" style=${{ marginTop: 0 }}>A kezdeményezés dobásával belép, és a következő körtől cselekszik.</p>
+    <ul className="sorlista">${varok.map((r) => html`<li key=${r.id} className="sorlista__sor sorlista__sor--fuggoleges">
+      <span><strong>${r.nev}</strong> <span className="halvany kicsi">${elojel(kezdemenyezesOssze(nezetek[r.id]).bonusz)}</span></span>
+      <${Kockadobo} db=${3} kicsi=${true} kockak=${null} felirat="Kezdeményezés és belépés" onDobas=${(k, kezi) => belep(r, k, kezi)}/>
+    </li>`)}</ul>
+  <//>`;
+}
+
+function CsataNaploPanel({ cs }) {
+  const sorok = (cs.naplo || []).slice().reverse().slice(0, 30);
+  return html`<${K.Panel} title="A csata eseményei">
+    <ul className="egyszeru-lista">${sorok.map((n, i) => html`<li key=${i} className="kicsi"><span className="halvany">${n.kor ? n.kor + '. kör · ' : ''}</span>${n.szoveg}</li>`)}</ul>
+  <//>`;
+}
+
+// ---------------- Egy résztvevő: cselekvések, Egészség, feltételek ----------------
+
+function ResztvevoPanel({ cs, r, nz, lep, setAblak, lapok, dobasNaplo }) {
+  const [szam, setSzam] = useState('');
+  const [feltetel, setFeltetel] = useState('fekszik');
+  const [egyedi, setEgyedi] = useState('');
+  const [korok, setKorok] = useState('');
+  const [szabad, setSzabad] = useState('');
+  const [szabadFajta, setSzabadFajta] = useState('mellek');
+  const soron = cs.soron === r.id;
+  const n = parseInt(String(szam).replace('−', '-'), 10);
+  const cselekves = (kulcs) => {
+    const a = C.cselekvesAdat(kulcs);
+    if (a.tamadas) { setAblak({ tipus: 'tamadas', tamado: r.id, cselekves: kulcs }); return; }
+    if (kulcs === 'gyogyitas') { setAblak({ tipus: 'gyogyitas', gyogyito: r.id }); return; }
+    lep(`${r.nev}: ${a.nev}`, (x) => {
+      C.cselekvesRogzites(x, r.id, a.fajta, a.nev);
+      if (kulcs === 'vedekezes') C.hatasHozzaadas(x, r.id, { nev: 'Védekezés', cel: 'vedekezes', ertek: 2, lejar: 'sajat' });
+      if (kulcs === 'celzas') C.hatasHozzaadas(x, r.id, { nev: 'Célzás', cel: 'tamadas', ertek: 1, lejar: 'kovetkezo_tamadas' });
+    });
+  };
+  const harcolhat = r.allapot === 'aktiv' && !r.rejtett;
+  return html`<${K.Panel} title=${r.nev} actions=${r.forras.tipus === 'karakter'
+      ? html`<${K.Button} size="sm" variant="quiet" onClick=${() => navigal('/dm/karakter/' + r.forras.id)}>Karakterlap<//>`
+      : html`<${K.Button} size="sm" variant="quiet" onClick=${() => setAblak({ tipus: 'statblokk', r })}>Statblokk<//>`}>
+    <div className="verem">
+      <div className="cimkek">
+        <${K.Badge} tone=${ALLAPOT_TONUS[r.allapot]}>${C.ALLAPOT_NEV[r.allapot]}<//>
+        ${soron ? html`<${K.Badge} tone="accent">soron van<//>` : null}
+        ${r.fontos ? html`<${K.Badge}>fontos<//>` : null}
+        <span className="halvany kicsi">${C.cselekvesSzoveg(r)}</span>
+      </div>
+      <${K.ResourceBar} kind="health" value=${r.egeszseg} max=${Math.max(1, r.egeszseg_max)} label="Egészség"/>
+      ${nz ? html`<p className="kicsi" style=${{ margin: 0 }}>Védekezés ${C.vedekezes(r, nz.vedekezes.ertek)}${C.hatasOsszeg(r, 'vedekezes') ? ` (alap ${nz.vedekezes.ertek})` : ''} · Páncélérték ${nz.pancelertek.ertek}${nz.pancelertek.atuto_ellen ? ' (átütő ellen is)' : ''} · Sebesség ${nz.sebesseg.ertek === null ? '–' : nz.sebesseg.ertek}</p>`
+        : html`<${Uzenet} tonus="warning">A lény adatai nem érhetők el (szabályadat vagy karakterlap hiányzik). Az Egészség kézzel kezelhető.<//>`}
+
+      ${harcolhat && nz ? html`<div>
+        <p className="cimke" style=${{ margin: 0 }}>Támadás</p>
+        <div className="gombsor gombsor--szoros">
+          ${nz.tamadasok.filter((t) => t.tamadas !== null).map((t) => html`<${K.Button} key=${t.kulcs} size="sm" variant=${soron ? 'primary' : 'secondary'}
+            disabled=${!C.cselekvesEngedett(r, 'fo')} onClick=${() => setAblak({ tipus: 'tamadas', tamado: r.id, cselekves: 'tamadas', tamadas: t.kulcs })}>
+            ${t.nev_hu} ${elojel(t.tamadas)} (${t.sebzes || '?'})<//>`)}
+          ${!nz.tamadasok.length ? html`<span className="halvany kicsi">Nincs támadása.</span>` : null}
+        </div>
+      </div>` : null}
+
+      ${harcolhat ? html`<div>
+        <p className="cimke" style=${{ margin: 0 }}>Cselekvések</p>
+        <div className="gombsor gombsor--szoros">
+          ${C.CSELEKVESEK.filter((x) => x.kulcs !== 'tamadas').map((a) => html`<${K.Button} key=${a.kulcs} size="sm" variant="quiet" title=${a.leiras || a.en}
+            disabled=${!C.cselekvesEngedett(r, a.fajta) || (a.tamadas && !nz)} onClick=${() => cselekves(a.kulcs)}>${a.nev}${a.fajta === 'mellek' ? ' (m)' : ''}<//>`)}
+        </div>
+        <div className="sorban" style=${{ marginTop: 'var(--space-2)' }}>
+          <${K.TextField} label="Más cselekvés" placeholder="például Lefegyverzés, ital" value=${szabad} onChange=${(e) => setSzabad(e.target.value)}/>
+          <${Valaszto} label="Fajta" value=${szabadFajta} onChange=${setSzabadFajta} opciok=${[{ value: 'fo', label: 'fő' }, { value: 'mellek', label: 'mellék' }, { value: 'szabad', label: 'szabad' }]}/>
+          <${K.Button} disabled=${!szabad.trim() || !C.cselekvesEngedett(r, szabadFajta)}
+            onClick=${() => { const t = szabad.trim(); setSzabad(''); lep(`${r.nev}: ${t}`, (x) => C.cselekvesRogzites(x, r.id, szabadFajta, t)); }}>Rögzítés<//>
+        </div>
+        <div className="gombsor gombsor--szoros">
+          <${K.Button} size="sm" variant="quiet" onClick=${() => lep(`${r.nev}: +1 cselekvés (DM)`, (x) => C.cselekvesFeloldas(x, r.id))}>+1 cselekvés (DM)<//>
+          <${K.Button} size="sm" variant="quiet" onClick=${() => lep(`${r.nev} a sorrend élére`, (x) => C.sorrendElere(x, r.id))}>A sorrend élére<//>
+        </div>
+        <${Sugo} cim="Cselekvések">Körönként egy fő és egy mellék, vagy két mellék cselekvés (AK 33.). Az (m) a mellék cselekvés. A Védekezés és a Célzás hatását a felület alkalmazza, a többi csak jelölés: a hatásuk a mesélésben dől el.<//>
+      </div>` : null}
+
+      <div>
+        <p className="cimke" style=${{ margin: 0 }}>Egészség kézzel</p>
+        <div className="sorban">
+          <${K.TextField} label="Mennyi" inputMode="numeric" value=${szam} onChange=${(e) => setSzam(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}/>
+          <${K.Button} disabled=${!(n > 0)} onClick=${() => { setSzam(''); lep(`${r.nev}: ${n} sebzés (kézi, páncél nélkül)`, (x) => C.sebzesAlkalmazas(x, r.id, n)); }}>Sebzés<//>
+          <${K.Button} disabled=${!(n > 0)} onClick=${() => { setSzam(''); lep(`${r.nev}: ${n} gyógyulás`, (x) => C.gyogyitas(x, r.id, n)); }}>Gyógyulás<//>
+        </div>
+      </div>
+
+      <div>
+        <p className="cimke" style=${{ margin: 0 }}>Feltételek</p>
+        <div className="csipek">${r.feltetelek.map((f) => html`<span key=${f.id} className="csip">${f.nev}${f.lejar_kor ? ` (${f.lejar_kor}. kör elejéig)` : ''}
+          <button type="button" className="csip__gomb" aria-label=${f.nev + ' levétele'} onClick=${() => lep(`${r.nev}: ${f.nev} lekerült`, (x) => C.feltetelTorles(x, r.id, f.id))}>×</button></span>`)}
+          ${!r.feltetelek.length ? html`<span className="halvany kicsi">Nincs.</span>` : null}</div>
+        <div className="sorban">
+          <${Valaszto} label="Feltétel" value=${feltetel} onChange=${setFeltetel} opciok=${C.FELTETELEK.map((f) => ({ value: f.kulcs, label: `${f.nev} (${f.en})` })).concat([{ value: '_egyedi', label: 'Egyedi…' }])}/>
+          ${feltetel === '_egyedi' ? html`<${K.TextField} label="Neve" value=${egyedi} onChange=${(e) => setEgyedi(e.target.value)}/>` : null}
+          <${K.TextField} label="Körök" hint="Üresen: amíg le nem veszed" inputMode="numeric" value=${korok} onChange=${(e) => setKorok(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}/>
+          <${K.Button} disabled=${feltetel === '_egyedi' && !egyedi.trim()} onClick=${() => {
+            const adat = feltetel === '_egyedi' ? { nev: egyedi.trim(), korok } : { kulcs: feltetel, korok };
+            const nev = adat.nev || (C.FELTETELEK.find((f) => f.kulcs === feltetel) || {}).nev;
+            setEgyedi(''); setKorok('');
+            lep(`${r.nev}: ${nev}`, (x) => C.feltetelHozzaadas(x, r.id, adat));
+          }}>Hozzáadás<//>
+        </div>
+      </div>
+
+      <details className="lenyilo">
+        <summary>Állapot, oldal, eltávolítás</summary>
+        <div className="verem">
+          <${Valaszto} label="Állapot" value=${r.allapot} onChange=${(a) => lep(`${r.nev}: ${C.ALLAPOT_NEV[a]} (DM)`, (x) => C.allapotBeallitas(x, r.id, a))}
+            opciok=${Object.keys(C.ALLAPOT_NEV).map((k) => ({ value: k, label: C.ALLAPOT_NEV[k] }))}/>
+          <${Jelolo} checked=${r.fontos} onChange=${(b) => lep(`${r.nev}: ${b ? 'fontos' : 'nem fontos'}`, (x) => C.fontosBeallitas(x, r.id, b))}>Fontos (nullán haldoklik, nem esik ki)<//>
+          <${Valaszto} label="Oldal" value=${r.oldal} onChange=${(o) => lep(`${r.nev} oldalt vált`, (x) => C.oldalValtas(x, r.id, o))}
+            opciok=${cs.oldalak.map((o) => ({ value: o.id, label: o.nev }))}/>
+          <div className="gombsor"><${K.Button} size="sm" variant="quiet" onClick=${() => lep(`${r.nev} eltávolítva`, (x) => C.resztvevoTorles(x, r.id))}>Eltávolítás a csatából<//></div>
+        </div>
+      </details>
+    </div>
+  <//>`;
+}
+
+// ---------------- Támadás: célpont, próba, mutatványok, sebzés ----------------
+
+function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, lep, dobasNaplo, tamadoId, cselekves: kezdoCselekves, onBezar }) {
+  const { sync, uzen } = useApp();
+  const tamado = C.resztvevo(cs, tamadoId);
+  const nz = nezetek[tamadoId];
+  const tamadasok = (nz ? nz.tamadasok : []).filter((t) => t.tamadas !== null);
+  const [tKulcs, setTKulcs] = useState(tamadasok[0] ? tamadasok[0].kulcs : '');
+  const [cselekves, setCselekves] = useState(kezdoCselekves || 'tamadas');
+  const celpontok = O.celpontSorrend(cs, cs.resztvevok.filter((r) => !r.rejtett && r.allapot !== 'halott'), tamado.oldal, tamado.id);
+  const [celId, setCelId] = useState(celpontok[0] ? celpontok[0].id : '');
+  const [hosszu, setHosszu] = useState(false);
+  const [kezi, setKezi] = useState('0');
+  const [dobas, setDobas] = useState(null); // { kockak, kezi, osszeg, cel, talalat, mp, naploId }
+  const [mutNyitva, setMutNyitva] = useState(false);
+  const [mut, setMut] = useState(null);
+  const [seb1, setSeb1] = useState(null);
+  const [cel2Id, setCel2Id] = useState('');
+  const [seb2, setSeb2] = useState(null);
+  const [kegyelem, setKegyelem] = useState(false);
+  if (!tamado || !nz) return null;
+  const t = tamadasok.find((x) => x.kulcs === tKulcs) || tamadasok[0];
+  if (!t) return html`<${Parbeszed} cim="Támadás" onBezar=${onBezar}><p>Ennek a résztvevőnek nincs támadása.</p><//>`;
+  const cel = C.resztvevo(cs, celId);
+  const celNz = nezetek[celId];
+  const csAdat = C.cselekvesAdat(cselekves);
+  const figyelmeztetes = cel ? O.celpontFigyelmeztetes(cs, tamado.oldal, cel.oldal) : null;
+  const modositok = C.tamadasModositok(tamado, cel, { tavolsagi: t.tavolsagi });
+  if (cselekves === 'roham') modositok.push({ ertek: 1, eredet: 'Rohamozás' });
+  if (t.tavolsagi && hosszu) modositok.push({ ertek: -2, eredet: 'Hosszú táv' });
+  const kezSzam = parseInt(String(kezi).replace('−', '-'), 10) || 0;
+  if (kezSzam) modositok.push({ ertek: kezSzam, eredet: 'Módosító' });
+  const bonusz = t.tamadas + modositok.reduce((a, m) => a + m.ertek, 0);
+  const ved = cel && celNz ? C.vedekezes(cel, celNz.vedekezes.ertek) : null;
+  const uj = () => { setDobas(null); setMut(null); setMutNyitva(false); setSeb1(null); setSeb2(null); setCel2Id(''); };
+
+  const tamadasDobas = (kockak, beirt) => {
+    const ossz = { bonusz, reszek: [{ ertek: t.tamadas, eredet: t.nev_hu }].concat(modositok.map((m) => ({ ertek: m.ertek, eredet: m.eredet }))) };
+    const ert = P.probaKiertekel(kockak, bonusz, { celertek: ved === null ? undefined : ved });
+    const d = dobasNaplo({ r: tamado, mire: `${tamado.nev}: ${t.nev_hu} → ${cel ? cel.nev : '?'}`, kockak, osszeallitas: ossz, ert, celertek: ved === null ? undefined : ved, tipus: 'tamadas', kezi: beirt });
+    setMut(null); setMutNyitva(false); setSeb1(null); setSeb2(null);
+    setDobas({ kockak, kezi: beirt, osszeg: ert.osszeg, talalat: ert.eredmeny === 'siker', mp: ert.mutatvanypont, naploId: d.id, cel: celId });
+  };
+  const mh = C.mutatvanyHatasok(mut ? mut.mutatvanyok : [], lapok);
+  const kif = C.sebzesKifejezes(t.sebzes) || { kocka: 1, plusz: 0, ismeretlen: true };
+  const kocka = kif.kocka + mh.sebzes_kocka;
+  const plusz = kif.plusz + (cselekves === 'mindent_bele' ? 1 : 0);
+  const szamol = (kockak, celR, celN) => C.sebzesSzamol({ osszeg: osszeg(kockak) + plusz, pancelertek: celN ? celN.pancelertek.ertek : 0,
+    atuto: t.atuto, atuto_ellen: !!(celN && celN.pancelertek.atuto_ellen), fel_pancel: mh.fel_pancel });
+  const sebzesDobas = (celR, setSeb) => (kockak, beirt) => {
+    dobasNaplo({ r: tamado, mire: `Sebzés: ${tamado.nev} → ${celR.nev}`, kockak, osszeallitas: { bonusz: plusz, reszek: plusz ? [{ ertek: plusz, eredet: 'Sebzés bónusza' }] : [] }, tipus: 'sebzes', kezi: beirt });
+    setSeb({ kockak, kezi: beirt });
+  };
+  const cel2 = C.resztvevo(cs, cel2Id);
+  const cel2Nz = nezetek[cel2Id];
+  const talalat2 = cel2 && cel2Nz && dobas ? dobas.osszeg >= C.vedekezes(cel2, cel2Nz.vedekezes.ertek) : false;
+  const kesz1 = dobas && (!dobas.talalat || kocka === 0 || seb1);
+  const kesz = kesz1 && (!dobas || !dobas.talalat || !mh.kettos || !cel2 || !talalat2 || kocka === 0 || seb2) && !mutNyitva && !(dobas && dobas.mp && !mut);
+
+  const alkalmaz = () => {
+    const v1 = dobas.talalat ? szamol(seb1 ? seb1.kockak : [], cel, celNz).vegso : 0;
+    const v2 = dobas.talalat && mh.kettos && cel2 && talalat2 ? szamol(seb2 ? seb2.kockak : [], cel2, cel2Nz).vegso : 0;
+    const mutSzoveg = mut && mut.mutatvanyok.length ? ` (${mut.mutatvanyok.map((m) => m.nev).join(', ')})` : '';
+    const leiras = dobas.talalat
+      ? `${tamado.nev} → ${cel.nev}: ${v1} sebzés${v2 ? `, ${cel2.nev}: ${v2}` : ''}${mutSzoveg}`
+      : `${tamado.nev} → ${cel.nev}: nem talált`;
+    lep(leiras, (x) => {
+      C.cselekvesRogzites(x, tamado.id, csAdat ? csAdat.fajta : 'fo', csAdat ? csAdat.nev : 'Támadás');
+      C.tamadasUtan(x, tamado.id);
+      if (cselekves === 'mindent_bele') C.hatasHozzaadas(x, tamado.id, { nev: 'Mindent bele', cel: 'vedekezes', ertek: -1, lejar: 'sajat' });
+      if (!dobas.talalat) return;
+      const celX = C.resztvevo(x, cel.id);
+      if (kegyelem && celX && celX.egeszseg - v1 <= 0 && v1 > 0) {
+        C.egeszsegBeallitas(x, cel.id, 1);
+        C.feltetelHozzaadas(x, cel.id, { kulcs: 'eszmeletlen' });
+      } else C.sebzesAlkalmazas(x, cel.id, v1);
+      if (v2) C.sebzesAlkalmazas(x, cel2.id, v2);
+      if (mh.fekszik) C.feltetelHozzaadas(x, cel.id, { kulcs: 'fekszik' });
+      if (mh.vedoallas) C.hatasHozzaadas(x, tamado.id, { nev: 'Védőállás', cel: 'vedekezes', ertek: 2, lejar: 'sajat' });
+      if (mh.atvetel) C.sorrendElere(x, tamado.id);
+      if (mh.villam) C.cselekvesFeloldas(x, tamado.id, mh.villam);
+    });
+    onBezar();
+  };
+
+  const mutKesz = (v) => {
+    setMut(v); setMutNyitva(false);
+    sync.push({ action: 'roll.update', adat: { id: dobas.naploId, mutatvanyok: v.mutatvanyok, plusz: v.plusz } })
+      .catch((e) => uzen('A mutatványok nem kerültek a naplóba: ' + e.message, 'danger'));
+  };
+
+  return html`<${Parbeszed} cim=${`${tamado.nev} támad`} onBezar=${onBezar} lab=${html`
+    <${K.Button} variant="quiet" onClick=${onBezar}>Mégse<//>
+    <${K.Button} variant="primary" disabled=${!kesz} onClick=${alkalmaz}>Alkalmazás<//>`}>
+    <div className="verem">
+      <${Kapcsolo} cimke="Cselekvés" teljes ertek=${cselekves} onValt=${(x) => { setCselekves(x); uj(); }}
+        opciok=${[{ value: 'tamadas', label: 'Támadás' }, { value: 'roham', label: 'Rohamozás (+1)' }, { value: 'mindent_bele', label: 'Mindent bele' }]}/>
+      ${csAdat && csAdat.leiras ? html`<p className="halvany kicsi" style=${{ margin: 0 }}>${csAdat.leiras}</p>` : null}
+      <div className="sorban">
+        <${Valaszto} label="Támadás" value=${t.kulcs} onChange=${(x) => { setTKulcs(x); uj(); }}
+          opciok=${tamadasok.map((x) => ({ value: x.kulcs, label: `${x.nev_hu} ${elojel(x.tamadas)}, ${x.sebzes || '?'}${x.atuto ? ' (átütő)' : ''}` }))}/>
+        <${Valaszto} label="Célpont" value=${celId} onChange=${(x) => { setCelId(x); uj(); }}
+          opciok=${celpontok.map((x) => ({ value: x.id, label: `${x.nev} (${O.VISZONYOK[x.viszony].nev}${nezetek[x.id] ? ', Véd. ' + C.vedekezes(x, nezetek[x.id].vedekezes.ertek) : ''}${x.allapot !== 'aktiv' ? ', ' + C.ALLAPOT_NEV[x.allapot] : ''})` }))}/>
+      </div>
+      ${figyelmeztetes ? html`<${Uzenet} tonus="warning">${figyelmeztetes}<//>` : null}
+      ${t.megjegyzes ? html`<p className="sugo kicsi">${t.megjegyzes}</p>` : null}
+      <div className="sorban">
+        ${t.tavolsagi ? html`<${Jelolo} checked=${hosszu} onChange=${(b) => { setHosszu(b); uj(); }}>Hosszú táv (−2)<//>` : null}
+        <${K.TextField} label="Módosító" hint="A DM adja (±1–3)" inputMode="numeric" value=${kezi}
+          onChange=${(e) => { setKezi(e.target.value.replace(/[^0-9−-]/g, '').replace('−', '-').slice(0, 3)); uj(); }}/>
+      </div>
+      <div className="osszegsor">
+        <span>3d6 ${elojel(t.tamadas)} (${t.nev_hu})${modositok.map((m, i) => html`<span key=${i}> ${elojel(m.ertek)} (${m.eredet})</span>`)}</span>
+        <span className="osszegsor__ertek">${elojel(bonusz)}${ved !== null ? ` vs Véd. ${ved}` : ''}</span>
+      </div>
+      <${Kockadobo} db=${3} kockak=${dobas ? dobas.kockak : null} kezi=${dobas && dobas.kezi} felirat="Támadás: 3d6" onDobas=${tamadasDobas}
+        eredmeny=${(o) => html`<span className="halvany">${elojel(bonusz)} → ${o + bonusz}</span>`}/>
+      ${dobas ? html`<${Uzenet} tonus=${dobas.talalat ? 'success' : 'neutral'}>${dobas.osszeg}: ${dobas.talalat ? 'találat' : 'nem talált'}${dobas.mp ? `, ${dobas.mp} Mutatványpont` : ''}.<//>` : null}
+
+      ${dobas && dobas.mp && !mut && !mutNyitva ? html`<div className="gombsor"><${K.Button} variant="primary" onClick=${() => setMutNyitva(true)}>${dobas.mp} Mutatványpont elköltése<//>
+        <${K.Button} variant="quiet" onClick=${() => mutKesz({ mutatvanyok: [], plusz: [] })}>Nem költök<//></div>` : null}
+      ${dobas && mutNyitva ? html`<${MutatvanyValaszto} lapok=${lapok} lap=${nz} pont=${dobas.mp} celpont=${celNz}
+        kontextus=${{ tipus: 'tamadas', tamadas: t.tavolsagi ? 'tavolsagi' : 'kozelharci', tul: t.tulajdonsag || undefined, fokusz: t.fokusz || undefined }}
+        forrasok=${forrasok} beallitas=${kampany.beallitasok} onKesz=${mutKesz} onMegse=${() => setMutNyitva(false)}/>` : null}
+      ${mut && !mutNyitva ? html`<div className="gombsor">
+        <p className="mutatvany__osszegzes">✓ ${mut.mutatvanyok.length ? mut.mutatvanyok.map((m) => `${m.nev}${m.db > 1 ? ' × ' + m.db : ''} (${m.mp})`).join(', ') : 'Nem költött pontot.'}</p>
+        <${K.Button} size="sm" variant="quiet" onClick=${() => setMutNyitva(true)}>Módosítás<//>
+      </div>` : null}
+      ${mut && (mh.fekszik || mh.vedoallas || mh.atvetel || mh.villam || mh.fel_pancel || mh.sebzes_kocka) ? html`<p className="kicsi" style=${{ margin: 0 }}>A felület alkalmazza: ${[
+        mh.sebzes_kocka ? `+${mh.sebzes_kocka}d6 sebzés` : '', mh.fel_pancel ? 'fél Páncélérték' : '', mh.fekszik ? 'a célpont földre kerül' : '',
+        mh.vedoallas ? '+2 Védekezés a támadónak' : '', mh.atvetel ? 'a támadó a sorrend élére kerül' : '', mh.villam ? 'még egy támadás' : ''].filter(Boolean).join(', ')}.</p>` : null}
+      ${mut && mh.szoveges.length ? html`<p className="halvany kicsi" style=${{ margin: 0 }}>A DM dönt: ${mh.szoveges.join(', ')}.</p>` : null}
+
+      ${dobas && dobas.talalat && (!dobas.mp || mut) && !mutNyitva ? html`<div className="verem">
+        <p className="cimke" style=${{ margin: 0 }}>Sebzés: ${kocka ? `${kocka}d6` : ''}${plusz ? elojel(plusz) : ''}${kif.ismeretlen ? ' (a sebzés formája ismeretlen, 1d6-tal számolok)' : ''}${t.atuto ? ' · átütő' : ''}</p>
+        ${kocka > 0 ? html`<${Kockadobo} db=${kocka} kockak=${seb1 ? seb1.kockak : null} kezi=${seb1 && seb1.kezi} felirat=${`Sebzés: ${kocka}d6`} onDobas=${sebzesDobas(cel, setSeb1)}/>` : null}
+        ${seb1 || kocka === 0 ? html`<${SebzesSor} cel=${cel} sz=${szamol(seb1 ? seb1.kockak : [], cel, celNz)}/>` : null}
+        ${mh.kettos ? html`<div className="verem">
+          <${Valaszto} label="Kettős csapás: második célpont" value=${cel2Id} ures="válassz…" onChange=${(x) => { setCel2Id(x); setSeb2(null); }}
+            opciok=${celpontok.filter((x) => x.id !== celId).map((x) => ({ value: x.id, label: `${x.nev}${nezetek[x.id] ? ', Véd. ' + C.vedekezes(x, nezetek[x.id].vedekezes.ertek) : ''}` }))}/>
+          ${cel2 ? (talalat2 ? html`${kocka > 0 ? html`<${Kockadobo} db=${kocka} kockak=${seb2 ? seb2.kockak : null} kezi=${seb2 && seb2.kezi} felirat=${`Sebzés: ${kocka}d6`} onDobas=${sebzesDobas(cel2, setSeb2)}/>` : null}
+            ${seb2 || kocka === 0 ? html`<${SebzesSor} cel=${cel2} sz=${szamol(seb2 ? seb2.kockak : [], cel2, cel2Nz)}/>` : null}` : html`<p className="kicsi">${cel2.nev}: a támadás összege nem éri el a Védekezését.</p>`) : null}
+        </div>` : null}
+        <${Jelolo} checked=${kegyelem} onChange=${setKegyelem}>Ha leterítené: eszméletlen 1 Egészséggel (a kegyelemdöfés elmarad)<//>
+      </div>` : null}
+    </div>
+  <//>`;
+}
+
+function SebzesSor({ cel, sz }) {
+  return html`<div className="osszegsor">
+    <span>${sz.nyers}${sz.pancel ? ` − ${sz.pancel} (Páncélérték)` : ''}</span>
+    <span className="osszegsor__ertek">${cel.nev}: ${sz.vegso} sebzés → ${Math.max(0, cel.egeszseg - sz.vegso)}/${cel.egeszseg_max}</span>
+  </div>`;
+}
+
+// ---------------- Gyógyítás (Heal cselekvés) ----------------
+
+function GyogyitasAblak({ cs, nezetek, lep, dobasNaplo, gyogyitoId, onBezar }) {
+  const gy = C.resztvevo(cs, gyogyitoId);
+  const nz = nezetek[gyogyitoId];
+  const celok = cs.resztvevok.filter((r) => !r.rejtett && r.allapot !== 'halott' && r.egeszseg < r.egeszseg_max)
+    .sort((a, b) => (a.oldal === gy.oldal ? 0 : 1) - (b.oldal === gy.oldal ? 0 : 1));
+  const [celId, setCelId] = useState(celok[0] ? celok[0].id : '');
+  const [dobas, setDobas] = useState(null);
+  if (!gy || !nz) return null;
+  const cel = C.resztvevo(cs, celId);
+  const ossz = P.probaOsszeallit(nz, { tul: 'tul_intelligence', fokusz: C.GYOGYITAS_FOKUSZ });
+  const intel = (nz.tulajdonsagok.tul_intelligence || {}).ertek || 0;
+  const dob = (kockak, kezi) => {
+    const ert = P.probaKiertekel(kockak, ossz.bonusz, { celertek: C.GYOGYITAS_CELERTEK });
+    dobasNaplo({ r: gy, mire: `Gyógyítás: ${gy.nev} → ${cel ? cel.nev : '?'}`, kockak, osszeallitas: ossz, ert, celertek: C.GYOGYITAS_CELERTEK, tipus: 'alap', kezi });
+    setDobas({ kockak, kezi, ert, mennyi: ert.eredmeny === 'siker' ? Math.max(0, kockak[2] + intel) : 0 });
+  };
+  const alkalmaz = () => {
+    lep(dobas.mennyi ? `${gy.nev} gyógyítja: ${cel.nev} +${dobas.mennyi}` : `${gy.nev} gyógyítása nem sikerült (${cel.nev})`, (x) => {
+      C.cselekvesRogzites(x, gy.id, 'fo', 'Gyógyítás');
+      if (dobas.mennyi) C.gyogyitas(x, cel.id, dobas.mennyi, { heal: true });
+    });
+    onBezar();
+  };
+  return html`<${Parbeszed} cim=${`${gy.nev} gyógyít`} onBezar=${onBezar} lab=${html`
+    <${K.Button} variant="quiet" onClick=${onBezar}>Mégse<//>
+    <${K.Button} variant="primary" disabled=${!dobas || !cel} onClick=${alkalmaz}>Alkalmazás<//>`}>
+    <div className="verem">
+      <p className="halvany kicsi" style=${{ margin: 0 }}>Szomszédos társ, kötszer kell. Intelligencia (Gyógyítás) 11; siker esetén sárkánykocka + Intelligencia Egészség (AK 34.).</p>
+      ${celok.length ? html`<${Valaszto} label="Kit" value=${celId} onChange=${(x) => { setCelId(x); setDobas(null); }}
+        opciok=${celok.map((r) => ({ value: r.id, label: `${r.nev} (${r.egeszseg}/${r.egeszseg_max})` }))}/>` : html`<p>Nincs sérült résztvevő.</p>`}
+      ${cel && !cel.gyogyithato ? html`<${Uzenet} tonus="warning">${cel.nev} már kapott Gyógyítást, és azóta nem sérült meg: a szabály szerint nem kaphat újat.<//>` : null}
+      <div className="osszegsor"><span>3d6 ${ossz.reszek.map((r, i) => html`<span key=${i}> ${elojel(r.ertek)} (${r.eredet})</span>`)}</span><span className="osszegsor__ertek">${elojel(ossz.bonusz)} vs 11</span></div>
+      ${cel ? html`<${Kockadobo} db=${3} kockak=${dobas ? dobas.kockak : null} kezi=${dobas && dobas.kezi} felirat="Gyógyítás: 3d6" onDobas=${dob}/>` : null}
+      ${dobas ? html`<${Uzenet} tonus=${dobas.mennyi ? 'success' : 'neutral'}>${dobas.ert.osszeg}: ${dobas.mennyi ? `siker, +${dobas.mennyi} Egészség` : 'nem sikerült'}.<//>` : null}
+    </div>
+  <//>`;
+}
+
+// ---------------- Hozzáadás csata közben ----------------
+
+function HozzaadasAblak({ cs, lapok, lep, allapot, onBezar }) {
+  const { api, uzen } = useApp();
+  const tar = useLekeres(async () => (await api.hivas('npc.list', {})).njkk, [], 'njkk.aktiv');
+  const o = useMemo(() => ({ ...O.uresOsszecsapas(), oldalak: cs.oldalak, viszonyok: cs.viszonyok,
+    resztvevok: cs.resztvevok.map((r) => ({ id: r.id, forras: r.forras, nev: r.nev, db: 1, oldal: r.oldal, csoport: '' })) }), [cs]);
+  const setO = async (fn) => {
+    const uj = typeof fn === 'function' ? fn(o) : fn;
+    const regi = new Set(o.resztvevok.map((r) => r.id));
+    const ujak = uj.resztvevok.filter((r) => !regi.has(r.id));
+    if (!ujak.length) return;
+    const peldanyok = O.resztvevokKibontasa({ ...uj, resztvevok: ujak });
+    const pk = await pillanatkepekGyujtese(peldanyok.map((p) => p.forras), { lapok, allapot, api });
+    const csoportNev = (r) => (r.db > 1 ? r.nev : '');
+    lep(`Új résztvevő: ${ujak.map((r) => r.nev + (r.db > 1 ? ' ×' + r.db : '')).join(', ')}`, (x) => {
+      peldanyok.forEach((p) => {
+        const e = egeszsegAdat(forrasNezet(p.forras, { allapot, lapok, pk }));
+        const r = ujak.find((y) => y.id === p.resztvevo_id);
+        C.resztvevoHozzaadas(x, { forras: p.forras, nev: p.nev, oldal: p.oldal, fontos: p.fontos, egeszseg: e.egeszseg, egeszseg_max: e.egeszseg_max, szivossag: e.szivossag, csoportNev: csoportNev(r) });
+      });
+    }, { pillanatkepek: pk });
+    if (cs.allapot === 'fut') uzen('Az új résztvevő a „Belépésre vár” listában van: a kezdeményezésével lép be.');
+  };
+  return html`<${Parbeszed} cim="Résztvevő hozzáadása" onBezar=${onBezar} lab=${html`<${K.Button} variant="primary" onClick=${onBezar}>Kész<//>`}>
+    <${HozzaadasPanel} o=${o} setO=${setO} allapot=${allapot} lapok=${lapok} tar=${tar.adat || []}/>
+  <//>`;
+}
