@@ -10,7 +10,9 @@
 //   { id, resztvevo_id, forras: { tipus: karakter | njk | szorny, id }, nev, oldal, csoport, fontos, rejtett, meglepett,
 //     kezdemenyezes: null | { osszeg, sarkany, tul, kockak, kezi }, egeszseg, egeszseg_max, szivossag,
 //     allapot: 'aktiv' | 'haldoklik' | 'kiesett' | 'halott', haldoklas_kor,
-//     feltetelek: [{ id, nev, lejar_kor }], hatasok: [{ id, nev, cel, ertek, lejar, kor }],
+//     feltetelek: [{ id, kulcs, nev, lejar_kor, lejar?, forras?, elkezdve? }], hatasok: [{ id, nev, cel, ertek, lejar, kor, fogy?, elkezdve? }],
+// A `lejar: 'sajat_kor_vege'` feltétel vagy hatás a gazdája következő körének végén jár le (Megfélemlítve, Gúnyolva,
+// Éberség); a `fogy` hatás (cel: 'proba') a következő próbánál elfogy.
 //     cselekves: { fo, mellek, plusz, lista }, gyogyithato,
 //     magiapont: null | szám, ertekek: { vedekezes, pancelertek, atuto_ellen, magiapont_max, akaratero } }
 // Az `ertekek` a lény nézetének csatához kellő része (a DM és a játékos felülete írja); ebből dolgozik a háttér
@@ -38,14 +40,14 @@ export const ALLAPOT_NEV = { aktiv: 'harcol', haldoklik: 'haldoklik', kiesett: '
 
 // Feltételek alaplistája (AK 36., 101., mutatványok). Az időtartamot a DM adja körökben (üres: amíg le nem veszik).
 export const FELTETELEK = [
-  { kulcs: 'fekszik', nev: 'Fekszik', en: 'Prone', leiras: 'Közelharcban +1 a támadás ellene. Felállni Mozgással lehet.' },
+  { kulcs: 'fekszik', nev: 'Fekszik', en: 'Prone', leiras: 'Közelharcban +1 a támadás ellene (gépi). Fekve nem futhat; a Mozgás felállítja (gépi).' },
   { kulcs: 'kabult', nev: 'Kábult', en: 'Stunned', leiras: 'A DM dönti el a hatását.' },
-  { kulcs: 'lefegyverezve', nev: 'Lefegyverezve', en: 'Disarmed', leiras: 'A fegyvere 1d6 + Erő méterre repült.' },
+  { kulcs: 'lefegyverezve', nev: 'Lefegyverezve', en: 'Disarmed', leiras: 'A fegyvere 1d6 + Erő yardra repült; a támadásnál figyelmeztetés, az Előkészítés leveszi (gépi).' },
   { kulcs: 'megragadva', nev: 'Megragadva', en: 'Grappled', leiras: '' },
   { kulcs: 'vak', nev: 'Vak', en: 'Blinded', leiras: '' },
   { kulcs: 'eszmeletlen', nev: 'Eszméletlen', en: 'Unconscious', leiras: '1 Egészséggel, a kegyelemdöfés elmaradt.' },
-  { kulcs: 'megfelemlitve', nev: 'Megfélemlítve', en: 'Threatened', leiras: 'A következő körében a fenyegetőt kell támadnia.' },
-  { kulcs: 'gunyolva', nev: 'Gúnyolva', en: 'Taunted', leiras: '−1 a támadásra és a varázslásra a következő körében.' }
+  { kulcs: 'megfelemlitve', nev: 'Megfélemlítve', en: 'Threatened', leiras: 'A következő körében a fenyegetőt kell támadnia: a támadás célpontja ő (gépi), a köre végén lejár.' },
+  { kulcs: 'gunyolva', nev: 'Gúnyolva', en: 'Taunted', leiras: '−1 a támadásra és a varázslásra a következő körében (gépi), a köre végén lejár.' }
 ];
 
 // Cselekvések (AK 33–34.). gepi: a felület alkalmazza a hatását; a többi csak jelölés, amely elfogyasztja a cselekvést.
@@ -305,7 +307,19 @@ function korKezdete(cs) {
 function sajatKorKezdete(cs, r) {
   // a Célzás is csak a köre végéig él, ha nem követte támadás
   r.hatasok = r.hatasok.filter((x) => !((x.lejar === 'sajat' || x.lejar === 'kovetkezo_tamadas') && cs.kor > x.kor));
+  // a „következő köröd végéig” tartók ettől a körtől élnek, és a kör végén járnak le
+  r.feltetelek.forEach((f) => { if (f.lejar === 'sajat_kor_vege') f.elkezdve = true; });
+  r.hatasok.forEach((h) => { if (h.lejar === 'sajat_kor_vege') h.elkezdve = true; });
   r.cselekves = uresCselekves();
+}
+
+// A saját kör vége: lejárnak a „következő köröd végéig” tartó feltételek és hatások.
+function sajatKorVege(cs, r) {
+  const f = r.feltetelek.filter((x) => x.lejar === 'sajat_kor_vege' && x.elkezdve);
+  const h = r.hatasok.filter((x) => x.lejar === 'sajat_kor_vege' && x.elkezdve);
+  if (f.length || h.length) naplozas(cs, `${r.nev}: lejárt (${f.map((x) => x.nev).concat(h.map((x) => x.nev)).join(', ')}).`);
+  r.feltetelek = r.feltetelek.filter((x) => !(x.lejar === 'sajat_kor_vege' && x.elkezdve));
+  r.hatasok = r.hatasok.filter((x) => !(x.lejar === 'sajat_kor_vege' && x.elkezdve));
 }
 
 // A következő cselekvő keresése (a soron lévő utáni első, aki ebben a körben még nem lépett).
@@ -347,6 +361,8 @@ function kovetkezoKeres(cs) {
 // „Kész, következő”: a soron lévő köre véget ér.
 export function kovetkezo(cs) {
   if (cs.allapot !== 'fut') return cs;
+  const soron = resztvevo(cs, cs.soron);
+  if (soron) sajatKorVege(cs, soron);
   if (cs.soron && !cs.leptek.includes(cs.soron)) cs.leptek.push(cs.soron);
   return kovetkezoKeres(cs);
 }
@@ -400,12 +416,24 @@ export function cselekvesSzoveg(r) {
 
 // Hatás felvétele (cel: 'vedekezes' | 'tamadas' | 'sebzes'). lejar: 'sajat' (a következő köre elejéig),
 // 'kor' (a kör végéig), 'kovetkezo_tamadas' (a következő támadásig, de legfeljebb a köre végéig).
-export function hatasHozzaadas(cs, id, { nev, cel, ertek, lejar = 'sajat' }) {
+export function hatasHozzaadas(cs, id, { nev, cel, ertek, lejar = 'sajat', fogy = false }) {
   const r = resztvevo(cs, id);
   if (!r) return cs;
-  r.hatasok = r.hatasok.filter((h) => h.nev !== nev).concat([{ id: ujId('h'), nev, cel, ertek: szam(ertek), lejar, kor: cs.kor }]);
+  const h = { id: ujId('h'), nev, cel, ertek: szam(ertek), lejar, kor: cs.kor };
+  if (fogy) h.fogy = true;
+  r.hatasok = r.hatasok.filter((x) => x.nev !== nev).concat([h]);
   return cs;
 }
+
+// A következő próbára szóló bónuszok (cel: 'proba', például Éberség): [{ ertek, eredet }].
+export const probaBonuszok = (r) => ((r && r.hatasok) || []).filter((h) => h.cel === 'proba' && szam(h.ertek)).map((h) => ({ ertek: szam(h.ertek), eredet: h.nev }));
+// A próba után elfogynak.
+export function probaBonuszFogyasztas(cs, id) {
+  const r = resztvevo(cs, id);
+  if (r) r.hatasok = r.hatasok.filter((h) => !(h.cel === 'proba' && h.fogy));
+  return cs;
+}
+export const vanFeltetel = (r, kulcs) => ((r && r.feltetelek) || []).some((f) => f.kulcs === kulcs);
 
 export const hatasOsszeg = (r, cel) => ((r && r.hatasok) || []).filter((h) => h.cel === cel).reduce((a, h) => a + szam(h.ertek), 0);
 
@@ -417,7 +445,8 @@ export function vedekezes(r, alap) {
 // A támadás módosítói a csata állapotából: a támadó hatásai (Célzás) és a célpont feltételei (fekvő: +1 közelharcban).
 export function tamadasModositok(tamado, cel, { tavolsagi = false } = {}) {
   const ki = [];
-  ((tamado && tamado.hatasok) || []).filter((h) => h.cel === 'tamadas' && szam(h.ertek)).forEach((h) => ki.push({ ertek: szam(h.ertek), eredet: h.nev, hatas: h.id }));
+  ((tamado && tamado.hatasok) || []).filter((h) => (h.cel === 'tamadas' || h.cel === 'proba') && szam(h.ertek)).forEach((h) => ki.push({ ertek: szam(h.ertek), eredet: h.nev, hatas: h.id }));
+  if (vanFeltetel(tamado, 'gunyolva')) ki.push({ ertek: -1, eredet: 'Gúnyolva' });
   if (cel && !tavolsagi && (cel.feltetelek || []).some((f) => f.kulcs === 'fekszik')) ki.push({ ertek: 1, eredet: 'Fekvő célpont' });
   return ki;
 }
@@ -425,7 +454,7 @@ export function tamadasModositok(tamado, cel, { tavolsagi = false } = {}) {
 // A támadás után a „következő támadásig” szóló hatások (Célzás) elfogynak.
 export function tamadasUtan(cs, id) {
   const r = resztvevo(cs, id);
-  if (r) r.hatasok = r.hatasok.filter((h) => h.lejar !== 'kovetkezo_tamadas');
+  if (r) r.hatasok = r.hatasok.filter((h) => h.lejar !== 'kovetkezo_tamadas' && !(h.cel === 'proba' && h.fogy));
   return cs;
 }
 
@@ -493,14 +522,18 @@ export function fontosBeallitas(cs, id, fontos) {
 // ---------------- Feltételek ----------------
 
 // korok: hány körig tart (a kör elején jár le); üres vagy 0: amíg le nem veszik.
-export function feltetelHozzaadas(cs, id, { kulcs, nev, korok }) {
+// lejar: 'sajat_kor_vege' (a gazdája következő körének végén jár le); forras: ki okozta (Megfélemlítve: a fenyegető).
+export function feltetelHozzaadas(cs, id, { kulcs, nev, korok, lejar, forras }) {
   const r = resztvevo(cs, id);
   if (!r) return cs;
   const alap = FELTETELEK.find((f) => f.kulcs === kulcs);
   const n = String(nev || (alap && alap.nev) || '').trim().slice(0, 60);
   if (!n) return cs;
   const k = szam(korok);
-  r.feltetelek = r.feltetelek.filter((f) => f.nev !== n).concat([{ id: ujId('f'), kulcs: alap ? alap.kulcs : '', nev: n, lejar_kor: k > 0 ? (cs.kor || 0) + k : null }]);
+  const f = { id: ujId('f'), kulcs: alap ? alap.kulcs : '', nev: n, lejar_kor: k > 0 ? (cs.kor || 0) + k : null };
+  if (lejar) f.lejar = lejar;
+  if (forras) f.forras = forras;
+  r.feltetelek = r.feltetelek.filter((x) => (alap ? x.kulcs !== alap.kulcs : x.nev !== n)).concat([f]);
   return cs;
 }
 

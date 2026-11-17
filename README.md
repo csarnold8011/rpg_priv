@@ -37,7 +37,7 @@ node tools/teszt/mutatvany.mjs     # a mutatványkezelő tesztje (34; FAGE_SZABA
 node tools/teszt/naplo.mjs         # a dobásnapló sorainak és szűrésének tesztje (52)
 node tools/teszt/probakeres.mjs    # a DM próbakérés tesztje (54)
 node tools/teszt/csata.mjs         # a csatamotor tesztje (61)
-node tools/teszt/csatamuvelet.mjs  # a csatalépések, varázslatok, a játékos szűrt csatája és a lezárás tesztje (49; valódi szabályadattal 52)
+node tools/teszt/csatamuvelet.mjs  # a csatalépések, varázslatok, a játékos szűrt csatája és a lezárás tesztje (65; valódi szabályadattal 68)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 

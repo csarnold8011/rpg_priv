@@ -177,13 +177,16 @@ function SajatResztvevo({ r, nz, cs, lapok, vegrehajt, setAblak }) {
         <${K.Button} size="md" variant="secondary" disabled=${!fo} onClick=${() => vegrehajt({ tipus: 'cselekves', r: r.id, kulcs: 'vedekezes' })}>Védekezés<//>
         <${K.Button} size="md" variant="secondary" disabled=${!fo || !nz} onClick=${() => setAblak({ tipus: 'gyogyitas', r: r.id })}>Gyógyítás<//>
         <${K.Button} size="md" variant="secondary" disabled=${!mellek} onClick=${() => vegrehajt({ tipus: 'cselekves', r: r.id, kulcs: 'celzas' })}>Célzás (m)<//>
+        ${C.vanFeltetel(r, 'fekszik') ? html`<${K.Button} size="md" variant="primary" disabled=${!mellek} onClick=${() => vegrehajt({ tipus: 'cselekves', r: r.id, kulcs: 'mozgas' })}>Felállás (m)<//>` : null}
+        ${C.vanFeltetel(r, 'lefegyverezve') ? html`<${K.Button} size="md" variant="primary" disabled=${!mellek} onClick=${() => vegrehajt({ tipus: 'cselekves', r: r.id, kulcs: 'keszenlet' })}>Fegyver vissza (m)<//>` : null}
       </div>
       ${!tamadasok.length && nz ? html`<p className="halvany kicsi" style=${{ margin: 0 }}>Nincs felszerelt fegyver: a karakterlap Felszerelés részén állíthatod.</p>` : null}
       <details className="lenyilo">
         <summary>Más cselekvés</summary>
         <div className="verem">
           <div className="gombsor gombsor--szoros">${egyeb.map((a) => html`<${K.Button} key=${a.kulcs} size="sm" variant="quiet" title=${a.leiras || a.en}
-            disabled=${!C.cselekvesEngedett(r, a.fajta)} onClick=${() => vegrehajt({ tipus: 'cselekves', r: r.id, kulcs: a.kulcs })}>${a.nev}${a.fajta === 'mellek' ? ' (m)' : ''}<//>`)}</div>
+            disabled=${!C.cselekvesEngedett(r, a.fajta) || (a.kulcs === 'futas' && C.vanFeltetel(r, 'fekszik'))} onClick=${() => vegrehajt({ tipus: 'cselekves', r: r.id, kulcs: a.kulcs })}
+            >${a.nev}${a.fajta === 'mellek' ? ' (m)' : ''}${a.kulcs === 'mozgas' && C.vanFeltetel(r, 'fekszik') ? ': felállás' : ''}<//>`)}</div>
           <div className="sorban">
             <${K.TextField} label="Szabad leírás" placeholder="például ital, Lefegyverzés" value=${szabad} onChange=${(e) => setSzabad(e.target.value)}/>
             <${Valaszto} label="Fajta" value=${szabadFajta} onChange=${setSzabadFajta} opciok=${[{ value: 'fo', label: 'fő' }, { value: 'mellek', label: 'mellék' }, { value: 'szabad', label: 'szabad' }]}/>

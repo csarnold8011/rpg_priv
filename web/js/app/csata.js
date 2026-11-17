@@ -311,8 +311,8 @@ export function CsataOldal({ kampanyId, id, Oldalfej }) {
     ${cs.allapot === 'kezdemenyezes' ? html`<${KezdemenyezesNezet} ...${ctx}/>` : html`<div className="ket-hasab">
       <div className="verem">
         <${KorPanel} ...${ctx} lezart=${lezart}/>
-        ${(cs.fuggo || []).length ? html`<${K.Panel} title="A célpontok próbái">
-          <p className="halvany kicsi" style=${{ marginTop: 0 }}>A karakterek próbáját a játékosuk is dobhatja a telefonján.</p>
+        ${(cs.fuggo || []).length ? html`<${K.Panel} title="Függő próbák">
+          <p className="halvany kicsi" style=${{ marginTop: 0 }}>A varázslatok célpontjainak és a mutatványoknak a próbái. A karakterek oldalát a játékosuk is dobhatja a telefonján.</p>
           <${CelpontProbak} cs=${cs} nezetek=${nezetek} vegrehajt=${vegrehajt} dobasNaplo=${dobasNaplo}/>
         <//>` : null}
         <${SorrendPanel} ...${ctx} kij=${kij}/>
@@ -590,7 +590,7 @@ function ResztvevoPanel({ cs, r, nz, lep, vegrehajt, setAblak, lapok, dobasNaplo
         <p className="cimke" style=${{ margin: 0 }}>Cselekvések</p>
         <div className="gombsor gombsor--szoros">
           ${C.CSELEKVESEK.filter((x) => x.kulcs !== 'tamadas').map((a) => html`<${K.Button} key=${a.kulcs} size="sm" variant="quiet" title=${a.leiras || a.en}
-            disabled=${!C.cselekvesEngedett(r, a.fajta) || (a.tamadas && !nz)} onClick=${() => cselekves(a.kulcs)}>${a.nev}${a.fajta === 'mellek' ? ' (m)' : ''}<//>`)}
+            disabled=${!C.cselekvesEngedett(r, a.fajta) || (a.tamadas && !nz) || (a.kulcs === 'futas' && C.vanFeltetel(r, 'fekszik'))} onClick=${() => cselekves(a.kulcs)}>${a.nev}${a.fajta === 'mellek' ? ' (m)' : ''}<//>`)}
         </div>
         <div className="sorban" style=${{ marginTop: 'var(--space-2)' }}>
           <${K.TextField} label="Más cselekvés" placeholder="például Lefegyverzés, ital" value=${szabad} onChange=${(e) => setSzabad(e.target.value)}/>
@@ -668,7 +668,10 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
   const [tKulcs, setTKulcs] = useState(kezdoTamadas || (tamadasok[0] ? tamadasok[0].kulcs : ''));
   const [cselekves, setCselekves] = useState(kezdoCselekves || 'tamadas');
   const celpontok = O.celpontSorrend(cs, cs.resztvevok.filter((r) => !r.rejtett && r.allapot !== 'halott'), tamado ? tamado.oldal : '', tamadoId);
-  const [celId, setCelId] = useState(celpontok[0] ? celpontok[0].id : '');
+  // Megfélemlítve: a fenyegetőt kell támadnia (AK, Fenyegetés mutatvány)
+  const fenyegeto = ((tamado && tamado.feltetelek) || []).find((f) => f.kulcs === 'megfelemlitve' && f.forras);
+  const [celId, setCelId] = useState(fenyegeto && celpontok.some((x) => x.id === fenyegeto.forras) ? fenyegeto.forras : (celpontok[0] ? celpontok[0].id : ''));
+  const [batorsag, setBatorsag] = useState(null); // Félelmetes varázslat: { kockak, kezi, osszeg, siker }
   const [hosszu, setHosszu] = useState(false);
   const [kezi, setKezi] = useState('0');
   const [dobas, setDobas] = useState(null); // { kockak, kezi, osszeg, cel, talalat, mp, naploId }
@@ -685,6 +688,10 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
   const celA = cel ? celAdat(cel, nezetek) : null;
   const csAdat = C.cselekvesAdat(cselekves);
   const figyelmeztetes = cel ? O.celpontFigyelmeztetes(cs, tamado.oldal, cel.oldal) : null;
+  const fenyegetoNev = fenyegeto ? (C.resztvevo(cs, fenyegeto.forras) || {}).nev : '';
+  const felelmetes = cel && !t.tavolsagi ? (cel.hatasok || []).find((h) => h.cel === 'felelmetes') : null;
+  const batorsagOssz = felelmetes ? P.probaOsszeallit(nz, { tul: 'tul_willpower', fokusz: 'fok_willpower_courage', modositok: C.probaBonuszok(tamado) }) : null;
+  const felelmetesGatol = felelmetes && !(batorsag && batorsag.siker);
   const modositok = C.tamadasModositok(tamado, cel, { tavolsagi: t.tavolsagi });
   if (cselekves === 'roham') modositok.push({ ertek: 1, eredet: 'Rohamozás' });
   if (t.tavolsagi && hosszu) modositok.push({ ertek: -2, eredet: 'Hosszú táv' });
@@ -692,7 +699,7 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
   if (kezSzam) modositok.push({ ertek: kezSzam, eredet: 'Módosító' });
   const bonusz = t.tamadas + modositok.reduce((a, m) => a + m.ertek, 0);
   const ved = celA ? celA.vedekezes : null;
-  const uj = () => { setDobas(null); setMut(null); setMutNyitva(false); setSeb1(null); setSeb2(null); setCel2Id(''); };
+  const uj = () => { setDobas(null); setMut(null); setMutNyitva(false); setSeb1(null); setSeb2(null); setCel2Id(''); setBatorsag(null); };
   const vedSzoveg = (r) => { const a = celAdat(r, nezetek); return a.vedekezes === null ? '' : (mutatSzam ? `, Véd. ${a.vedekezes}` : ''); };
 
   const tamadasDobas = (kockak, beirt) => {
@@ -716,7 +723,7 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
   const ved2 = cel2 ? celAdat(cel2, nezetek).vedekezes : null;
   const talalat2 = cel2 && dobas ? (ved2 === null ? true : dobas.osszeg >= ved2) : false;
   const kesz1 = dobas && (!dobas.talalat || kocka === 0 || seb1);
-  const kesz = kesz1 && (!dobas || !dobas.talalat || !mh.kettos || !cel2 || !talalat2 || kocka === 0 || seb2) && !mutNyitva && !(dobas && dobas.mp && !mut);
+  const kesz = !felelmetesGatol && kesz1 && (!dobas || !dobas.talalat || !mh.kettos || !cel2 || !talalat2 || kocka === 0 || seb2) && !mutNyitva && !(dobas && dobas.mp && !mut);
 
   const alkalmaz = () => {
     const m = {
@@ -725,7 +732,8 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
       fel_pancel: !!mh.fel_pancel, kegyelem,
       masodik: dobas.talalat && mh.kettos && cel2 && talalat2 ? { cel: cel2.id, sebzes: nyers(seb2 ? seb2.kockak : []), talalat: true, pancel: celAdat(cel2, nezetek).pancelertek } : null,
       hatasok: { fekszik: mh.fekszik, vedoallas: mh.vedoallas, atvetel: mh.atvetel, villam: mh.villam },
-      mutatvanyok: mut ? mut.mutatvanyok.map((x) => x.nev) : []
+      mutatvanyok: mut ? mut.mutatvanyok.map((x) => x.nev) : [],
+      mutatvany_probak: dobas.talalat && mut ? M.mutatvanyProbak(mut.mutatvanyok).map((p) => ({ ...p, bonusz: t.tamadas })) : []
     };
     vegrehajt(m);
     onBezar();
@@ -751,6 +759,20 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
           opciok=${celpontok.map((x) => ({ value: x.id, label: `${x.nev} (${O.VISZONYOK[x.viszony].nev}${vedSzoveg(x)}${x.allapot !== 'aktiv' ? ', ' + C.ALLAPOT_NEV[x.allapot] : ''})` }))}/>
       </div>
       ${figyelmeztetes ? html`<${Uzenet} tonus="warning">${figyelmeztetes}<//>` : null}
+      ${fenyegeto && celId !== fenyegeto.forras ? html`<${Uzenet} tonus="warning">${tamado.nev} Megfélemlítve: ebben a körében ${fenyegetoNev || 'a fenyegetőt'} kell támadnia.<//>` : null}
+      ${C.vanFeltetel(tamado, 'lefegyverezve') && !t.termeszetes ? html`<${Uzenet} tonus="warning">${tamado.nev} Lefegyverezve: a fegyvere a földön van, előbb Előkészítés kell (vagy más fegyver).<//>` : null}
+      ${felelmetes ? html`<div className="verem">
+        <${Uzenet} tonus=${batorsag ? (batorsag.siker ? 'success' : 'danger') : 'warning'}>${cel.nev} Félelmetes varázslat alatt áll: közelharci támadás előtt Akaraterő (Bátorság) próba ${felelmetes.ertek} ellen${batorsag ? (batorsag.siker ? `, sikerült (${batorsag.osszeg}).` : `, nem sikerült (${batorsag.osszeg}): támadás helyett Mozgás vagy Védekezés.`) : '.'}<//>
+        ${!batorsag ? html`<${Kockadobo} db=${3} kockak=${null} felirat="Bátorság: 3d6" onDobas=${(kockak, beirt) => {
+          const ert = P.probaKiertekel(kockak, batorsagOssz.bonusz, { celertek: felelmetes.ertek });
+          dobasNaplo({ r: tamado, mire: `${tamado.nev}: Akaraterő (Bátorság) a Félelmetes varázslat ellen`, kockak, osszeallitas: batorsagOssz, ert, celertek: felelmetes.ertek, tipus: 'alap', kezi: beirt });
+          setBatorsag({ kockak, osszeg: ert.osszeg, siker: ert.eredmeny === 'siker' });
+        }} eredmeny=${(o) => html`<span className="halvany">${elojel(batorsagOssz.bonusz)} → ${o + batorsagOssz.bonusz}</span>`}/>` : null}
+        ${batorsag && !batorsag.siker ? html`<div className="gombsor">
+          <${K.Button} variant="primary" onClick=${() => { vegrehajt({ tipus: 'cselekves', r: tamado.id, kulcs: 'vedekezes' }); onBezar(); }}>Védekezés helyette<//>
+          <${K.Button} variant="secondary" onClick=${() => { vegrehajt({ tipus: 'cselekves', r: tamado.id, kulcs: 'mozgas' }); onBezar(); }}>Mozgás helyette<//>
+        </div>` : null}
+      </div>` : null}
       ${t.megjegyzes ? html`<p className="sugo kicsi">${t.megjegyzes}</p>` : null}
       <div className="sorban">
         ${t.tavolsagi ? html`<${Jelolo} checked=${hosszu} onChange=${(b) => { setHosszu(b); uj(); }}>Hosszú táv (−2)<//>` : null}
@@ -761,8 +783,8 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
         <span>3d6 ${elojel(t.tamadas)} (${t.nev_hu})${modositok.map((m, i) => html`<span key=${i}> ${elojel(m.ertek)} (${m.eredet})</span>`)}</span>
         <span className="osszegsor__ertek">${elojel(bonusz)}${ved !== null && mutatSzam ? ` vs Véd. ${ved}` : ''}</span>
       </div>
-      <${Kockadobo} db=${3} kockak=${dobas ? dobas.kockak : null} kezi=${dobas && dobas.kezi} felirat="Támadás: 3d6" onDobas=${tamadasDobas}
-        eredmeny=${(o) => html`<span className="halvany">${elojel(bonusz)} → ${o + bonusz}</span>`}/>
+      ${felelmetesGatol ? null : html`<${Kockadobo} db=${3} kockak=${dobas ? dobas.kockak : null} kezi=${dobas && dobas.kezi} felirat="Támadás: 3d6" onDobas=${tamadasDobas}
+        eredmeny=${(o) => html`<span className="halvany">${elojel(bonusz)} → ${o + bonusz}</span>`}/>`}
       ${dobas ? html`<${Uzenet} tonus=${dobas.talalat ? 'success' : 'neutral'}>${dobas.osszeg}: ${dobas.ismeretlen ? 'a célpont Védekezése nem ismert, a DM dönt (találatként számolom)' : dobas.talalat ? 'találat' : 'nem talált'}${dobas.mp ? `, ${dobas.mp} Mutatványpont` : ''}.<//>` : null}
 
       ${dobas && dobas.mp && dobas.talalat && !mut && !mutNyitva ? html`<div className="gombsor"><${K.Button} variant="primary" onClick=${() => setMutNyitva(true)}>${dobas.mp} Mutatványpont elköltése<//>
@@ -777,7 +799,8 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
       ${mut && (mh.fekszik || mh.vedoallas || mh.atvetel || mh.villam || mh.fel_pancel || mh.sebzes_kocka) ? html`<p className="kicsi" style=${{ margin: 0 }}>A felület alkalmazza: ${[
         mh.sebzes_kocka ? `+${mh.sebzes_kocka}d6 sebzés` : '', mh.fel_pancel ? 'fél Páncélérték' : '', mh.fekszik ? 'a célpont földre kerül' : '',
         mh.vedoallas ? '+2 Védekezés a támadónak' : '', mh.atvetel ? 'a támadó a sorrend élére kerül' : '', mh.villam ? 'még egy támadás' : ''].filter(Boolean).join(', ')}.</p>` : null}
-      ${mut && mh.szoveges.length ? html`<p className="halvany kicsi" style=${{ margin: 0 }}>A DM dönt: ${mh.szoveges.join(', ')}.</p>` : null}
+      ${mut && mh.szoveges.length ? html`<p className="halvany kicsi" style=${{ margin: 0 }}>A DM dönt: ${mh.szoveges.filter((n) => !mut.mutatvanyok.some((x) => x.nev === n && M.MUTATVANY_PROBAK[x.id])).join(', ') || 'semmi más'}.</p>` : null}
+      <${MutatvanyProbaJelzes} mutatvanyok=${mut && dobas && dobas.talalat ? mut.mutatvanyok : []}/>
 
       ${dobas && dobas.talalat && (!dobas.mp || mut) && !mutNyitva ? html`<div className="verem">
         <p className="cimke" style=${{ margin: 0 }}>Sebzés: ${kocka ? `${kocka}d6` : ''}${plusz ? elojel(plusz) : ''}${kif.ismeretlen ? ' (a sebzés formája ismeretlen, 1d6-tal számolok)' : ''}${t.atuto ? ' · átütő' : ''}</p>
@@ -793,6 +816,14 @@ export function TamadasAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehajt,
       </div>` : null}
     </div>
   <//>`;
+}
+
+// A kiválasztott mutatványok közül a próbát kérők: az alkalmazás után kártyaként várnak.
+function MutatvanyProbaJelzes({ mutatvanyok }) {
+  const lista = M.mutatvanyProbak(mutatvanyok);
+  if (!lista.length) return null;
+  return html`<div className="verem">${lista.map((p) => { const d = M.MUTATVANY_PROBAK[p.mutatvany]; return html`<p key=${p.mutatvany} className="kicsi" style=${{ margin: 0 }}>
+    <strong>${p.nev}:</strong> ${d.tipus === 'ellen' ? `${d.tamado.nev} ellenpróba a célpont ${d.cel.nev} próbája ellen` : `${d.tamado.nev}${d.celertek ? ' ' + d.celertek + ' ellen' : ''}`}. ${d.kovetkezmeny} Az alkalmazás után kártyaként vár.</p>`; })}</div>`;
 }
 
 function SebzesSor({ cel, sz }) {
@@ -891,7 +922,9 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
   const fizet = Math.max(0, mp - vh.mp_kedvezmeny);
   const vanMp = r.magiapont !== null && r.magiapont !== undefined;
   const kezSzam = parseInt(String(kezi).replace('−', '-'), 10) || 0;
-  const ossz = P.probaOsszeallit(nz, { tul: 'tul_intelligence', fokusz: sor.fokusz || undefined, modositok: kezSzam ? [{ ertek: kezSzam, eredet: 'Módosító' }] : [] });
+  const varMod = C.probaBonuszok(r).concat(C.vanFeltetel(r, 'gunyolva') ? [{ ertek: -1, eredet: 'Gúnyolva' }] : [], kezSzam ? [{ ertek: kezSzam, eredet: 'Módosító' }] : []);
+  const ossz = P.probaOsszeallit(nz, { tul: 'tul_intelligence', fokusz: sor.fokusz || undefined, modositok: varMod });
+  const akarat = (nz.tulajdonsagok.tul_willpower || {}).ertek || 0;
   const varazsero = sor.varazsero + vh.varazsero;
   const celpontok = O.celpontSorrend(cs, cs.resztvevok.filter((x) => !x.rejtett && x.allapot !== 'halott'), r.oldal, r.id);
   // javasolt célpont: támadó varázslatnál az első ellenség, gyógyításnál senki (a felhasználó választ)
@@ -935,7 +968,9 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
         csokkentett: v.csokkentett ? osszeg(csokk ? csokk.kockak : []) + v.csokkentett.plusz : null, atuto: v.atuto } : null,
       gyogyitas: siker && gyogyKif ? osszeg(gyogy ? gyogy.kockak : []) + gyogyKif.plusz : 0,
       extra: siker && sebzo && vh.extra_kocka && extra && extraCel ? { cel: extraCel, sebzes: osszeg(extra.kockak) } : null,
-      hatasok: { vedopajzs: siker && vh.vedopajzs }, mutatvanyok: mut ? mut.mutatvanyok.map((x) => x.nev) : []
+      hatasok: { vedopajzs: siker && vh.vedopajzs, felelmetes: siker && mut && mut.mutatvanyok.some((x) => x.id === 'mut_imposing_spell') ? 10 + akarat : 0 },
+      mutatvanyok: mut ? mut.mutatvanyok.map((x) => x.nev) : [],
+      mutatvany_probak: siker && mut ? M.mutatvanyProbak(mut.mutatvanyok) : []
     };
     vegrehajt(m);
     onBezar();
@@ -957,6 +992,7 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
           onChange=${(e) => { setKezi(e.target.value.replace(/[^0-9−-]/g, '').replace('−', '-').slice(0, 3)); uj(); }}/>
       </div>
       <p className="kicsi" style=${{ margin: 0 }}>Ára: <strong>${fizet} MP</strong>${vh.mp_kedvezmeny ? ' (Ügyes varázslással)' : ''}${vanMp ? ` · van ${r.magiapont} MP` : ''}. A Mágiapont sikertelen próbánál is fogy.</p>
+      ${(r.feltetelek || []).some((f) => f.kulcs === 'megfelemlitve' && f.forras && !celLista.includes(f.forras)) ? html`<${Uzenet} tonus="warning">Megfélemlítve: ebben a körében a fenyegetőt kell támadnia (varázslattal is).<//>` : null}
       ${!cselekvesVan ? html`<${Uzenet} tonus="warning">Ebben a körben már nincs ${v.fajta === 'mellek' ? 'mellék' : 'fő'} cselekvése (${C.cselekvesSzoveg(r)}). Körönként egy fő és egy mellék, vagy két mellék cselekvés jár; többet csak a DM „+1 cselekvés” gombja vagy a Villámtámadás ad.<//>` : null}
       ${vanMp && fizet > r.magiapont ? html`<${Uzenet} tonus="warning">Nincs elég Mágiapont.<//>` : null}
       <div>
@@ -977,7 +1013,9 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
         kontextus=${{ tipus: 'varazslas', tul: 'tul_intelligence', fokusz: sor.fokusz || undefined }}
         forrasok=${forrasok} beallitas=${kampany.beallitasok} onKesz=${mutKesz} onMegse=${() => setMutNyitva(false)}/>` : null}
       ${mut && !mutNyitva ? html`<p className="mutatvany__osszegzes">✓ ${mut.mutatvanyok.length ? mut.mutatvanyok.map((m) => `${m.nev} (${m.mp})`).join(', ') : 'Nem költött pontot.'}</p>` : null}
-      ${mut && vh.szoveges.length ? html`<p className="halvany kicsi" style=${{ margin: 0 }}>A DM dönt: ${vh.szoveges.join(', ')}.</p>` : null}
+      ${mut && vh.szoveges.length ? html`<p className="halvany kicsi" style=${{ margin: 0 }}>A DM dönt: ${vh.szoveges.filter((n) => !mut.mutatvanyok.some((x) => x.nev === n && (M.MUTATVANY_PROBAK[x.id] || x.id === 'mut_imposing_spell'))).join(', ') || 'semmi más'}.</p>` : null}
+      ${mut && mut.mutatvanyok.some((x) => x.id === 'mut_imposing_spell') ? html`<p className="kicsi" style=${{ margin: 0 }}><strong>Félelmetes varázslat:</strong> a következő köre elejéig aki közelharcban megtámadná, előtte Akaraterő (Bátorság) próbát dob ${10 + akarat} ellen (a támadás ablaka kéri).</p>` : null}
+      <${MutatvanyProbaJelzes} mutatvanyok=${mut && siker ? mut.mutatvanyok : []}/>
       ${siker && !mutNyitva && mutKesz_ && celLista.length && sebzo ? html`<div className="verem">
         <p className="cimke" style=${{ margin: 0 }}>Sebzés: ${v.sebzes_szoveg}${v.atuto ? ' · átütő' : ''}${proba ? ' (ha nem áll ellen)' : ''}</p>
         ${v.sebzes.kocka > 0 ? html`<${Kockadobo} db=${v.sebzes.kocka} kockak=${teljes ? teljes.kockak : null} kezi=${teljes && teljes.kezi} felirat=${`Sebzés: ${v.sebzes.kocka}d6`}
@@ -1003,18 +1041,28 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
   <//>`;
 }
 
-// ---------------- A célpontok próbái (függő kártyák) ----------------
-// A DM minden függő próbát dobhat; a játékos azokat, amelyeknek a célpontját irányítja (iranyitott).
+// ---------------- Függő próbák a csatában (kártyák) ----------------
+// A varázslat célpontjának próbája és a mutatványok próbái (Éberség, Fenyegetés, Gúnyolódás, Lefegyverzés, Mágiazavarás).
+// A DM minden még nem dobott oldalt dobhat; a játékos azokat, amelyeknek a résztvevőjét irányítja (iranyitott).
 export function CelpontProbak({ cs, nezetek, vegrehajt, dobasNaplo, iranyitott = null, nagy = false }) {
-  const lista = (cs.fuggo || []).filter((f) => !iranyitott || iranyitott.includes(f.cel));
-  if (!lista.length) return null;
-  return html`<div className="verem">${lista.map((f) => html`<${CelpontProbaKartya} key=${f.id} f=${f} cs=${cs} nz=${nezetek[f.cel]} vegrehajt=${vegrehajt} dobasNaplo=${dobasNaplo} nagy=${nagy}/>`)}</div>`;
+  const sajat = (id) => !iranyitott || iranyitott.includes(id);
+  const kartyak = [];
+  (cs.fuggo || []).forEach((f) => {
+    if (f.fajta !== 'mutatvany') { if (sajat(f.cel)) kartyak.push(html`<${CelpontProbaKartya} key=${f.id} f=${f} cs=${cs} nz=${nezetek[f.cel]} vegrehajt=${vegrehajt} dobasNaplo=${dobasNaplo} nagy=${nagy}/>`); return; }
+    ['tamado', 'cel'].forEach((fel) => {
+      if (fel === 'cel' && f.tipus !== 'ellen') return;
+      if ((f.eredmeny || {})[fel] || !sajat(f[fel])) return;
+      kartyak.push(html`<${MutatvanyProbaKartya} key=${f.id + fel} f=${f} fel=${fel} cs=${cs} nz=${nezetek[f[fel]]} vegrehajt=${vegrehajt} dobasNaplo=${dobasNaplo} nagy=${nagy}/>`);
+    });
+  });
+  if (!kartyak.length) return null;
+  return html`<div className="verem">${kartyak}</div>`;
 }
 
 function CelpontProbaKartya({ f, cs, nz, vegrehajt, dobasNaplo, nagy }) {
   const r = C.resztvevo(cs, f.cel);
   const fok = nz ? P.fokuszAjanlas(nz, f.fokuszok, f.tul) : null;
-  const ossz = nz ? P.probaOsszeallit(nz, { tul: f.tul, fokusz: fok || undefined }) : { bonusz: 0, reszek: [] };
+  const ossz = nz ? P.probaOsszeallit(nz, { tul: f.tul, fokusz: fok || undefined, modositok: C.probaBonuszok(r) }) : { bonusz: 0, reszek: [] };
   const dob = (kockak, kezi) => {
     const ert = P.probaKiertekel(kockak, ossz.bonusz, { celertek: f.celertek });
     dobasNaplo({ r, mire: `${f.cel_nev}: ${f.proba_nev || P.TUL_NEV[f.tul]} (${f.varazslat} ellen)`, kockak, osszeallitas: ossz, ert, celertek: f.celertek, tipus: 'alap', kezi });
@@ -1029,6 +1077,48 @@ function CelpontProbaKartya({ f, cs, nz, vegrehajt, dobasNaplo, nagy }) {
     ${nz ? html`<div className="osszegsor"><span>3d6 ${ossz.reszek.map((x, i) => html`<span key=${i}> ${elojel(x.ertek)} (${x.eredet})</span>`)}</span><span className="osszegsor__ertek">${elojel(ossz.bonusz)} vs ${f.celertek}</span></div>`
       : html`<p className="halvany kicsi">A célpont adatai nem érhetők el: a beírt kockákhoz a bónuszt a DM adja hozzá.</p>`}
     <${Kockadobo} db=${3} kicsi=${!nagy} kockak=${null} felirat="Ellenállás: 3d6" onDobas=${dob}
+      eredmeny=${(o) => html`<span className="halvany">${elojel(ossz.bonusz)} → ${o + ossz.bonusz}</span>`}/>
+  </div>`;
+}
+
+// Egy mutatvány próbájának egyik oldala. A támadópróbánál (Lefegyverzés) a támadó a támadása bónuszával, a célpont a
+// legjobb támadásával dob; a többi tulajdonság és fókusz szerint (Éberség: bármely Észlelés fókusz).
+export function mutatvanyProbaOsszeallit(f, fel, nz, r) {
+  const d = fel === 'tamado' ? f.tamado_proba : f.cel_proba;
+  const extra = C.probaBonuszok(r);
+  if (!d) return { bonusz: 0, reszek: [], tulajdonsag_ertek: 0 };
+  if (d.tamadas) {
+    const legjobb = fel === 'tamado' && Number.isFinite(Number(d.bonusz)) ? Number(d.bonusz)
+      : Math.max(0, ...((nz && nz.tamadasok) || []).filter((t) => t.tamadas !== null).map((t) => t.tamadas));
+    const reszek = [{ ertek: legjobb, eredet: 'támadás' }].concat(extra);
+    return { bonusz: reszek.reduce((a, x) => a + x.ertek, 0), reszek, tulajdonsag_ertek: legjobb };
+  }
+  if (!nz) return { bonusz: 0, reszek: [], tulajdonsag_ertek: 0 };
+  const fok = d.barmely_fokusz ? (P.tulajdonsagFokuszai(nz, d.tul).sort((a, b) => b.bonusz - a.bonusz)[0] || {}).id : P.fokuszAjanlas(nz, d.fokuszok, d.tul);
+  return P.probaOsszeallit(nz, { tul: d.tul, fokusz: fok || undefined, modositok: extra });
+}
+
+function MutatvanyProbaKartya({ f, fel, cs, nz, vegrehajt, dobasNaplo, nagy }) {
+  const r = C.resztvevo(cs, f[fel]);
+  const d = fel === 'tamado' ? f.tamado_proba : f.cel_proba;
+  const ossz = mutatvanyProbaOsszeallit(f, fel, nz, r);
+  const masik = fel === 'tamado' ? 'cel' : 'tamado';
+  const dob = (kockak, kezi) => {
+    const ert = P.probaKiertekel(kockak, ossz.bonusz, { celertek: f.tipus === 'sajat' && f.celertek ? f.celertek : undefined, mutatvany_tiltva: true });
+    dobasNaplo({ r, mire: `${r ? r.nev : '?'}: ${d.nev} (${f.nev}${f.tipus === 'ellen' ? ', ellenpróba' : ''})`, kockak, osszeallitas: ossz, ert,
+      celertek: f.tipus === 'sajat' && f.celertek ? f.celertek : undefined, tipus: f.tipus === 'ellen' ? 'ellen' : 'alap', kezi });
+    vegrehajt({ tipus: 'mutatvany_proba', proba_id: f.id, fel, osszeg: ert.osszeg, sarkany: kockak[2], tul: ossz.tulajdonsag_ertek, kockak, kezi });
+  };
+  const masikEredmeny = (f.eredmeny || {})[masik];
+  return html`<div className="probakartya">
+    <div className="probakartya__fej"><span className="probakartya__szoveg">
+      <strong className="probakartya__cim">${f.nev}: ${r ? r.nev : '?'} dob</strong>
+      <span className="kicsi halvany">${f.tipus === 'ellen' ? `${f.tamado_nev} és ${f.cel_nev} ellenpróbája · ${d.nev}` : `${d.nev}${f.celertek ? ' ' + f.celertek + ' ellen' : ''}`} · ${f.kovetkezmeny || ''}
+        ${masikEredmeny ? ` · ${fel === 'tamado' ? f.cel_nev : f.tamado_nev} már dobott` : ''}</span>
+    </span></div>
+    ${nz || d.tamadas ? html`<div className="osszegsor"><span>3d6 ${ossz.reszek.map((x, i) => html`<span key=${i}> ${elojel(x.ertek)} (${x.eredet})</span>`)}</span><span className="osszegsor__ertek">${elojel(ossz.bonusz)}${f.tipus === 'sajat' && f.celertek ? ` vs ${f.celertek}` : ''}</span></div>`
+      : html`<p className="halvany kicsi">A résztvevő adatai nem érhetők el: a beírt kockákhoz a bónuszt a DM adja hozzá.</p>`}
+    <${Kockadobo} db=${3} kicsi=${!nagy} kockak=${null} felirat=${`${f.nev}: 3d6`} onDobas=${dob}
       eredmeny=${(o) => html`<span className="halvany">${elojel(ossz.bonusz)} → ${o + ossz.bonusz}</span>`}/>
   </div>`;
 }

@@ -124,6 +124,55 @@ ellenoriz(n2.resztvevok.find((r) => r.id === O2).egeszseg === null && n2.resztve
 cs = M.muveletLepes(cs, { tipus: 'cselekves', r: D, szabad: { nev: 'Ital', fajta: 'szabad' } }, C.ujKulcs(), { szerzo: 'u_dorn' });
 ellenoriz(M.muveletEllenorzes(cs, { tipus: 'visszavonas' }, { szerzo: 'u_dorn' }) === null && M.muveletEllenorzes(cs, { tipus: 'visszavonas' }, { szerzo: 'u_lia' }) !== null, 'csak a saját utolsó lépés vonható vissza');
 
+// ---- mutatványpróbák és feltételek ----
+{
+  let m = C.csataOsszecsapasbol(o, (p) => ADAT[p.forras.id]);
+  const iD = (nev) => m.resztvevok.find((r) => r.nev === nev).id;
+  const [d, l, o1] = [iD('Dorn'), iD('Lia'), iD('Ork 1')];
+  m.resztvevok.forEach((r) => { if (!r.rejtett) r.kezdemenyezes = { osszeg: r.id === d ? 20 : r.id === o1 ? 15 : r.id === l ? 12 : 5, sarkany: 1, tul: 1 }; });
+  m.sorrend = C.sorrendSzamol(m).sorrend;
+  m = C.csataKezdes(m);
+  const l2 = (mm, opc) => { m = M.muveletLepes(m, mm, C.ujKulcs(), opc); return m; };
+  ellenoriz(m.soron === d, 'Dorn kezd (mutatványpróbák)');
+  l2({ tipus: 'tamadas', r: d, cel: o1, cselekves: 'tamadas', tamadas: { nev: 'Pallos' }, osszeg: 14, sebzes: 5, mutatvanyok: ['Éberség', 'Fenyegetés', 'Gúnyolódás'],
+    mutatvany_probak: M.mutatvanyProbak([{ id: 'mut_stay_aware', nev: 'Éberség' }, { id: 'mut_threaten', nev: 'Fenyegetés' }, { id: 'mut_taunt', nev: 'Gúnyolódás' }, { id: 'mut_mighty_blow', nev: 'Hatalmas csapás' }]) });
+  ellenoriz(m.fuggo.length === 3 && m.fuggo.every((f) => f.fajta === 'mutatvany'), 'a próbát kérő mutatványok függő próbát kapnak (a Hatalmas csapás nem)');
+  const eb = m.fuggo.find((f) => f.mutatvany === 'mut_stay_aware');
+  const fe = m.fuggo.find((f) => f.mutatvany === 'mut_threaten');
+  const gu = m.fuggo.find((f) => f.mutatvany === 'mut_taunt');
+  ellenoriz(M.muveletEllenorzes(m, { tipus: 'mutatvany_proba', proba_id: fe.id, fel: 'cel', osszeg: 10 }, { iranyitott: [d] }) !== null, 'a célpont oldalát a támadó nem dobhatja');
+  ellenoriz(M.muveletEllenorzes(m, { tipus: 'mutatvany_proba', proba_id: eb.id, fel: 'cel', osszeg: 10 }, { dm: true }) !== null, 'saját próbánál nincs célpont-oldal');
+  l2({ tipus: 'mutatvany_proba', proba_id: eb.id, fel: 'tamado', osszeg: 12, sarkany: 4, tul: 2 });
+  ellenoriz(C.probaBonuszok(C.resztvevo(m, d))[0].ertek === 1 && !m.fuggo.some((f) => f.id === eb.id), 'Éberség siker: +1 a következő próbára');
+  l2({ tipus: 'mutatvany_proba', proba_id: fe.id, fel: 'tamado', osszeg: 13, sarkany: 3, tul: 2 });
+  ellenoriz(!C.probaBonuszok(C.resztvevo(m, d)).length, 'a +1 a következő próbánál elfogy');
+  ellenoriz(m.fuggo.some((f) => f.id === fe.id) && m.naplo[m.naplo.length - 1].szoveg.includes('vár'), 'az ellenpróba a másik fél dobására vár');
+  l2({ tipus: 'mutatvany_proba', proba_id: fe.id, fel: 'cel', osszeg: 10, sarkany: 2, tul: 1 });
+  const orkF = C.resztvevo(m, o1).feltetelek;
+  ellenoriz(orkF.some((f) => f.kulcs === 'megfelemlitve' && f.forras === d && f.lejar === 'sajat_kor_vege'), 'Fenyegetés nyert: Megfélemlítve, a fenyegetővel');
+  l2({ tipus: 'mutatvany_proba', proba_id: gu.id, fel: 'tamado', osszeg: 11, sarkany: 3, tul: 1 });
+  l2({ tipus: 'mutatvany_proba', proba_id: gu.id, fel: 'cel', osszeg: 11, sarkany: 3, tul: 1 });
+  ellenoriz(m.fuggo.some((f) => f.id === gu.id && !f.eredmeny.tamado && !f.eredmeny.cel), 'teljes holtverseny: újradobás');
+  l2({ tipus: 'mutatvany_proba', proba_id: gu.id, fel: 'tamado', osszeg: 12, sarkany: 3, tul: 1 });
+  l2({ tipus: 'mutatvany_proba', proba_id: gu.id, fel: 'cel', osszeg: 11, sarkany: 6, tul: 1 });
+  ellenoriz(C.vanFeltetel(C.resztvevo(m, o1), 'gunyolva'), 'Gúnyolódás nyert: Gúnyolva');
+  l2({ tipus: 'kovetkezo', r: d });
+  ellenoriz(m.soron === o1 && C.resztvevo(m, o1).feltetelek.every((f) => f.elkezdve), 'a megfélemlített köre: a feltételek élnek');
+  const mod = C.tamadasModositok(C.resztvevo(m, o1), C.resztvevo(m, d));
+  ellenoriz(mod.some((x) => x.eredet === 'Gúnyolva' && x.ertek === -1), 'Gúnyolva: −1 a támadásra');
+  l2({ tipus: 'kovetkezo', r: o1 });
+  ellenoriz(!C.resztvevo(m, o1).feltetelek.length, 'a köre végén lejár a Megfélemlítve és a Gúnyolva');
+  // Fekszik: nem futhat, a Mozgás felállítja; Lefegyverezve: az Előkészítés leveszi
+  m = C.feltetelHozzaadas(m, m.soron, { kulcs: 'fekszik' });
+  m = C.feltetelHozzaadas(m, m.soron, { kulcs: 'lefegyverezve' });
+  const s0 = m.soron;
+  ellenoriz(M.muveletEllenorzes(m, { tipus: 'cselekves', r: s0, kulcs: 'futas' }, { iranyitott: [s0] }) !== null, 'fekve nem lehet futni');
+  l2({ tipus: 'cselekves', r: s0, kulcs: 'mozgas' });
+  ellenoriz(!C.vanFeltetel(C.resztvevo(m, s0), 'fekszik') && m.naplo[m.naplo.length - 1].szoveg.includes('feláll'), 'a Mozgás felállít');
+  l2({ tipus: 'cselekves', r: s0, kulcs: 'keszenlet' });
+  ellenoriz(!C.vanFeltetel(C.resztvevo(m, s0), 'lefegyverezve'), 'az Előkészítés leveszi a Lefegyverezve feltételt');
+}
+
 // ---- lezárás ----
 const nj = M.njkAllapotok({ resztvevok: [{ forras: { tipus: 'njk', id: 'n1' }, nev: 'A', egeszseg: 3, allapot: 'aktiv', feltetelek: [{ nev: 'Fekszik' }] }, { forras: { tipus: 'szorny', id: 's' } }] });
 ellenoriz(nj.length === 1 && nj[0].egeszseg === 3 && nj[0].feltetelek[0] === 'Fekszik', 'az NJK állapota a lezáráshoz');

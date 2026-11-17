@@ -216,6 +216,8 @@ export function mutatvanyKinalat(lapok, lap, { forrasok, beallitas, kontextus = 
       const ct = TIPUSOK.find((x) => x.tipus === r.csomag_tipus);
       if (ct && ct.beallitas && !engedett[ct.beallitas]) return false;
     }
+    // a lőfegyver újratöltése közelharci támadásnál értelmetlen
+    if (m.id === 'mut_rapid_reload' && kontextus.tamadas === 'kozelharci') return false;
     return sajatFeltetel(m, lap);
   });
 

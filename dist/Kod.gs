@@ -857,7 +857,9 @@ const _m_csata = (function () {
 //   { id, resztvevo_id, forras: { tipus: karakter | njk | szorny, id }, nev, oldal, csoport, fontos, rejtett, meglepett,
 //     kezdemenyezes: null | { osszeg, sarkany, tul, kockak, kezi }, egeszseg, egeszseg_max, szivossag,
 //     allapot: 'aktiv' | 'haldoklik' | 'kiesett' | 'halott', haldoklas_kor,
-//     feltetelek: [{ id, nev, lejar_kor }], hatasok: [{ id, nev, cel, ertek, lejar, kor }],
+//     feltetelek: [{ id, kulcs, nev, lejar_kor, lejar?, forras?, elkezdve? }], hatasok: [{ id, nev, cel, ertek, lejar, kor, fogy?, elkezdve? }],
+// A `lejar: 'sajat_kor_vege'` feltétel vagy hatás a gazdája következő körének végén jár le (Megfélemlítve, Gúnyolva,
+// Éberség); a `fogy` hatás (cel: 'proba') a következő próbánál elfogy.
 //     cselekves: { fo, mellek, plusz, lista }, gyogyithato,
 //     magiapont: null | szám, ertekek: { vedekezes, pancelertek, atuto_ellen, magiapont_max, akaratero } }
 // Az `ertekek` a lény nézetének csatához kellő része (a DM és a játékos felülete írja); ebből dolgozik a háttér
@@ -884,14 +886,14 @@ const ALLAPOT_NEV = { aktiv: 'harcol', haldoklik: 'haldoklik', kiesett: 'kiesett
 
 // Feltételek alaplistája (AK 36., 101., mutatványok). Az időtartamot a DM adja körökben (üres: amíg le nem veszik).
 const FELTETELEK = [
-  { kulcs: 'fekszik', nev: 'Fekszik', en: 'Prone', leiras: 'Közelharcban +1 a támadás ellene. Felállni Mozgással lehet.' },
+  { kulcs: 'fekszik', nev: 'Fekszik', en: 'Prone', leiras: 'Közelharcban +1 a támadás ellene (gépi). Fekve nem futhat; a Mozgás felállítja (gépi).' },
   { kulcs: 'kabult', nev: 'Kábult', en: 'Stunned', leiras: 'A DM dönti el a hatását.' },
-  { kulcs: 'lefegyverezve', nev: 'Lefegyverezve', en: 'Disarmed', leiras: 'A fegyvere 1d6 + Erő méterre repült.' },
+  { kulcs: 'lefegyverezve', nev: 'Lefegyverezve', en: 'Disarmed', leiras: 'A fegyvere 1d6 + Erő yardra repült; a támadásnál figyelmeztetés, az Előkészítés leveszi (gépi).' },
   { kulcs: 'megragadva', nev: 'Megragadva', en: 'Grappled', leiras: '' },
   { kulcs: 'vak', nev: 'Vak', en: 'Blinded', leiras: '' },
   { kulcs: 'eszmeletlen', nev: 'Eszméletlen', en: 'Unconscious', leiras: '1 Egészséggel, a kegyelemdöfés elmaradt.' },
-  { kulcs: 'megfelemlitve', nev: 'Megfélemlítve', en: 'Threatened', leiras: 'A következő körében a fenyegetőt kell támadnia.' },
-  { kulcs: 'gunyolva', nev: 'Gúnyolva', en: 'Taunted', leiras: '−1 a támadásra és a varázslásra a következő körében.' }
+  { kulcs: 'megfelemlitve', nev: 'Megfélemlítve', en: 'Threatened', leiras: 'A következő körében a fenyegetőt kell támadnia: a támadás célpontja ő (gépi), a köre végén lejár.' },
+  { kulcs: 'gunyolva', nev: 'Gúnyolva', en: 'Taunted', leiras: '−1 a támadásra és a varázslásra a következő körében (gépi), a köre végén lejár.' }
 ];
 
 // Cselekvések (AK 33–34.). gepi: a felület alkalmazza a hatását; a többi csak jelölés, amely elfogyasztja a cselekvést.
@@ -1151,7 +1153,19 @@ function korKezdete(cs) {
 function sajatKorKezdete(cs, r) {
   // a Célzás is csak a köre végéig él, ha nem követte támadás
   r.hatasok = r.hatasok.filter((x) => !((x.lejar === 'sajat' || x.lejar === 'kovetkezo_tamadas') && cs.kor > x.kor));
+  // a „következő köröd végéig” tartók ettől a körtől élnek, és a kör végén járnak le
+  r.feltetelek.forEach((f) => { if (f.lejar === 'sajat_kor_vege') f.elkezdve = true; });
+  r.hatasok.forEach((h) => { if (h.lejar === 'sajat_kor_vege') h.elkezdve = true; });
   r.cselekves = uresCselekves();
+}
+
+// A saját kör vége: lejárnak a „következő köröd végéig” tartó feltételek és hatások.
+function sajatKorVege(cs, r) {
+  const f = r.feltetelek.filter((x) => x.lejar === 'sajat_kor_vege' && x.elkezdve);
+  const h = r.hatasok.filter((x) => x.lejar === 'sajat_kor_vege' && x.elkezdve);
+  if (f.length || h.length) naplozas(cs, `${r.nev}: lejárt (${f.map((x) => x.nev).concat(h.map((x) => x.nev)).join(', ')}).`);
+  r.feltetelek = r.feltetelek.filter((x) => !(x.lejar === 'sajat_kor_vege' && x.elkezdve));
+  r.hatasok = r.hatasok.filter((x) => !(x.lejar === 'sajat_kor_vege' && x.elkezdve));
 }
 
 // A következő cselekvő keresése (a soron lévő utáni első, aki ebben a körben még nem lépett).
@@ -1193,6 +1207,8 @@ function kovetkezoKeres(cs) {
 // „Kész, következő”: a soron lévő köre véget ér.
 function kovetkezo(cs) {
   if (cs.allapot !== 'fut') return cs;
+  const soron = resztvevo(cs, cs.soron);
+  if (soron) sajatKorVege(cs, soron);
   if (cs.soron && !cs.leptek.includes(cs.soron)) cs.leptek.push(cs.soron);
   return kovetkezoKeres(cs);
 }
@@ -1246,12 +1262,24 @@ function cselekvesSzoveg(r) {
 
 // Hatás felvétele (cel: 'vedekezes' | 'tamadas' | 'sebzes'). lejar: 'sajat' (a következő köre elejéig),
 // 'kor' (a kör végéig), 'kovetkezo_tamadas' (a következő támadásig, de legfeljebb a köre végéig).
-function hatasHozzaadas(cs, id, { nev, cel, ertek, lejar = 'sajat' }) {
+function hatasHozzaadas(cs, id, { nev, cel, ertek, lejar = 'sajat', fogy = false }) {
   const r = resztvevo(cs, id);
   if (!r) return cs;
-  r.hatasok = r.hatasok.filter((h) => h.nev !== nev).concat([{ id: ujId('h'), nev, cel, ertek: szam(ertek), lejar, kor: cs.kor }]);
+  const h = { id: ujId('h'), nev, cel, ertek: szam(ertek), lejar, kor: cs.kor };
+  if (fogy) h.fogy = true;
+  r.hatasok = r.hatasok.filter((x) => x.nev !== nev).concat([h]);
   return cs;
 }
+
+// A következő próbára szóló bónuszok (cel: 'proba', például Éberség): [{ ertek, eredet }].
+const probaBonuszok = (r) => ((r && r.hatasok) || []).filter((h) => h.cel === 'proba' && szam(h.ertek)).map((h) => ({ ertek: szam(h.ertek), eredet: h.nev }));
+// A próba után elfogynak.
+function probaBonuszFogyasztas(cs, id) {
+  const r = resztvevo(cs, id);
+  if (r) r.hatasok = r.hatasok.filter((h) => !(h.cel === 'proba' && h.fogy));
+  return cs;
+}
+const vanFeltetel = (r, kulcs) => ((r && r.feltetelek) || []).some((f) => f.kulcs === kulcs);
 
 const hatasOsszeg = (r, cel) => ((r && r.hatasok) || []).filter((h) => h.cel === cel).reduce((a, h) => a + szam(h.ertek), 0);
 
@@ -1263,7 +1291,8 @@ function vedekezes(r, alap) {
 // A támadás módosítói a csata állapotából: a támadó hatásai (Célzás) és a célpont feltételei (fekvő: +1 közelharcban).
 function tamadasModositok(tamado, cel, { tavolsagi = false } = {}) {
   const ki = [];
-  ((tamado && tamado.hatasok) || []).filter((h) => h.cel === 'tamadas' && szam(h.ertek)).forEach((h) => ki.push({ ertek: szam(h.ertek), eredet: h.nev, hatas: h.id }));
+  ((tamado && tamado.hatasok) || []).filter((h) => (h.cel === 'tamadas' || h.cel === 'proba') && szam(h.ertek)).forEach((h) => ki.push({ ertek: szam(h.ertek), eredet: h.nev, hatas: h.id }));
+  if (vanFeltetel(tamado, 'gunyolva')) ki.push({ ertek: -1, eredet: 'Gúnyolva' });
   if (cel && !tavolsagi && (cel.feltetelek || []).some((f) => f.kulcs === 'fekszik')) ki.push({ ertek: 1, eredet: 'Fekvő célpont' });
   return ki;
 }
@@ -1271,7 +1300,7 @@ function tamadasModositok(tamado, cel, { tavolsagi = false } = {}) {
 // A támadás után a „következő támadásig” szóló hatások (Célzás) elfogynak.
 function tamadasUtan(cs, id) {
   const r = resztvevo(cs, id);
-  if (r) r.hatasok = r.hatasok.filter((h) => h.lejar !== 'kovetkezo_tamadas');
+  if (r) r.hatasok = r.hatasok.filter((h) => h.lejar !== 'kovetkezo_tamadas' && !(h.cel === 'proba' && h.fogy));
   return cs;
 }
 
@@ -1339,14 +1368,18 @@ function fontosBeallitas(cs, id, fontos) {
 // ---------------- Feltételek ----------------
 
 // korok: hány körig tart (a kör elején jár le); üres vagy 0: amíg le nem veszik.
-function feltetelHozzaadas(cs, id, { kulcs, nev, korok }) {
+// lejar: 'sajat_kor_vege' (a gazdája következő körének végén jár le); forras: ki okozta (Megfélemlítve: a fenyegető).
+function feltetelHozzaadas(cs, id, { kulcs, nev, korok, lejar, forras }) {
   const r = resztvevo(cs, id);
   if (!r) return cs;
   const alap = FELTETELEK.find((f) => f.kulcs === kulcs);
   const n = String(nev || (alap && alap.nev) || '').trim().slice(0, 60);
   if (!n) return cs;
   const k = szam(korok);
-  r.feltetelek = r.feltetelek.filter((f) => f.nev !== n).concat([{ id: ujId('f'), kulcs: alap ? alap.kulcs : '', nev: n, lejar_kor: k > 0 ? (cs.kor || 0) + k : null }]);
+  const f = { id: ujId('f'), kulcs: alap ? alap.kulcs : '', nev: n, lejar_kor: k > 0 ? (cs.kor || 0) + k : null };
+  if (lejar) f.lejar = lejar;
+  if (forras) f.forras = forras;
+  r.feltetelek = r.feltetelek.filter((x) => (alap ? x.kulcs !== alap.kulcs : x.nev !== n)).concat([f]);
   return cs;
 }
 
@@ -1497,7 +1530,7 @@ function kovetkezoNev(cs) {
   return r ? (proba.kor > cs.kor ? `${r.nev} (új kör)` : r.nev) : '';
 }
 
-return { MAX_NAPLO, MAX_VISSZAVONAS, KEZDEMENYEZES_FOKUSZ, GYOGYITAS_FOKUSZ, GYOGYITAS_CELERTEK, ujKulcs, ALLAPOT_NEV, FELTETELEK, CSELEKVESEK, cselekvesAdat, mutatvanyHatasok, sebzesKifejezes, sebzesSzamol, csataOsszecsapasbol, resztvevo, lepes, visszavonhato, utolsoLepes, visszavon, kezdemenyezesHianyzik, kezdemenyezesBeallitas, sorrendSzamol, athelyezes, csataKezdes, kovetkezo, sorrendElere, cselekvesEngedett, cselekvesRogzites, cselekvesFeloldas, cselekvesSzoveg, hatasHozzaadas, hatasOsszeg, vedekezes, tamadasModositok, tamadasUtan, egeszsegBeallitas, sebzesAlkalmazas, gyogyitas, allapotBeallitas, fontosBeallitas, feltetelHozzaadas, feltetelTorles, belepes, resztvevoHozzaadas, resztvevoTorles, oldalValtas, karakterekFrissitese, ertekekBeallitas, magiapontBeallitas, karakterValtozasok, csataOsszegzes, kovetkezoNev };
+return { MAX_NAPLO, MAX_VISSZAVONAS, KEZDEMENYEZES_FOKUSZ, GYOGYITAS_FOKUSZ, GYOGYITAS_CELERTEK, ujKulcs, ALLAPOT_NEV, FELTETELEK, CSELEKVESEK, cselekvesAdat, mutatvanyHatasok, sebzesKifejezes, sebzesSzamol, csataOsszecsapasbol, resztvevo, lepes, visszavonhato, utolsoLepes, visszavon, kezdemenyezesHianyzik, kezdemenyezesBeallitas, sorrendSzamol, athelyezes, csataKezdes, kovetkezo, sorrendElere, cselekvesEngedett, cselekvesRogzites, cselekvesFeloldas, cselekvesSzoveg, hatasHozzaadas, probaBonuszok, probaBonuszFogyasztas, vanFeltetel, hatasOsszeg, vedekezes, tamadasModositok, tamadasUtan, egeszsegBeallitas, sebzesAlkalmazas, gyogyitas, allapotBeallitas, fontosBeallitas, feltetelHozzaadas, feltetelTorles, belepes, resztvevoHozzaadas, resztvevoTorles, oldalValtas, karakterekFrissitese, ertekekBeallitas, magiapontBeallitas, karakterValtozasok, csataOsszegzes, kovetkezoNev };
 })();
 
 // ----- web/js/jatek/csatamuvelet.js -----
@@ -1521,9 +1554,13 @@ const _m_csatamuvelet = (function () {
 //                    sebzes: { teljes, csokkentett, atuto } | null, gyogyitas, extra: { cel, sebzes } | null,
 //                    hatasok: { vedopajzs }, mutatvanyok: [név] }
 //   celpont_proba  { proba_id, osszeg, kockak, kezi }
+//   mutatvany_proba { proba_id, fel: 'tamado' | 'cel', osszeg, sarkany, tul, kockak, kezi }
+// A támadás és a varázslat mutatvany_probak mezője: [{ mutatvany, nev }] a próbát kérő mutatványok (MUTATVANY_PROBAK).
 //   visszavonas    {} (a játékos csak a saját utolsó lépését vonhatja vissza)
-// A függő célpont-próbák a csata `fuggo` listájában: [{ id, varazslo, varazslo_nev, varazslat, cel, cel_nev, tul,
-//   fokuszok, proba_nev, celertek, teljes, csokkentett, atuto, kor }]; a célpont irányítója (és a DM) dobja.
+// A függő próbák a csata `fuggo` listájában. A varázslat célpontjáé: { id, varazslo, varazslo_nev, varazslat, cel, cel_nev,
+//   tul, fokuszok, proba_nev, celertek, teljes, csokkentett, atuto, kor }; a célpont irányítója (és a DM) dobja.
+// A mutatványé: { id, fajta: 'mutatvany', mutatvany, nev, tipus: 'sajat' | 'ellen', tamado, tamado_nev, cel, cel_nev,
+//   tamado_proba, cel_proba, celertek, eredmeny: { tamado, cel }, kor }; mindkét oldalt az irányítója (és a DM) dobja.
 const C = _m_csata;
 const { egeszsegLathatosag, leiroEgeszseg } = _m_osszecsapas;
 const masol = (x) => JSON.parse(JSON.stringify(x));
@@ -1537,7 +1574,7 @@ const reszletekBol = (e) => {
 let szamlalo = 0;
 const ujId = (elotag) => { szamlalo = (szamlalo + 1) % 1000; return `${elotag}_${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}${szamlalo}`; };
 
-const MUVELET_TIPUSOK = ['kezdemenyezes', 'cselekves', 'kovetkezo', 'tamadas', 'gyogyitas', 'varazslat', 'celpont_proba', 'visszavonas'];
+const MUVELET_TIPUSOK = ['kezdemenyezes', 'cselekves', 'kovetkezo', 'tamadas', 'gyogyitas', 'varazslat', 'celpont_proba', 'mutatvany_proba', 'visszavonas'];
 const ismeretlenHp = (r) => !r || r.egeszseg === null || r.egeszseg === undefined;
 
 // ---------------- Varázslatok ----------------
@@ -1603,6 +1640,80 @@ function varazsMutatvanyHatasok(mutatvanyok) {
   return ki;
 }
 
+// A próbát kérő mutatványok (a leírásuk szerint) és a következményük. A próba: { nev, tul, fokuszok, barmely_fokusz,
+// tamadas (támadópróba: a támadónál a támadás bónusza, a célpontnál a legjobb támadása) }.
+const MUTATVANY_PROBAK = {
+  mut_stay_aware: { tipus: 'sajat', tamado: { nev: 'Észlelés (bármely fókusz)', tul: 'tul_perception', fokuszok: [], barmely_fokusz: true }, celertek: 11,
+    kovetkezmeny: 'Siker: +1 a következő próbára (a következő köre végéig), vagy a DM elárul valamit a harctérről.' },
+  mut_threaten: { tipus: 'ellen', tamado: { nev: 'Erő (Megfélemlítés)', tul: 'tul_strength', fokuszok: ['fok_strength_intimidation'] },
+    cel: { nev: 'Akaraterő (Önfegyelem)', tul: 'tul_willpower', fokuszok: ['fok_willpower_self_discipline'] },
+    kovetkezmeny: 'Ha a fenyegető nyer: a célpont Megfélemlítve, a következő körében őt kell támadnia.' },
+  mut_taunt: { tipus: 'ellen', tamado: { nev: 'Kommunikáció (Megtévesztés)', tul: 'tul_communication', fokuszok: ['fok_communication_deception'] },
+    cel: { nev: 'Akaraterő (Önfegyelem)', tul: 'tul_willpower', fokuszok: ['fok_willpower_self_discipline'] },
+    kovetkezmeny: 'Ha a gúnyolódó nyer: a célpont Gúnyolva, a következő körében −1 a támadásra és a varázslásra.' },
+  mut_disarm: { tipus: 'ellen', tamado: { nev: 'támadópróba', tamadas: true }, cel: { nev: 'támadópróba', tamadas: true },
+    kovetkezmeny: 'Ha a támadó nyer: a célpont Lefegyverezve, a fegyvere 1d6 + Erő yardra repül.' },
+  mut_disrupt_magic: { tipus: 'sajat', tamado: { nev: 'Intelligencia (Hatalom arkánum)', tul: 'tul_intelligence', fokuszok: ['fok_intelligence_power_arcana'] }, celertek: null,
+    kovetkezmeny: 'A megzavart hatás Varázsereje ellen: ha eléri, a hatás megszűnik (a DM tudja a Varázserőt).', mp_nelkul: true }
+};
+// A kosár mutatványai közül a próbát kérők: [{ mutatvany, nev }].
+function mutatvanyProbak(mutatvanyok) {
+  return (mutatvanyok || []).filter((m) => MUTATVANY_PROBAK[m.id]).map((m) => ({ mutatvany: m.id, nev: m.nev || m.id }));
+}
+// A Félelmetes varázslat Célértéke: 10 + a varázsló Akaraterője (a varázslón hatásként él a következő köre elejéig).
+const FELELMETES = 'Félelmetes varázslat';
+
+function mutatvanyFuggok(x, lista, tamadoId, celId) {
+  const t = C.resztvevo(x, tamadoId);
+  const c = celId ? C.resztvevo(x, celId) : null;
+  (lista || []).forEach((p) => {
+    const d = MUTATVANY_PROBAK[p.mutatvany];
+    if (!d || (d.tipus === 'ellen' && !c)) return;
+    x.fuggo = (x.fuggo || []).concat([{
+      id: ujId('p'), fajta: 'mutatvany', mutatvany: p.mutatvany, nev: p.nev, tipus: d.tipus, tamado: tamadoId, tamado_nev: t ? t.nev : '',
+      cel: c ? c.id : null, cel_nev: c ? c.nev : '', tamado_proba: { ...d.tamado, bonusz: d.tamado.tamadas ? szam(p.bonusz) : undefined },
+      cel_proba: d.cel ? { ...d.cel } : null, celertek: d.celertek === undefined ? null : d.celertek, kovetkezmeny: d.kovetkezmeny,
+      eredmeny: { tamado: null, cel: null }, kor: x.kor
+    }]);
+  });
+}
+
+// A mutatványpróba kimenete, ha minden kell dobás megvan: { kesz, nyert: 'tamado' | 'cel' | null, holtverseny, siker }.
+function mutatvanyProbaAllas(f) {
+  const a = f.eredmeny && f.eredmeny.tamado;
+  const b = f.eredmeny && f.eredmeny.cel;
+  if (f.tipus === 'sajat') {
+    if (!a) return { kesz: false };
+    return { kesz: true, siker: f.celertek === null || f.celertek === undefined ? null : szam(a.osszeg) >= szam(f.celertek) };
+  }
+  if (!a || !b) return { kesz: false };
+  const k = (e) => [szam(e.osszeg), szam(e.sarkany), szam(e.tul)];
+  const x = k(a), y = k(b);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return { kesz: true, nyert: x[i] > y[i] ? 'tamado' : 'cel' };
+  return { kesz: true, nyert: null, holtverseny: true };
+}
+
+function mutatvanyKovetkezmeny(x, f, allas) {
+  if (f.mutatvany === 'mut_stay_aware' && allas.siker) C.hatasHozzaadas(x, f.tamado, { nev: 'Éberség', cel: 'proba', ertek: 1, lejar: 'sajat_kor_vege', fogy: true });
+  if (allas.nyert !== 'tamado') return;
+  if (f.mutatvany === 'mut_threaten') C.feltetelHozzaadas(x, f.cel, { kulcs: 'megfelemlitve', nev: `Megfélemlítve (${f.tamado_nev})`, lejar: 'sajat_kor_vege', forras: f.tamado });
+  if (f.mutatvany === 'mut_taunt') C.feltetelHozzaadas(x, f.cel, { kulcs: 'gunyolva', lejar: 'sajat_kor_vege', forras: f.tamado });
+  if (f.mutatvany === 'mut_disarm') C.feltetelHozzaadas(x, f.cel, { kulcs: 'lefegyverezve' });
+}
+
+function mutatvanyProbaSzoveg(f, allas) {
+  const e = f.eredmeny || {};
+  if (f.tipus === 'sajat') {
+    const o = `${f.tamado_nev}: ${f.nev}, ${f.tamado_proba.nev} ${szam(e.tamado && e.tamado.osszeg)}`;
+    if (allas.siker === null) return `${o} (a DM dönt)`;
+    return `${o} vs ${f.celertek}: ${allas.siker ? 'siker' : 'kudarc'}${allas.siker && f.mutatvany === 'mut_stay_aware' ? ' (+1 a következő próbára)' : ''}`;
+  }
+  const o = `${f.nev}: ${f.tamado_nev} ${szam(e.tamado && e.tamado.osszeg)}, ${f.cel_nev} ${szam(e.cel && e.cel.osszeg)}`;
+  if (allas.holtverseny) return `${o}: teljes holtverseny, újra kell dobni`;
+  const k = { mut_threaten: `${f.cel_nev} Megfélemlítve`, mut_taunt: `${f.cel_nev} Gúnyolva`, mut_disarm: `${f.cel_nev} Lefegyverezve` }[f.mutatvany] || 'siker';
+  return `${o}: ${allas.nyert === 'tamado' ? k : `${f.cel_nev} ellenállt`}`;
+}
+
 // ---------------- Segédek ----------------
 
 // A célpont Védekezése és Páncélértéke a csata állapotából (ertekek), a csata hatásaival. null, ha nem ismert.
@@ -1663,7 +1774,9 @@ function muveletLeiras(cs, m) {
     case 'cselekves': {
       if (m.szabad) return `${ki}: ${String(m.szabad.nev || '').trim()}`;
       const a = C.cselekvesAdat(m.kulcs);
-      return `${ki}: ${a ? a.nev : m.kulcs}`;
+      const rr = C.resztvevo(cs, m.r);
+      const plusz = m.kulcs === 'mozgas' && C.vanFeltetel(rr, 'fekszik') ? ' (feláll)' : m.kulcs === 'keszenlet' && C.vanFeltetel(rr, 'lefegyverezve') ? ' (újra fegyver a kezében)' : '';
+      return `${ki}: ${a ? a.nev : m.kulcs}${plusz}`;
     }
     case 'kovetkezo': return `${nevE(cs, cs.soron) || ki} köre véget ért`;
     case 'tamadas': {
@@ -1687,6 +1800,14 @@ function muveletLeiras(cs, m) {
       const e = celpontProbaEredmeny(cs, f, m.osszeg);
       return `${f.cel_nev}: ${f.varazslat} ellen ${e.siker ? 'ellenállt' : 'nem állt ellen'} (${szam(m.osszeg)} vs ${f.celertek})${e.van_sebzes ? `, ${e.sebzes} sebzés` : ''}`;
     }
+    case 'mutatvany_proba': {
+      const f = ((cs.fuggo) || []).find((x) => x.id === m.proba_id);
+      if (!f) return 'Mutatvány próbája';
+      const masolat = { ...f, eredmeny: { ...(f.eredmeny || {}), [m.fel]: { osszeg: szam(m.osszeg), sarkany: szam(m.sarkany), tul: szam(m.tul) } } };
+      const allas = mutatvanyProbaAllas(masolat);
+      if (!allas.kesz) return `${m.fel === 'tamado' ? f.tamado_nev : f.cel_nev}: ${f.nev} próbája ${szam(m.osszeg)}, a másik fél dobására vár`;
+      return mutatvanyProbaSzoveg(masolat, allas);
+    }
     default: return '';
   }
 }
@@ -1704,6 +1825,8 @@ function muveletAlkalmazas(x, m) {
       C.cselekvesRogzites(x, m.r, a.fajta, a.nev);
       if (m.kulcs === 'vedekezes') C.hatasHozzaadas(x, m.r, { nev: 'Védekezés', cel: 'vedekezes', ertek: 2, lejar: 'sajat' });
       if (m.kulcs === 'celzas') C.hatasHozzaadas(x, m.r, { nev: 'Célzás', cel: 'tamadas', ertek: 1, lejar: 'kovetkezo_tamadas' });
+      if (r && m.kulcs === 'mozgas' && C.vanFeltetel(r, 'fekszik')) r.feltetelek = r.feltetelek.filter((f) => f.kulcs !== 'fekszik');
+      if (r && m.kulcs === 'keszenlet' && C.vanFeltetel(r, 'lefegyverezve')) r.feltetelek = r.feltetelek.filter((f) => f.kulcs !== 'lefegyverezve');
       return x;
     }
     case 'kovetkezo': return C.kovetkezo(x);
@@ -1725,6 +1848,7 @@ function muveletAlkalmazas(x, m) {
       if (h.vedoallas) C.hatasHozzaadas(x, m.r, { nev: 'Védőállás', cel: 'vedekezes', ertek: 2, lejar: 'sajat' });
       if (h.atvetel) C.sorrendElere(x, m.r);
       if (h.villam) C.cselekvesFeloldas(x, m.r, szam(h.villam, 1));
+      mutatvanyFuggok(x, m.mutatvany_probak, m.r, m.cel);
       return x;
     }
     case 'gyogyitas':
@@ -1735,9 +1859,12 @@ function muveletAlkalmazas(x, m) {
       const nev = (m.varazslat && m.varazslat.nev) || 'Varázslat';
       C.cselekvesRogzites(x, m.r, m.fajta || 'fo', 'Varázslat: ' + nev);
       if (r && r.magiapont !== null && r.magiapont !== undefined) C.magiapontBeallitas(x, m.r, r.magiapont - szam(m.mp));
+      C.probaBonuszFogyasztas(x, m.r);
       if (!m.siker) return x;
       const h = m.hatasok || {};
       if (h.vedopajzs) C.hatasHozzaadas(x, m.r, { nev: 'Mágikus védőpajzs', cel: 'vedekezes', ertek: 2, lejar: 'sajat' });
+      if (h.felelmetes) C.hatasHozzaadas(x, m.r, { nev: FELELMETES, cel: 'felelmetes', ertek: szam(h.felelmetes), lejar: 'sajat' });
+      mutatvanyFuggok(x, m.mutatvany_probak, m.r, (m.celok || [])[0]);
       const celok = (m.celok || []).filter((id) => C.resztvevo(x, id));
       if (szam(m.gyogyitas) > 0) celok.forEach((id) => gyogyit(x, id, szam(m.gyogyitas)));
       const extra = (id) => (m.extra && m.extra.cel === id ? szam(m.extra.sebzes) : 0);
@@ -1767,7 +1894,20 @@ function muveletAlkalmazas(x, m) {
       if (!f) return x;
       const e = celpontProbaEredmeny(x, f, m.osszeg);
       x.fuggo = x.fuggo.filter((y) => y.id !== f.id);
+      C.probaBonuszFogyasztas(x, f.cel);
       if (e.sebzes) sebez(x, f.cel, e.sebzes);
+      return x;
+    }
+    case 'mutatvany_proba': {
+      const f = (x.fuggo || []).find((y) => y.id === m.proba_id);
+      if (!f) return x;
+      f.eredmeny = { ...(f.eredmeny || {}), [m.fel]: { osszeg: szam(m.osszeg), sarkany: szam(m.sarkany), tul: szam(m.tul) } };
+      C.probaBonuszFogyasztas(x, m.fel === 'tamado' ? f.tamado : f.cel);
+      const allas = mutatvanyProbaAllas(f);
+      if (!allas.kesz) return x;
+      if (allas.holtverseny) { f.eredmeny = { tamado: null, cel: null }; return x; }
+      x.fuggo = x.fuggo.filter((y) => y.id !== f.id);
+      mutatvanyKovetkezmeny(x, f, allas);
       return x;
     }
     default: return x;
@@ -1795,9 +1935,18 @@ function muveletEllenorzes(cs, m, { iranyitott = [], dm = false, szerzo = '' } =
     if (!dm && (!utolso.szerzo || utolso.szerzo !== szerzo)) return 'Csak a saját utolsó lépésedet vonhatod vissza.';
     return null;
   }
+  if (m.tipus === 'mutatvany_proba') {
+    const f = (cs.fuggo || []).find((x) => x.id === m.proba_id);
+    if (!f || f.fajta !== 'mutatvany') return 'Ez a próba már lezárult.';
+    if (m.fel !== 'tamado' && m.fel !== 'cel') return 'Hibás oldal.';
+    if (m.fel === 'cel' && f.tipus !== 'ellen') return 'Ennél a próbánál a célpont nem dob.';
+    if (f.eredmeny && f.eredmeny[m.fel]) return 'Ezt az oldalt már dobták.';
+    if (!dm && iranyitott.indexOf(f[m.fel]) < 0) return 'Ezt a próbát az irányítója dobja.';
+    return null;
+  }
   if (m.tipus === 'celpont_proba') {
     const f = (cs.fuggo || []).find((x) => x.id === m.proba_id);
-    if (!f) return 'Ez a próba már lezárult.';
+    if (!f || f.fajta === 'mutatvany') return 'Ez a próba már lezárult.';
     if (!dm && iranyitott.indexOf(f.cel) < 0) return 'Ezt a próbát a célpont irányítója dobja.';
     return null;
   }
@@ -1816,6 +1965,7 @@ function muveletEllenorzes(cs, m, { iranyitott = [], dm = false, szerzo = '' } =
   const fajta = m.tipus === 'cselekves' ? (m.szabad ? (m.szabad.fajta || 'mellek') : ((C.cselekvesAdat(m.kulcs) || {}).fajta || 'fo'))
     : m.tipus === 'varazslat' ? (m.fajta || 'fo') : m.tipus === 'tamadas' ? ((C.cselekvesAdat(m.cselekves) || { fajta: 'fo' }).fajta) : 'fo';
   if (m.tipus === 'cselekves' && !m.szabad && !C.cselekvesAdat(m.kulcs)) return 'Ismeretlen cselekvés.';
+  if (m.tipus === 'cselekves' && m.kulcs === 'futas' && C.vanFeltetel(r, 'fekszik')) return 'Fekve nem lehet futni: előbb Mozgással felállni.';
   if (!C.cselekvesEngedett(r, fajta)) return 'Ebben a körben ez a cselekvés már elfogyott.';
   const cel = (id) => { const c = C.resztvevo(cs, id); return c && !c.rejtett; };
   if (m.tipus === 'tamadas') {
@@ -1866,7 +2016,7 @@ function jatekosNezet(cs, { beallitas = {}, iranyitott = [], szerzo = '' } = {})
     sorrend: (cs.sorrend || []).filter((id) => !rejtett.has(id)), leptek: (cs.leptek || []).filter((id) => !rejtett.has(id)),
     oldalak: cs.oldalak, viszonyok: cs.viszonyok, csoportok: cs.csoportok, resztvevok,
     naplo: (cs.naplo || []).filter((n) => !n.dm), kulcsok: cs.kulcsok || [],
-    fuggo: (cs.fuggo || []).filter((f) => !rejtett.has(f.cel) && !rejtett.has(f.varazslo)),
+    fuggo: (cs.fuggo || []).filter((f) => !rejtett.has(f.cel) && !rejtett.has(f.varazslo) && !rejtett.has(f.tamado)),
     utolso_lepes: utolso ? { leiras: utolso.leiras || '', sajat: !!szerzo && utolso.szerzo === szerzo } : null,
     vedekezes_rejtett: !(beallitas && beallitas.celertek_rejtett === false),
     jatekos: true
@@ -1905,7 +2055,7 @@ function njkAllapotok(cs) {
   return Object.keys(m).map((k) => m[k]);
 }
 
-return { MUVELET_TIPUSOK, varazslatKifejezes, varazslatAdat, varazslatGyogyitasKocka, varazsMutatvanyHatasok, celVedekezes, tamadasEredmeny, celpontProbaEredmeny, muveletLeiras, muveletAlkalmazas, muveletLepes, muveletEllenorzes, jatekosNezet, osszecsapasCsatabol, XP_BESOROLAS, csataKarakterei, njkAllapotok };
+return { MUVELET_TIPUSOK, varazslatKifejezes, varazslatAdat, varazslatGyogyitasKocka, varazsMutatvanyHatasok, MUTATVANY_PROBAK, mutatvanyProbak, FELELMETES, mutatvanyProbaAllas, celVedekezes, tamadasEredmeny, celpontProbaEredmeny, muveletLeiras, muveletAlkalmazas, muveletLepes, muveletEllenorzes, jatekosNezet, osszecsapasCsatabol, XP_BESOROLAS, csataKarakterei, njkAllapotok };
 })();
 
 const CsataMotor_ = Object.assign({}, _m_osszecsapas, _m_csata, _m_csatamuvelet);
