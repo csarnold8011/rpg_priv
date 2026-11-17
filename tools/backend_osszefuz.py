@@ -4,11 +4,15 @@ szerkesztőbe egyetlen beillesztéssel bemásolható legyen.
 Használat: python3 tools/backend_osszefuz.py
 """
 from pathlib import Path
+import subprocess
+import sys
 
 GYOKER = Path(__file__).resolve().parent.parent
-SORREND = ["Sema.gs", "Main.gs", "Adat.gs", "Belepes.gs", "Jogosultsag.gs", "Verzio.gs",
+SORREND = ["Sema.gs", "Csatamotor.gs", "Main.gs", "Adat.gs", "Belepes.gs", "Jogosultsag.gs", "Verzio.gs",
            "Karakterek.gs", "Njk.gs", "Osszecsapasok.gs", "Csatak.gs", "Kampanyok.gs", "Dobasok.gs", "Szabalyok.gs", "Import.gs", "Beallitas.gs"]
 
+# a csatamotor a felület moduljaiból készül, mindig frissen
+subprocess.run([sys.executable, str(GYOKER / "tools" / "csatamotor_general.py")], check=True)
 fajlok = sorted((GYOKER / "backend").glob("*.gs"), key=lambda p: (SORREND.index(p.name) if p.name in SORREND else 99, p.name))
 reszek = ["// GENERÁLT FÁJL: a backend/*.gs fájlok összefűzése (tools/backend_osszefuz.py).\n"
           "// Az Apps Script projektben ez az egyetlen kódfájl (Kod.gs), mellette az appsscript.json.\n"]

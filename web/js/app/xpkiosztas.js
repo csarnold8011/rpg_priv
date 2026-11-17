@@ -14,14 +14,15 @@ const SUGO = {
 };
 
 // karakterek: [{ id, nev, xp, szint }]. kampanyId: ha a kampány nézetéből indult. onKesz(valasz): a háttér válasza.
-export function XpKiosztas({ karakterek, kampanyId, onBezar, onKesz }) {
+// kezdoBesorolas, kezdoOk: a csata lezárásából (a becsült nehézség besorolása és az ok szövege).
+export function XpKiosztas({ karakterek, kampanyId, onBezar, onKesz, kezdoBesorolas, kezdoOk }) {
   const { api, szabalyok, uzen } = useApp();
   const ix = useMemo(() => index((szabalyok.adat && szabalyok.adat.lapok) || {}), [szabalyok.adat]);
   const [kivalasztott, setKivalasztott] = useState(() => karakterek.map((c) => c.id));
   const [tipus, setTipus] = useState('talalkozas');
-  const [besorolas, setBesorolas] = useState('kozepes');
+  const [besorolas, setBesorolas] = useState(kezdoBesorolas || 'kozepes');
   const [osszeg, setOsszeg] = useState({ bonusz: '400', szerep: '250', javitas: '' });
-  const [ok, setOk] = useState('');
+  const [ok, setOk] = useState(kezdoOk || '');
   const [fut, setFut] = useState(false);
   const [hiba, setHiba] = useState(null);
 

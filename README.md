@@ -26,8 +26,8 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 
 ```bash
 python3 tools/sema_general.py      # schema/sema.json -> backend/Sema.gs
-python3 tools/backend_osszefuz.py  # backend/*.gs -> dist/Kod.gs
-node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 124 ellenőrzés)
+python3 tools/backend_osszefuz.py  # backend/*.gs -> dist/Kod.gs (előtte a csatamotort is lefordítja: backend/Csatamotor.gs)
+node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 216 ellenőrzés)
 node tools/teszt/karakter.mjs      # a karakterszámoló tesztje (az Alapkönyv példakarakterével, 73 ellenőrzés)
 node tools/teszt/varazslo.mjs      # a karakterkészítő varázsló logikájának tesztje (48 ellenőrzés)
 node tools/teszt/szintlepes.mjs    # a szintlépés-varázsló logikájának tesztje (44 ellenőrzés)
@@ -36,10 +36,14 @@ node tools/teszt/proba.mjs         # a próbák szabályainak tesztje (30 ellen�
 node tools/teszt/mutatvany.mjs     # a mutatványkezelő tesztje (34; FAGE_SZABALYOK=<lapok.json> esetén a valódi szabályadattal 38)
 node tools/teszt/naplo.mjs         # a dobásnapló sorainak és szűrésének tesztje (52)
 node tools/teszt/probakeres.mjs    # a DM próbakérés tesztje (54)
+node tools/teszt/csata.mjs         # a csatamotor tesztje (61)
+node tools/teszt/csatamuvelet.mjs  # a csatalépések, varázslatok, a játékos szűrt csatája és a lezárás tesztje (49; valódi szabályadattal 52)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 
 A helyi szerver a felületet és a háttérkódot is kiszolgálja (utánzott Google szolgáltatásokkal, csak memóriában). A szabályadat alapból a karakterteszt minta sorai; `--szabalyok <fájl.json>` kapcsolóval a valódi Szabályadatbázis exportja tölthető be (ez a fájl a szabálykönyvek szövegét tartalmazza, ezért soha nem kerülhet a repóba). Megnyitás: `http://localhost:8080/#kapcsolat=http%3A%2F%2Flocalhost%3A8080%2Fapi`, belépés: Arnold / sarkany1 (DM), Anna / anna1 (mesterjátékos), Bence / bence1.
+
+A `backend/Csatamotor.gs` generált fájl: a `web/js/jatek/osszecsapas.js`, `csata.js` és `csatamuvelet.js` modulokból készül (`python3 tools/csatamotor_general.py`), így a háttér a játékosok csatalépéseit ugyanazzal a kóddal alkalmazza, mint a felület. Ne szerkeszd kézzel.
 
 A felület fordítási lépés nélkül fut: a `web/js/app/` modulok böngészőben futó ES modulok, a sablonok a `htm` könyvtárral készülnek (JSX helyett), a komponensek a `window.Kaland` névtérből jönnek.
 

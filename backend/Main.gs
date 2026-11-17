@@ -47,6 +47,7 @@ function muveletek_() {
     'encounter.delete':        { fn: osszecsapasTorlese_, szerep: 'dm' },
     'combat.start':            { fn: csataInditasa_, szerep: 'dm' },
     'combat.act':              { fn: csataLepese_, szerep: 'dm' },
+    'combat.player':           { fn: csataJatekosLepese_ },
     'combat.close':            { fn: csataLezarasa_, szerep: 'dm' },
     'combat.delete':           { fn: csataTorlese_, szerep: 'dm' }
     // 'ai.ask': a 4. fejlesztési lépésben

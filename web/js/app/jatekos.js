@@ -9,6 +9,7 @@ import { useKampanyAllapot, useDobasok, DobasPanel, KarakterFejlec, KampanyCimke
 import { KarakterLap } from './karakterlap.js';
 import { KarakterKep } from './kepek.js';
 import { JatekosNjkPanel } from './njk.js';
+import { JatekosCsatak } from './csatasav.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo, taroltKampanyok } from './varazslo.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
@@ -113,6 +114,7 @@ function KampanyOldal({ id }) {
       <h1 className="oldalcim">${k.cim}</h1>
       <${KampanyCimkek} kampany=${k}/>
     </div>
+    <${JatekosCsatak} allapot=${allapot} naploz=${naploz}/>
     <${JatekosProbak} allapot=${allapot} naploz=${naploz}/>
     <${K.Panel} title="Csapat">
       ${allapot.karakterek.length ? html`<ul className="kartyalista">

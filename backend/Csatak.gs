@@ -1,8 +1,9 @@
-// Csatamotor (3. lépés, 4. ütem): a csaták tárolása. A szabályok és minden lépés a felületen van
-// (web/js/jatek/csata.js); a felület a lépés utáni teljes állapotot küldi, itt csak verzió, dupla küldés
-// szűrése, a játékos karakterek Egészségének visszaírása és a kampány verziójának növelése történik.
-// Terv: claude/csata-terv.md, „Csataállapot” és „Háttér és teljesítmény”. A 4. ütemben csak a DM vezeti a csatát;
-// a játékosok oldala (5. ütem) a kiadott állapot szűrésével és a saját lépések ellenőrzésével bővül.
+// Csatamotor (3. lépés, 4–5. ütem): a csaták tárolása. A szabályok a felületen vannak (web/js/jatek/csata.js,
+// csatamuvelet.js). A DM a lépés utáni teljes állapotot küldi (combat.act): itt csak verzió, dupla küldés szűrése,
+// a játékos karakterek Egészségének és Mágiapontjának visszaírása és a kampány verziójának növelése történik.
+// A játékos a lépését műveletként küldi (combat.player): a háttér a felület kódjából fordított CsataMotor_-ral
+// (backend/Csatamotor.gs) ellenőrzi és alkalmazza a teljes csatán. A játékos szűrt csatát kap (jatekosNezet).
+// Terv: claude/csata-terv.md, „Csataállapot”, „Játékos oldal” és „Háttér és teljesítmény”.
 
 const CSATA_ALLAPOTOK = ['kezdemenyezes', 'fut', 'lezart'];
 const MAX_CSATA_MERET = 48000;
@@ -45,8 +46,9 @@ function csataAdatEllenorzes_(adat, pillanatkepek) {
   if (pillanatkepek !== undefined && JSON.stringify(pillanatkepek || {}).length > MAX_CSATA_MERET) throw hiba_('tul_nagy', 'A lények pillanatképei túl nagyok egy cellához.');
 }
 
-// A játékos karakterek Egészségének visszaírása a karakter saját állapotába (zárolás alatt hívandó).
-// ertekek: { karakter id: egeszseg }. Csak a csata résztvevőiként szereplő karakterek írhatók.
+// A játékos karakterek Egészségének és Mágiapontjának visszaírása a karakter saját állapotába (zárolás alatt hívandó).
+// ertekek: { karakter id: egeszseg } vagy { karakter id: { egeszseg, magiapont? } }. Csak a csata résztvevőiként
+// szereplő karakterek írhatók.
 function csataKarakterek_(csata, ertekek, k, felh) {
   if (!ertekek || typeof ertekek !== 'object') return [];
   const resztvevoKarakterek = (csata.adat.resztvevok || []).filter(function (r) { return r.forras && r.forras.tipus === 'karakter'; })
@@ -58,11 +60,15 @@ function csataKarakterek_(csata, ertekek, k, felh) {
     if (!kar) return;
     const adat = kar.adat && typeof kar.adat === 'object' ? kar.adat : {};
     adat.allapot = adat.allapot && typeof adat.allapot === 'object' ? adat.allapot : {};
-    const uj = Math.max(0, Math.round(Number(ertekek[kid]) || 0));
+    const e = ertekek[kid] && typeof ertekek[kid] === 'object' ? ertekek[kid] : { egeszseg: ertekek[kid] };
+    const uj = Math.max(0, Math.round(Number(e.egeszseg) || 0));
+    const mp = e.magiapont === undefined || e.magiapont === null || e.magiapont === '' ? null : Math.max(0, Math.round(Number(e.magiapont) || 0));
     // a régi szerkezetű (átvett) karakternél a felület az egeszseg.aktualis mezőből olvas
     const regiSzerk = !(Number(adat.sema) >= 1) && adat.egeszseg && typeof adat.egeszseg === 'object';
-    if (adat.allapot.egeszseg === uj && (!regiSzerk || Number(adat.egeszseg.aktualis) === uj)) return;
+    const mpValt = mp !== null && Number(adat.allapot.magiapont) !== mp;
+    if (adat.allapot.egeszseg === uj && (!regiSzerk || Number(adat.egeszseg.aktualis) === uj) && !mpValt) return;
     adat.allapot.egeszseg = uj;
+    if (mp !== null) adat.allapot.magiapont = mp;
     if (regiSzerk) adat.egeszseg.aktualis = uj;
     kar.adat = adat;
     kar.verzio = (Number(kar.verzio) || 0) + 1;
@@ -132,8 +138,9 @@ function csataLepese_(a, felh) {
   });
 }
 
-// action: combat.close (DM)   adat: { id, adat? }   A csata lezárása; az összecsapása „lefutott” lesz.
-// (Az összesítő, az XP és az NJK-k állapotának visszaírása az 5. ütemben jön.)
+// action: combat.close (DM)   adat: { id, adat?, njk_visszairas? }   A csata lezárása; az összecsapása „lefutott” lesz.
+// Az NJK-tár résztvevőinek Egészsége, Mágiapontja és feltételei az NJK állapotába íródnak (njk_visszairas: false
+// esetén nem), és a szereplésük bejegyződik. Az XP-t a felület a meglévő character.xp művelettel osztja ki.
 function csataLezarasa_(a, felh) {
   return zarolva_(function () {
     const k = kornyezet_();
@@ -156,9 +163,121 @@ function csataLezarasa_(a, felh) {
         sorFrissitese_('jatek', 'Összecsapások', e);
       }
     }
+    const njkIrt = csataNjkVisszairasa_(c, a.njk_visszairas !== false, felh);
     kampanyVerziokNovelese_([c.kampany_id], k.kampanyok);
     valtozasNaplozasa_(felh, 'csata.lezar', c.id, '', c.verzio);
-    return { csata: csataNezet_(c) };
+    return { csata: csataNezet_(c), njkk: njkIrt };
+  });
+}
+
+// Az NJK-k állapota és szereplése a lezáráskor (zárolás alatt hívandó). allapotIs: az Egészség, a Mágiapont és a
+// feltételek visszaírása; a szereplés mindig bejegyződik. Visszaad: a módosított NJK-k azonosítói.
+function csataNjkVisszairasa_(c, allapotIs, felh) {
+  const lista = CsataMotor_.njkAllapotok(c.adat || {});
+  if (!lista.length) return [];
+  const sorok = njkSorok_();
+  const irt = [];
+  lista.forEach(function (e) {
+    const n = sorok.find(function (x) { return x.id === e.njk_id; });
+    if (!n) return;
+    const adat = n.adat && typeof n.adat === 'object' ? n.adat : {};
+    if (allapotIs) {
+      adat.allapot = adat.allapot && typeof adat.allapot === 'object' ? adat.allapot : {};
+      adat.allapot.egeszseg = Math.max(0, Math.round(Number(e.egeszseg) || 0));
+      if (e.magiapont !== null && e.magiapont !== undefined) adat.allapot.magiapont = Math.max(0, Math.round(Number(e.magiapont) || 0));
+      adat.allapot.feltetelek = (e.feltetelek || []).slice(0, 20);
+      if (e.allapot === 'halott') adat.allapot.halott = true;
+    }
+    adat.szereplesek = (Array.isArray(adat.szereplesek) ? adat.szereplesek : [])
+      .concat([{ kampany_id: c.kampany_id, csata_id: c.id, cim: c.cim, idopont: most_(), kimenet: e.allapot }]).slice(-50);
+    n.adat = adat;
+    n.verzio = (Number(n.verzio) || 0) + 1;
+    n.modositva = most_();
+    n.modositotta = felh.n;
+    sorFrissitese_('jatek', 'NJK-k', n);
+    irt.push(n.id);
+  });
+  return irt;
+}
+
+// A felhasználó által irányított résztvevők: a karakterek, amelyeket írhat (a mesterjátékos a kampány összes
+// karakterét), és a követők, akikért dobhat (njkDobhat_). A DM mindenkit irányít.
+function csataIranyitott_(adat, felh, k, njkk) {
+  const resztvevok = (adat && adat.resztvevok) || [];
+  if (felh.r === 'dm') return resztvevok.map(function (r) { return r.id; });
+  const sorok = njkk || null;
+  let njkLista = sorok;
+  return resztvevok.filter(function (r) {
+    if (!r.forras) return false;
+    if (r.forras.tipus === 'karakter') {
+      const kar = k.karakterek.find(function (c) { return c.id === r.forras.id; });
+      return !!kar && karakterIrhato_(felh, kar, k);
+    }
+    if (r.forras.tipus === 'njk') {
+      if (!njkLista) njkLista = njkSorok_();
+      const n = njkLista.find(function (x) { return x.id === r.forras.id; });
+      return !!n && njkDobhat_(felh, n, k);
+    }
+    return false;
+  }).map(function (r) { return r.id; });
+}
+
+// A kampány folyamatban lévő csatái a játékosnak (state.get): szűrve, pillanatképek nélkül.
+function kampanyCsataiJatekosnak_(kampany, felh, k) {
+  const futo = csataSorok_().filter(function (c) { return c.kampany_id === kampany.id && c.allapot !== 'lezart'; });
+  if (!futo.length) return [];
+  const beallitas = kampanyBeallitasai_(kampany);
+  const njkk = njkSorok_();
+  return futo.map(function (c) { return csataJatekosNezete_(c, felh, k, beallitas, njkk); });
+}
+
+function csataJatekosNezete_(c, felh, k, beallitas, njkk) {
+  const adat = c.adat && typeof c.adat === 'object' ? c.adat : { resztvevok: [] };
+  const iranyitott = csataIranyitott_(adat, felh, k, njkk);
+  return {
+    id: c.id, kampany_id: c.kampany_id, cim: c.cim, allapot: c.allapot, kor: Number(c.kor) || 0, verzio: Number(c.verzio) || 0,
+    adat: CsataMotor_.jatekosNezet(adat, { beallitas: beallitas, iranyitott: iranyitott, szerzo: felh.u })
+  };
+}
+
+// action: combat.player   adat: { id, kulcs, muvelet }
+// A játékos (vagy mesterjátékos, követő irányítója) lépése műveletként (web/js/jatek/csatamuvelet.js). A háttér
+// ellenőrzi (csak a saját résztvevőiért, a saját körében), és a teljes csatán alkalmazza; verzió nem kell, mert
+// a művelet mindig az aktuális állapotra épül. A válasz a játékosnak szűrt csata.
+function csataJatekosLepese_(a, felh) {
+  if (!a.id || !a.muvelet || typeof a.muvelet !== 'object') throw hiba_('hianyzo_adat', 'Hiányzik a csata vagy a lépés.');
+  return zarolva_(function () {
+    const k = kornyezet_();
+    const c = csataKeresese_(a.id);
+    const kampany = kampanyKeresese_(c.kampany_id, k);
+    const szerep = kampanySzerep_(felh, kampany, k);
+    if (!szerep || (szerep !== 'dm' && kampany.allapot === ARCHIVALT)) throw hiba_('nincs_jogosultsag', 'Nem vagy tagja ennek a kampánynak.');
+    const beallitas = kampanyBeallitasai_(kampany);
+    const njkk = njkSorok_();
+    const kulcsok = c.adat && Array.isArray(c.adat.kulcsok) ? c.adat.kulcsok : [];
+    if (a.kulcs && kulcsok.indexOf(a.kulcs) >= 0) return { csata: csataJatekosNezete_(c, felh, k, beallitas, njkk), ismetelt: true, kampany_verziok: {} };
+    if (c.allapot === 'lezart') throw hiba_('hibas_adat', 'Ez a csata már lezárult.');
+    const iranyitott = csataIranyitott_(c.adat, felh, k, njkk);
+    const hiba = CsataMotor_.muveletEllenorzes(c.adat, a.muvelet, { iranyitott: iranyitott, dm: szerep === 'dm', szerzo: felh.u });
+    if (hiba) throw hiba_('hibas_lepes', hiba);
+    const elotte = c.adat;
+    let uj;
+    try {
+      uj = CsataMotor_.muveletLepes(elotte, a.muvelet, a.kulcs || '', { szerzo: felh.u });
+    } catch (e) {
+      throw hiba_('hibas_lepes', String(e && e.message || e));
+    }
+    csataAdatEllenorzes_(uj);
+    c.adat = uj;
+    c.allapot = CSATA_ALLAPOTOK.indexOf(uj.allapot) >= 0 && uj.allapot !== 'lezart' ? uj.allapot : c.allapot;
+    c.kor = Number(uj.kor) || 0;
+    c.verzio = (Number(c.verzio) || 0) + 1;
+    c.modositva = most_();
+    c.modositotta = felh.n;
+    sorFrissitese_('jatek', 'Csaták', c);
+    const irt = csataKarakterek_(c, CsataMotor_.karakterValtozasok(elotte, uj), k, felh);
+    const kv = kampanyVerziokNovelese_([c.kampany_id], k.kampanyok);
+    return { csata: csataJatekosNezete_(c, felh, k, beallitas, njkk), verzio: c.verzio, karakterek: irt, kampany_verziok: kv };
   });
 }
 

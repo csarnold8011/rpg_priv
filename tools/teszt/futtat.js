@@ -386,7 +386,7 @@ const csata = v.csata;
 ellenoriz(v.ok && csata.verzio === 1 && csata.allapot === 'kezdemenyezes' && csata.pillanatkepek['szorny:szo_bandit'].nev_hu === 'Bandita', 'a DM csatát indít az összecsapásból', v);
 let csAll = hivas('state.get', { kampany_id: kampany.id }, dm2);
 ellenoriz(csAll.csatak && csAll.csatak.some(c => c.id === csata.id && c.adat.resztvevok.length === 2), 'a DM kampányállapotában ott a csata');
-ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).csatak === undefined, 'a 4. ütemben a játékosok még nem kapják meg a csatát');
+ellenoriz(Array.isArray(hivas('state.get', { kampany_id: kampany.id }, annaT).csatak), 'a játékosok (5. ütem) szűrt csatalistát kapnak');
 const karVerzio = hivas('character.get', { id: pottom.id }, dm2).karakter.verzio;
 v = hivas('combat.act', { id: csata.id, verzio: 1, kulcs: 'l1', adat: csAdat({ allapot: 'fut', kor: 1, kulcsok: ['l1'] }), karakterek: { [pottom.id]: 21, k_idegen: 5 } }, dm2);
 ellenoriz(v.ok && v.verzio === 2 && v.csata.kor === 1 && v.csata.allapot === 'fut' && JSON.stringify(v.karakterek) === JSON.stringify([pottom.id]), 'lépés: az állapot ment, a résztvevő karakter Egészsége íródik (idegen nem)', v);
@@ -396,7 +396,7 @@ v = hivas('combat.act', { id: csata.id, verzio: 1, kulcs: 'l1', adat: csAdat({ k
 ellenoriz(v.ok && v.ismetelt && v.csata.kor === 1, 'ugyanaz a lépés újra: nincs változás (dupla küldés)');
 v = hivas('combat.act', { id: csata.id, verzio: 1, kulcs: 'l2', adat: csAdat() }, dm2);
 ellenoriz(v.hiba === 'utkozes' && v.aktualis && v.aktualis.verzio === 2, 'elavult verzió: ütközés, az aktuális csatával');
-ellenoriz(hivas('combat.act', { id: csata.id, verzio: 2, kulcs: 'l3', adat: csAdat() }, annaT).hiba === 'nincs_jogosultsag', 'a játékos (még) nem léptethet');
+ellenoriz(hivas('combat.act', { id: csata.id, verzio: 2, kulcs: 'l3', adat: csAdat() }, annaT).hiba === 'nincs_jogosultsag', 'a játékos nem küldhet teljes csataállapotot');
 v = hivas('combat.close', { id: csata.id }, dm2);
 ellenoriz(v.ok && v.csata.allapot === 'lezart' && v.csata.lezarva && v.csata.adat.allapot === 'lezart', 'a csata lezárul');
 ellenoriz(hivas('encounter.list', { kampany_id: kampany.id }, dm2).osszecsapasok.find(e => e.id === marado.id).allapot === 'lefutott', 'az összecsapása „lefutott” lesz');
@@ -408,6 +408,64 @@ ellenoriz(v.ok && v.dobas.tipus === 'sebzes' && v.dobas.csata_id === csata.id, '
 const csata2 = hivas('combat.start', { kampany_id: kampany.id, cim: 'Gyors csata', adat: csAdat() }, dm2).csata;
 ellenoriz(csata2 && !csata2.osszecsapas_id, 'gyors csata összecsapás nélkül');
 ellenoriz(hivas('combat.delete', { id: csata2.id }, dm2).ok && !hivas('state.get', { kampany_id: kampany.id }, dm2).csatak.some(c => c.id === csata2.id), 'csata törlése');
+
+
+// ---------- Csata: a játékos oldala (3. lépés, 5. ütem) ----------
+const kapitany = hivas('npc.save', { nev: 'Őrkapitány', fajta: 'statblokk', kampanyok: [kampany.id], adat: { statblokk: { egeszseg: 20 }, allapot: {} } }, dm2).njk;
+const resz = (id, forras, nev, oldal, extra) => Object.assign({ id, resztvevo_id: id, forras, nev, oldal, csoport: '', fontos: false, rejtett: false, meglepett: false,
+  kezdemenyezes: null, egeszseg: 20, egeszseg_max: 20, szivossag: 1, allapot: 'aktiv', haldoklas_kor: null, feltetelek: [], hatasok: [],
+  cselekves: { fo: 0, mellek: 0, plusz: 0, lista: [] }, gyogyithato: true, magiapont: null, ertekek: { vedekezes: 12, pancelertek: 3, atuto_ellen: false } }, extra || {});
+const jAdat = (extra) => Object.assign({ v: 1, allapot: 'kezdemenyezes', kor: 0, soron: null, sorrend: [], leptek: [], oldalak: eAdat.oldalak, viszonyok: eAdat.viszonyok, csoportok: [],
+  resztvevok: [
+    resz('p_pot', { tipus: 'karakter', id: pottom.id }, 'Pöttöm', 'o_csapat'),
+    resz('p_morg', { tipus: 'karakter', id: morg.id }, 'Morg', 'o_csapat', { magiapont: 10, ertekek: { vedekezes: 11, pancelertek: 0, magiapont_max: 12 } }),
+    resz('p_kap', { tipus: 'njk', id: kapitany.id }, 'Őrkapitány', 'o_ellen', { fontos: true }),
+    resz('p_rejt', { tipus: 'szorny', id: 'szo_bandit' }, 'Rejtett íjász', 'o_ellen', { rejtett: true })],
+  naplo: [{ kor: 0, szoveg: 'Kezdés' }, { kor: 0, szoveg: 'Titkos erősítés', dm: true }], visszavonas: [], kulcsok: [], fuggo: [] }, extra || {});
+const jcs = hivas('combat.start', { kampany_id: kampany.id, cim: 'Őrség', adat: jAdat() }, dm2).csata;
+let bNezet = hivas('state.get', { kampany_id: kampany.id }, bencT3).csatak.find(c => c.id === jcs.id);
+ellenoriz(bNezet && bNezet.adat.resztvevok.length === 3 && !bNezet.adat.resztvevok.some(r => r.nev === 'Rejtett íjász'), 'a játékos nem látja a rejtett résztvevőt', bNezet);
+const bKap = bNezet.adat.resztvevok.find(r => r.id === 'p_kap');
+ellenoriz(bKap.egeszseg === null && bKap.egeszseg_szoveg === 'ép' && bKap.ertekek.vedekezes === 12, 'más oldal Egészsége leíró, a Védekezés megérkezik', bKap);
+ellenoriz(bNezet.adat.resztvevok.find(r => r.id === 'p_morg').iranyithato && !bNezet.adat.resztvevok.find(r => r.id === 'p_pot').iranyithato, 'Bence a saját karakterét irányítja, a másikat nem');
+ellenoriz(!bNezet.adat.naplo.some(n => n.dm) && !bNezet.adat.visszavonas && !bNezet.pillanatkepek, 'a DM naplósorai, a visszavonás és a pillanatképek nem mennek ki');
+const jl = (muvelet, token, kulcs) => hivas('combat.player', { id: jcs.id, kulcs: kulcs || ('k' + Math.random()), muvelet }, token);
+ellenoriz(jl({ tipus: 'kezdemenyezes', r: 'p_pot', osszeg: 12, sarkany: 4, tul: 2, kockak: [3, 3, 4] }, bencT3).hiba === 'hibas_lepes', 'más karakteréért nem dobhat kezdeményezést');
+v = jl({ tipus: 'kezdemenyezes', r: 'p_morg', osszeg: 15, sarkany: 5, tul: 2, kockak: [4, 4, 5] }, bencT3, 'kz1');
+ellenoriz(v.ok && v.csata.adat.resztvevok.find(r => r.id === 'p_morg').kezdemenyezes.osszeg === 15, 'a játékos kezdeményezése rögzül, szűrt választ kap', v);
+ellenoriz(jl({ tipus: 'kezdemenyezes', r: 'p_morg', osszeg: 3 }, bencT3, 'kz1').ismetelt, 'a dupla küldés nem lép kétszer');
+ellenoriz(jl({ tipus: 'kezdemenyezes', r: 'p_pot', osszeg: 9, sarkany: 1, tul: 1, kockak: [1, 2, 1] }, annaT).ok, 'a mesterjátékos a kampány bármely karakteréért dobhat');
+let teljes = hivas('state.get', { kampany_id: kampany.id }, dm2).csatak.find(c => c.id === jcs.id);
+ellenoriz(teljes.adat.visszavonas.length === 2 && teljes.adat.visszavonas[1].szerzo === anna.id, 'a DM teljes állapotában a lépések szerzővel', teljes.adat.visszavonas);
+ellenoriz(jl({ tipus: 'visszavonas' }, bencT3).hiba === 'hibas_lepes', 'más lépését a játékos nem vonhatja vissza');
+// a DM elindítja: Morg következik
+const futAdat = Object.assign({}, teljes.adat, { allapot: 'fut', kor: 1, soron: 'p_morg', sorrend: ['p_morg', 'p_kap', 'p_pot'], leptek: [] });
+ellenoriz(hivas('combat.act', { id: jcs.id, verzio: teljes.verzio, kulcs: 'dmind', adat: futAdat }, dm2).ok, 'a DM elindítja a csatát');
+ellenoriz(jl({ tipus: 'cselekves', r: 'p_pot', kulcs: 'vedekezes' }, annaT).hiba === 'hibas_lepes', 'nem soron lévő nem cselekedhet');
+v = jl({ tipus: 'tamadas', r: 'p_morg', cel: 'p_kap', cselekves: 'tamadas', tamadas: { nev: 'Kard' }, osszeg: 14, talalat: true, sebzes: 9, pancel: 0, hatasok: {}, mutatvanyok: [] }, bencT3);
+teljes = hivas('state.get', { kampany_id: kampany.id }, dm2).csatak.find(c => c.id === jcs.id);
+ellenoriz(v.ok && teljes.adat.resztvevok.find(r => r.id === 'p_kap').egeszseg === 14, 'támadás: a háttér a saját Páncélértékével számol (9 − 3 = 6 sebzés)', v);
+ellenoriz(jl({ tipus: 'tamadas', r: 'p_morg', cel: 'p_kap', cselekves: 'tamadas', osszeg: 18, sebzes: 9 }, bencT3).hiba === 'hibas_lepes', 'a fő cselekvés elfogyott: második támadás nem megy');
+ellenoriz(jl({ tipus: 'tamadas', r: 'p_morg', cel: 'p_rejt', cselekves: 'tamadas', osszeg: 18, sebzes: 9 }, bencT3).hiba === 'hibas_lepes', 'rejtett célpont nem támadható');
+v = jl({ tipus: 'varazslat', r: 'p_morg', varazslat: { id: 'x', nev: 'Villámcsapás' }, fajta: 'mellek', mp: 4, siker: true, osszeg: 13, celok: ['p_kap'],
+  proba: { tul: 'tul_constitution', fokuszok: [], celertek: 13, nev: 'Szívósság' }, sebzes: { teljes: 10, csokkentett: 4, atuto: true }, hatasok: {}, mutatvanyok: [] }, bencT3);
+teljes = hivas('state.get', { kampany_id: kampany.id }, dm2).csatak.find(c => c.id === jcs.id);
+const fuggo = teljes.adat.fuggo[0];
+ellenoriz(v.ok && fuggo && fuggo.cel === 'p_kap' && fuggo.teljes === 10 && teljes.adat.resztvevok.find(r => r.id === 'p_morg').magiapont === 6, 'varázslat: a Mágiapont fogy, a célpont próbája függő lesz', teljes.adat.fuggo);
+ellenoriz(hivas('character.get', { id: morg.id }, dm2).karakter.adat.allapot.magiapont === 6, 'a Mágiapont a karakter állapotába íródik');
+ellenoriz(jl({ tipus: 'celpont_proba', proba_id: fuggo.id, osszeg: 9 }, bencT3).hiba === 'hibas_lepes', 'az NJK célpont próbáját a játékos nem dobhatja');
+v = jl({ tipus: 'celpont_proba', proba_id: fuggo.id, osszeg: 9, kockak: [2, 3, 1] }, dm2);
+teljes = hivas('state.get', { kampany_id: kampany.id }, dm2).csatak.find(c => c.id === jcs.id);
+ellenoriz(v.ok && !teljes.adat.fuggo.length && teljes.adat.resztvevok.find(r => r.id === 'p_kap').egeszseg === 4, 'a DM dobja a célpont próbáját: nem állt ellen, átütő sebzés (14 − 10 = 4)', v);
+v = jl({ tipus: 'kovetkezo', r: 'p_morg' }, bencT3);
+ellenoriz(v.ok && v.csata.adat.soron === 'p_kap', 'a játékos befejezi a körét, a következő jön');
+v = jl({ tipus: 'visszavonas' }, bencT3);
+ellenoriz(v.ok && v.csata.adat.soron === 'p_morg', 'a játékos visszavonja a saját utolsó lépését', v);
+v = hivas('combat.close', { id: jcs.id, adat: teljes.adat }, dm2);
+const kapUtana = hivas('npc.get', { id: kapitany.id }, dm2).njk;
+ellenoriz(v.ok && JSON.stringify(v.njkk) === JSON.stringify([kapitany.id]) && kapUtana.adat.allapot.egeszseg === 4 && kapUtana.adat.szereplesek.some(s => s.csata_id === jcs.id), 'lezárás: az NJK Egészsége és szereplése visszaíródik', kapUtana.adat);
+ellenoriz(!hivas('state.get', { kampany_id: kampany.id }, bencT3).csatak.some(c => c.id === jcs.id), 'a lezárt csata a játékosnak eltűnik');
+ellenoriz(jl({ tipus: 'kovetkezo', r: 'p_morg' }, bencT3).hiba === 'hibas_adat', 'lezárt csatában nincs lépés');
 
 hivas('users.admin', { muvelet: 'letilt', id: bence.id }, dm2);
 

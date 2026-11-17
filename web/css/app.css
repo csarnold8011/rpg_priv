@@ -630,3 +630,8 @@ a.sorgomb-teljes { text-decoration: none; }
 .osszecsapas__vezerlok > * { flex: 1 1 160px; }
 .osszecsapas__vezerlok > .ka-field:first-child:has(.leptetok) { flex: 0 0 auto; }
 .osszecsapas__talalatok { max-height: 420px; overflow-y: auto; }
+
+/* Játékos Csata sáv (3. lépés, 5. ütem) */
+.probakartya--kiemelt { border-color: var(--accent); border-width: 2px; }
+.csatasav .probakartya > * + * { margin-top: var(--space-2); }
+.csatasav--soron > * { box-shadow: 0 0 0 2px var(--accent); border-radius: var(--radius-md); }

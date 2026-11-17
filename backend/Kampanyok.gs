@@ -204,7 +204,9 @@ function allapotLekerese_(a, felh) {
   // az előkészített összecsapások csak a DM-é
   if (szerep === 'dm') {
     o.osszecsapasok = kampanyOsszecsapasai_(kampany);
-    o.csatak = kampanyCsatai_(kampany); // a játékosok a csatát az 5. ütemtől látják
+    o.csatak = kampanyCsatai_(kampany);
+  } else {
+    o.csatak = kampanyCsataiJatekosnak_(kampany, felh, k); // szűrve: rejtett résztvevők, DM naplósorai nélkül
   }
   return o;
 }

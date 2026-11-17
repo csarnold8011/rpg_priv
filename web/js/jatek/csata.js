@@ -11,9 +11,13 @@
 //     kezdemenyezes: null | { osszeg, sarkany, tul, kockak, kezi }, egeszseg, egeszseg_max, szivossag,
 //     allapot: 'aktiv' | 'haldoklik' | 'kiesett' | 'halott', haldoklas_kor,
 //     feltetelek: [{ id, nev, lejar_kor }], hatasok: [{ id, nev, cel, ertek, lejar, kor }],
-//     cselekves: { fo, mellek, plusz, lista }, gyogyithato }
-// A játékos karakter Egészsége a karakter saját állapotában él: a felület minden lépés után elküldi
-// a változását (karakterValtozasok), és betöltéskor átveszi a karakterlap értékét (karakterekFrissitese).
+//     cselekves: { fo, mellek, plusz, lista }, gyogyithato,
+//     magiapont: null | szám, ertekek: { vedekezes, pancelertek, atuto_ellen, magiapont_max, akaratero } }
+// Az `ertekek` a lény nézetének csatához kellő része (a DM és a játékos felülete írja); ebből dolgozik a háttér
+// a játékos lépéseinél (csatamuvelet.js), mert ott nincs lény-nézet.
+// A játékos karakter Egészsége és Mágiapontja a karakter saját állapotában él: a felület minden lépés után
+// elküldi a változását (karakterValtozasok), és betöltéskor átveszi a karakterlap értékét (karakterekFrissitese).
+// A naplósor { kor, szoveg, dm? }: a dm jelölésűt a játékosok nem látják (például rejtett erősítés felvétele).
 import { resztvevokKibontasa, normalizal } from './osszecsapas.js';
 
 export const MAX_NAPLO = 80;
@@ -130,25 +134,27 @@ export function csataOsszecsapasbol(osszecsapasAdat, adatok, { meglepettOldalak 
       fontos: !!p.fontos, rejtett: !!p.rejtett, meglepett: meglepettOldalak.includes(p.oldal),
       kezdemenyezes: null, egeszseg: Math.min(max, Math.max(0, szam(a.egeszseg, max))), egeszseg_max: max, szivossag: szam(a.szivossag),
       allapot: szam(a.egeszseg, max) <= 0 && max > 0 ? (p.forras.tipus === 'karakter' || p.fontos ? 'haldoklik' : 'kiesett') : 'aktiv',
-      haldoklas_kor: null, feltetelek: [], hatasok: [], cselekves: uresCselekves(), gyogyithato: true
+      haldoklas_kor: null, feltetelek: [], hatasok: [], cselekves: uresCselekves(), gyogyithato: true,
+      magiapont: a.magiapont === undefined || a.magiapont === null ? null : szam(a.magiapont), ertekek: a.ertekek ? { ...a.ertekek } : null
     };
   });
   return {
     v: 1, allapot: 'kezdemenyezes', kor: 0, soron: null, sorrend: [], leptek: [],
     oldalak: o.oldalak, viszonyok: o.viszonyok, csoportok: o.csoportok, resztvevok,
-    naplo: [{ kor: 0, szoveg: 'A csata előkészítve: kezdeményezés.' }], visszavonas: [], kulcsok: []
+    naplo: [{ kor: 0, szoveg: 'A csata előkészítve: kezdeményezés.' }], visszavonas: [], kulcsok: [], fuggo: []
   };
 }
 
 const uresCselekves = () => ({ fo: 0, mellek: 0, plusz: 0, lista: [] });
 export const resztvevo = (cs, id) => (cs.resztvevok || []).find((r) => r.id === id) || null;
-const naplozas = (cs, szoveg) => { cs.naplo = (cs.naplo || []).concat([{ kor: cs.kor, szoveg }]).slice(-MAX_NAPLO); };
+const naplozas = (cs, szoveg, dm) => { cs.naplo = (cs.naplo || []).concat([dm ? { kor: cs.kor, szoveg, dm: true } : { kor: cs.kor, szoveg }]).slice(-MAX_NAPLO); };
 
 // ---------------- Lépések és visszavonás ----------------
 
 // Egy lépés: a változás előtti állapot elmentése (csak a megváltozott résztvevők), hogy visszavonható legyen.
 // fn a másolaton dolgozik (módosíthatja vagy újat adhat vissza). leiras: a napló és a Visszavonás gomb szövege.
-export function lepes(cs, leiras, fn, kulcs) {
+// opciok.szerzo: ki lépett (a játékos a saját utolsó lépését visszavonhatja); opciok.dm: a naplósor csak a DM-é.
+export function lepes(cs, leiras, fn, kulcs, { szerzo = '', dm = false } = {}) {
   const elotte = masol(cs);
   const uj = masol(cs);
   const eredmeny = fn(uj) || uj;
@@ -164,9 +170,11 @@ export function lepes(cs, leiras, fn, kulcs) {
     leiras, kor: elotte.kor, soron: elotte.soron, sorrend: elotte.sorrend, leptek: elotte.leptek, allapot: elotte.allapot,
     oldalak: JSON.stringify(elotte.oldalak) !== JSON.stringify(eredmeny.oldalak) ? elotte.oldalak : undefined,
     viszonyok: JSON.stringify(elotte.viszonyok) !== JSON.stringify(eredmeny.viszonyok) ? elotte.viszonyok : undefined,
-    resztvevok: valtozott, naplo_hossz: elotte.naplo.length, sorrend_r: elotte.resztvevok.map((r) => r.id)
+    resztvevok: valtozott, naplo_hossz: elotte.naplo.length, sorrend_r: elotte.resztvevok.map((r) => r.id),
+    fuggo: JSON.stringify(elotte.fuggo || []) !== JSON.stringify(eredmeny.fuggo || []) ? (elotte.fuggo || []) : undefined
   };
-  if (leiras) naplozas(eredmeny, leiras);
+  if (szerzo) rekord.szerzo = szerzo;
+  if (leiras) naplozas(eredmeny, leiras, dm);
   rekord.naplo_utana = eredmeny.naplo.length;
   eredmeny.visszavonas = (eredmeny.visszavonas || []).concat([rekord]).slice(-MAX_VISSZAVONAS);
   if (kulcs) eredmeny.kulcsok = (eredmeny.kulcsok || []).concat([kulcs]).slice(-MAX_KULCS);
@@ -184,6 +192,7 @@ export function visszavon(cs, kulcs) {
   ['kor', 'soron', 'sorrend', 'leptek', 'allapot'].forEach((k) => { uj[k] = rek[k]; });
   if (rek.oldalak) uj.oldalak = rek.oldalak;
   if (rek.viszonyok) uj.viszonyok = rek.viszonyok;
+  if (rek.fuggo) uj.fuggo = rek.fuggo;
   const r = rek.resztvevok || {};
   const meglevo = new Map(uj.resztvevok.map((x) => [x.id, x]));
   Object.keys(r).forEach((id) => { if (r[id]) meglevo.set(id, r[id]); else meglevo.delete(id); });
@@ -519,7 +528,7 @@ export function belepes(cs, id, kezdemenyezes) {
 // Új résztvevő a csata közben (gyors hozzáadás): a felület adja az alapadatait. csoportNev: a több példányban
 // felvett lény közös kezdeményezési csoportja (azonos néven egy csoport). A futó csatában az új résztvevő
 // a belépésre vár (rejtett), amíg kezdeményezést nem kap.
-export function resztvevoHozzaadas(cs, { forras, nev, oldal, fontos = false, rejtett = false, egeszseg, egeszseg_max, szivossag, kezdemenyezes = null, csoportNev = '' }) {
+export function resztvevoHozzaadas(cs, { forras, nev, oldal, fontos = false, rejtett = false, egeszseg, egeszseg_max, szivossag, kezdemenyezes = null, csoportNev = '', magiapont = null, ertekek = null }) {
   const id = ujId('cs');
   let csoport = '';
   if (csoportNev) {
@@ -531,7 +540,8 @@ export function resztvevoHozzaadas(cs, { forras, nev, oldal, fontos = false, rej
   cs.resztvevok.push({
     id, resztvevo_id: id, forras: { ...forras }, nev: String(nev || 'Új résztvevő'), oldal: oldal || (cs.oldalak[0] && cs.oldalak[0].id), csoport,
     fontos: !!fontos, rejtett: !!rejtett, meglepett: false, kezdemenyezes, egeszseg: Math.min(max, szam(egeszseg, max)), egeszseg_max: max,
-    szivossag: szam(szivossag), allapot: 'aktiv', haldoklas_kor: null, feltetelek: [], hatasok: [], cselekves: uresCselekves(), gyogyithato: true
+    szivossag: szam(szivossag), allapot: 'aktiv', haldoklas_kor: null, feltetelek: [], hatasok: [], cselekves: uresCselekves(), gyogyithato: true,
+    magiapont: magiapont === null || magiapont === undefined ? null : szam(magiapont), ertekek: ertekek ? { ...ertekek } : null
   });
   if (kezdemenyezes && !rejtett) belepes(cs, id, kezdemenyezes);
   else if (cs.allapot === 'fut' && !kezdemenyezes) resztvevo(cs, id).rejtett = true;
@@ -555,7 +565,8 @@ export function oldalValtas(cs, id, oldal) {
 
 // ---------------- Karakterek Egészsége ----------------
 
-// A játékos karakterek aktuális értékei a karakterlapról (betöltéskor, nem lépés): { [karakter id]: { egeszseg, egeszseg_max, szivossag } }.
+// A játékos karakterek aktuális értékei a karakterlapról (betöltéskor, nem lépés):
+// { [karakter id]: { egeszseg, egeszseg_max, szivossag, magiapont, ertekek } }.
 // Csak az eltérőt írja át; az állapot (haldoklás) a szabály szerint igazodik.
 export function karakterekFrissitese(cs, ertekek) {
   let valtozott = false;
@@ -565,6 +576,8 @@ export function karakterekFrissitese(cs, ertekek) {
     if (!e) return;
     if (Number.isFinite(Number(e.egeszseg_max)) && r.egeszseg_max !== Number(e.egeszseg_max)) { r.egeszseg_max = Number(e.egeszseg_max); valtozott = true; }
     if (Number.isFinite(Number(e.szivossag)) && r.szivossag !== Number(e.szivossag)) { r.szivossag = Number(e.szivossag); valtozott = true; }
+    if (e.magiapont !== undefined && e.magiapont !== null && Number.isFinite(Number(e.magiapont)) && r.magiapont !== Number(e.magiapont)) { r.magiapont = Number(e.magiapont); valtozott = true; }
+    if (e.ertekek && ertekekBeallitas(cs, r.id, e.ertekek)) valtozott = true;
     if (Number.isFinite(Number(e.egeszseg)) && r.egeszseg !== Number(e.egeszseg)) {
       const ertek = Number(e.egeszseg);
       if (r.allapot === 'halott') { r.egeszseg = ertek; valtozott = true; return; }
@@ -575,13 +588,40 @@ export function karakterekFrissitese(cs, ertekek) {
   return valtozott;
 }
 
-// A lépés során megváltozott karakter-Egészségek (a háttér ezeket a karakter állapotába írja): { [karakter id]: egeszseg }.
+// A résztvevő csataértékeinek (Védekezés, Páncélérték, Mágiapont maximuma, Akaraterő) frissítése a nézetből.
+// Igazat ad, ha változott valami.
+export function ertekekBeallitas(cs, id, e) {
+  const r = resztvevo(cs, id);
+  if (!r || !e) return false;
+  const uj = { ...(r.ertekek || {}) };
+  Object.keys(e).forEach((k) => { if (e[k] !== undefined) uj[k] = e[k]; });
+  if (JSON.stringify(uj) === JSON.stringify(r.ertekek || null)) return false;
+  r.ertekek = uj;
+  if ((r.magiapont === null || r.magiapont === undefined) && Number.isFinite(Number(uj.magiapont_max)) && Number(uj.magiapont_max) > 0) r.magiapont = Number(uj.magiapont_max);
+  return true;
+}
+
+// Mágiapont beállítása (0 és a maximum között).
+export function magiapontBeallitas(cs, id, ertek) {
+  const r = resztvevo(cs, id);
+  if (!r) return cs;
+  const max = r.ertekek && Number.isFinite(Number(r.ertekek.magiapont_max)) ? Number(r.ertekek.magiapont_max) : Infinity;
+  r.magiapont = Math.max(0, Math.min(max, Math.round(szam(ertek))));
+  return cs;
+}
+
+// A lépés során megváltozott karakter-értékek (a háttér ezeket a karakter állapotába írja):
+// { [karakter id]: { egeszseg, magiapont? } }.
 export function karakterValtozasok(elotte, utana) {
   const ki = {};
   (utana.resztvevok || []).forEach((r) => {
     if (r.forras.tipus !== 'karakter') return;
     const v = (elotte.resztvevok || []).find((x) => x.id === r.id);
-    if (!v || v.egeszseg !== r.egeszseg) ki[r.forras.id] = r.egeszseg;
+    const mpValt = r.magiapont !== null && r.magiapont !== undefined && (!v || v.magiapont !== r.magiapont);
+    if (!v || v.egeszseg !== r.egeszseg || mpValt) {
+      ki[r.forras.id] = { egeszseg: r.egeszseg };
+      if (r.magiapont !== null && r.magiapont !== undefined) ki[r.forras.id].magiapont = r.magiapont;
+    }
   });
   return ki;
 }

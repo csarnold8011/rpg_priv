@@ -83,7 +83,7 @@ ellenoriz(C.resztvevo(cs, id('Farkas 2')).allapot === 'kiesett', 'a szörny null
 t = C.lepes(cs, 'Gyógyítás', (x) => C.gyogyitas(x, id('Dorn'), 5, { heal: true }));
 dorn = C.resztvevo(t, id('Dorn'));
 ellenoriz(dorn.allapot === 'aktiv' && dorn.egeszseg === 5 && dorn.haldoklas_kor === null && dorn.gyogyithato === false, 'gyógyítás: a haldokló újra harcol, Gyógyítás nem jár újra');
-ellenoriz(JSON.stringify(C.karakterValtozasok(cs, t)) === JSON.stringify({ k1: 5 }), 'karakter-változás a háttérnek');
+ellenoriz(JSON.stringify(C.karakterValtozasok(cs, t)) === JSON.stringify({ k1: { egeszseg: 5 } }), 'karakter-változás a háttérnek');
 t = C.lepes(t, 'Sebzés', (x) => C.sebzesAlkalmazas(x, id('Dorn'), 1));
 ellenoriz(C.resztvevo(t, id('Dorn')).gyogyithato === true, 'újabb sebzés után ismét gyógyítható');
 t = C.gyogyitas(JSON.parse(JSON.stringify(t)), id('Dorn'), 100);
