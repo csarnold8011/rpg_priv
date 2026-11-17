@@ -6,6 +6,7 @@ import * as F from '../../web/js/kampany/fa.js';
 import * as KP from '../../web/js/kampany/kapcsolat.js';
 import * as KR from '../../web/js/kampany/keret.js';
 import * as G from '../../web/js/kampany/generator.js';
+import * as KL from '../../web/js/kampany/kaland.js';
 
 let hibak = 0;
 let db = 0;
@@ -247,6 +248,62 @@ let kk = G.kikapcsolValt({}, 't1', 3);
 kk = G.kikapcsolValt(kk, 't1', 1);
 ellenoriz(kk.t1.join() === '1,3' && !G.kikapcsolValt(G.kikapcsolValt({}, 't1', 3), 't1', 3).t1, 'sor ki- és bekapcsolása');
 ellenoriz(G.sorEsely(TABLAK[3], 0) === 50 && G.sorEsely(TABLAK[0], 2) === 1.9, 'sor esélye százalékban');
+
+// ---------- Kalandok (2. fejezet) ----------
+let szamlalo = 0;
+const ujId = () => 'el_t' + (++szamlalo);
+const kal = { id: 'k1', tipus: 'kaland', kampany_id: 'c1', vilag_id: '', alap_id: '', szulo_id: '', sorrend: 10, adat: { nev: 'A pestis', formatum: 'harom', iv: 'kezdo' } };
+let reszek = KL.formatumReszek(kal, 'harom', [kal], ujId);
+ellenoriz(reszek.length === 3 && reszek.every((r) => r.szulo_id === 'k1' && r.kampany_id === 'c1' && r.tipus === 'resz') && reszek[0].adat.formatum_resz === 'expozicio', 'három felvonás: három rész a kaland alatt');
+ellenoriz(KL.formatumReszek(kal, 'ot', [kal].concat(reszek), ujId).length === 0, 'meglévő részeknél a formátum nem hoz újat');
+ellenoriz(KL.formatumReszek(kal, 'ot', [kal], ujId).length === 5 && KL.formatumReszek(kal, 'szabad', [kal], ujId).length === 0, 'öt felvonás öt részt, a szabad formátum semmit');
+const pp = KL.formatumReszek(kal, 'plotpont', [kal], ujId);
+ellenoriz(pp.length === 1 && pp[0].adat.formatum_resz === 'lezaras', 'plot-point: a lezárás rész');
+reszek[0].adat.utemek = [{ id: 'u1', szoveg: 'Pestis a városban' }, { id: 'u2', szoveg: 'Megbízás' }];
+reszek[1].adat.utemek = [{ id: 'u3', szoveg: 'Őrök támadnak', jelenet_id: 'j1' }, { id: 'u4', szoveg: 'Nyom a fogadóban', kotetlen: true },
+  { id: 'u5', szoveg: 'Nyom a kúriában', kotetlen: true }, { id: 'u6', szoveg: 'Nyom a szegényházban', kotetlen: true }, { id: 'u7', szoveg: 'Pihenő', szunet: true }];
+reszek[2].adat.utemek = [{ id: 'u8', szoveg: 'Végső csata', nagy_csata: true }];
+const jel = { id: 'j1', tipus: 'jelenet', kampany_id: 'c1', szulo_id: reszek[1].id, sorrend: 10, adat: { nev: 'Az őrök' } };
+let kElemek = [kal].concat(reszek, [jel]);
+let kix = E.index(kElemek);
+const sor = KL.utemSor(kal, kElemek, kix);
+ellenoriz(sor.map((x) => x.utem.id).join() === 'u1,u2,u3,u4,u5,u6,u7,u8', 'ütemsor a részek sorrendjében');
+const cs = KL.utemCsoportok(sor);
+ellenoriz(cs.length === 6 && cs[3].kotetlen && cs[3].utemek.join() === '3,4,5', 'a kötetlen ütemek egy csoportot alkotnak');
+ellenoriz(KL.utemFigyelmeztetesek(sor).length === 1 && KL.utemFigyelmeztetesek(sor.slice(1)).length === 0, 'hat ütem pihenő nélkül figyelmeztet, öt még nem');
+let ab = KL.alkalomBeosztas(sor, { alkalmak: 2, jelenet_alkalom: 4 });
+ellenoriz(ab.becsult === 2 && ab.alkalmak[1].utemek.join() === '4,5,6,7' && ab.figyelmeztetesek.length === 1 && ab.figyelmeztetesek[0].index === 7, 'alkalmakra bontás: a nagy csata az alkalom végén figyelmeztet');
+ab = KL.alkalomBeosztas(sor, { alkalmak: 1, jelenet_alkalom: 3 });
+ellenoriz(ab.becsult === 3 && ab.figyelmeztetesek.some((f) => f.index === -1) && !ab.figyelmeztetesek.some((f) => f.index === 7), 'több alkalom kell, mint a terv; a csata nem a végén');
+ellenoriz(KL.alkalomBeosztas(sor, {}).alkalmak.length === 0, 'jelenetszám nélkül nincs beosztás');
+ellenoriz(KL.utemMozgat([1, 2, 3], 0, 1).join() === '2,1,3' && KL.utemMozgat([1, 2, 3], 0, -1).join() === '1,2,3', 'ütem mozgatása');
+ellenoriz(KL.jelenetFelold('j1', kal, kElemek, kix) === jel && KL.kalandJelenetei(kal, kElemek, kix).length === 1, 'ütem jelenete a kaland fáján');
+ellenoriz(KL.kalandja(jel, kix) === kal && KL.reszUtmutato(reszek[1], kal, kix).kulcs === 'bonyodalom', 'a jelenet kalandja, a rész útmutatója');
+const osz = KL.kalandOsszegzes(kal, kElemek, kix);
+ellenoriz(osz.reszek === 3 && osz.jelenetek === 1 && osz.utemek === 8, 'kaland összegzése');
+// sablon kaland példányosítása részeivel és jeleneteivel
+const sk = { id: 's_k', tipus: 'kaland', vilag_id: '', kampany_id: '', alap_id: '', szulo_id: '', adat: { nev: 'Sablon kaland', iv: 'gyakorlott' } };
+const sr = { id: 's_r', tipus: 'resz', szulo_id: 's_k', sorrend: 10, adat: { nev: 'Rész', utemek: [{ id: 'x', szoveg: 'Ütem', jelenet_id: 's_j' }] } };
+const sj = { id: 's_j', tipus: 'jelenet', szulo_id: 's_r', sorrend: 10, adat: { nev: 'Jelenet' } };
+const sArch = { id: 's_a', tipus: 'jelenet', szulo_id: 's_r', sorrend: 20, aktiv: false, adat: { nev: 'Archivált' } };
+const sablonElemek = [sk, sr, sj, sArch];
+const pf = KL.peldanyFa(sk, sablonElemek, { kampany_id: 'c1', szulo_id: '', sorrend: 50 }, ujId);
+ellenoriz(pf.length === 3 && pf[0].alap_id === 's_k' && pf[1].alap_id === 's_r' && pf[1].szulo_id === pf[0].id && pf[2].szulo_id === pf[1].id && pf.every((x) => x.kampany_id === 'c1'), 'példány a részeivel és jeleneteivel, az archivált nélkül');
+const mind = sablonElemek.concat(pf);
+const pix = E.index(mind);
+ellenoriz(KL.jelenetFelold('s_j', pf[0], mind, pix) === pf[2], 'örökölt ütem jelenete a példány jelenetére oldódik');
+ellenoriz(E.mezoErtek(pf[0], 'iv', pix).ertek === 'gyakorlott', 'a példány örökli az ívet');
+const csop = KL.ivSzerint([kal, pf[0], { ...kal, id: 'k3', adat: { nev: 'Ív nélkül' } }], pix);
+ellenoriz(csop[0].kalandok.length === 1 && csop[1].kalandok[0] === pf[0] && csop[5].iv === null && csop[5].kalandok.length === 1, 'kalandok ív szerint, ív nélküliek külön');
+const tv = [{ id: 'a', sorrend: 10 }, { id: 'b', sorrend: 20 }, { id: 'c', sorrend: 20 }];
+const sfa = KL.sablonFa(pf[0], mind, pix, ujId);
+ellenoriz(sfa.length === 3 && sfa.every((x) => E.szint(x) === 'sablon' && !x.alap_id) && sfa[1].szulo_id === sfa[0].id && sfa[2].szulo_id === sfa[1].id
+  && sfa[1].adat.utemek[0].jelenet_id === sfa[2].id && sfa[0].adat.iv === 'gyakorlott', 'sablon a kalandból a részeivel; az ütem a sablon jelenetére mutat');
+const cs2 = KL.sorrendCsere(tv, 'c', -1);
+ellenoriz(cs2.length === 1 && cs2[0].id === 'b' && cs2[0].sorrend === 30 && KL.sorrendCsere(tv, 'a', 1).length === 3 && KL.sorrendCsere(tv, 'a', -1).length === 0, 'sorrendcsere a testvérek közt');
+ellenoriz(KL.ellenfelNorm({ terv: [{ szoveg: 'x' }] }).terv[0].id === 'tl1' && KL.njkkNorm([{ szerep: 'rossz' }])[0].szerep === 'segito' && KL.hosszNorm({ alkalmak: '3' }).alkalmak === 3, 'mezők normalizálása');
+const la = KL.lepesAllapot({ formatum: 'harom', konfliktus: 'x', utemek: [{ szoveg: 'a' }] });
+ellenoriz(la.hasznalat === 'resz' && la.tortenet === 'resz' && la.utemek === 'kesz' && la.otlet === 'ures', 'a lépések kitöltöttsége');
 
 console.log(hibak ? `\n${hibak} HIBA (${db} ellenőrzésből)` : `\nMind a ${db} ellenőrzés sikeres.`);
 process.exit(hibak ? 1 : 0);

@@ -1,6 +1,6 @@
 // Kampányépítő (DM): a kampány áttekintő oldala a Kampányépítő könyv 1. fejezete (Building the Campaign Framework)
 // és a könyv végi kampány-munkalap (Campaign Worksheet) szerint, a kampány elemei és a kampány dobótáblái.
-// Útvonal: #/dm/kampany/<id>/epito[/keret | /elemek | /elem/<id> | /dobotablak]. Minden mező kihagyható, a mentés
+// Útvonal: #/dm/kampany/<id>/epito[/keret | /kalandok | /elemek | /elem/<id> | /dobotablak]. Minden mező kihagyható, a mentés
 // automatikus. Tiszta függvények: web/js/kampany/keret.js. Terv: claude/kampanyepito-terv.md, „1. fejezet”.
 import {
   html, K, useApp, useState, useEffect, useMemo, useLekeres, navigal, Ikon, Betoltes, Uzenet, Valaszto, Jelolo,
@@ -11,6 +11,7 @@ import * as KR from '../kampany/keret.js';
 import * as E from '../kampany/elem.js';
 import { usePrep, useAutoMentes, MentesJel, ElemSzerkeszto, ElemFa, UjElemParbeszed, ujAzon } from './epito.js';
 import { GeneratorPanel } from './dobotabla.js';
+import { KalandokNezet, IvKalandjai } from './epito_kaland.js';
 import { forrasSzerint, megjelenitettNev } from '../szabalyok.js';
 import { beallitasValtozas } from '../jatek/probakeres.js';
 import * as G from '../kampany/generator.js';
@@ -24,10 +25,12 @@ export function KampanyEpitoOldal({ kampanyId, ut, Oldalfej, dm }) {
   const cim = kampany ? kampany.cim : 'Kampány';
   const [lap, azon] = ut;
   if (lap === 'elem' && azon) {
+    const e = prep.adat ? prep.ix.get(azon) : null;
+    const kalandos = e && ['kaland', 'resz', 'jelenet'].includes(e.tipus);
     return html`<${ElemSzerkeszto} key=${azon} id=${azon} prep=${prep} cel=${cel} Oldalfej=${Oldalfej}
-      vissza=${['#/dm/kampany/' + kampanyId + '/epito/elemek', cim + ': elemek']}/>`;
+      vissza=${kalandos ? ['#/dm/kampany/' + kampanyId + '/epito/kalandok', cim + ': kalandok'] : ['#/dm/kampany/' + kampanyId + '/epito/elemek', cim + ': elemek']}/>`;
   }
-  const fulek = [['keret', 'Kampánykeret'], ['elemek', 'Elemek'], ['dobotablak', 'Dobótáblák']];
+  const fulek = [['keret', 'Kampánykeret'], ['kalandok', 'Kalandok'], ['elemek', 'Elemek'], ['dobotablak', 'Dobótáblák']];
   const aktiv = fulek.some((f) => f[0] === lap) ? lap : 'keret';
   return html`<div>
     <${Oldalfej} cim=${'Kampányépítő: ' + cim} vissza=${['#/dm/kampany/' + kampanyId, cim]}/>
@@ -36,6 +39,7 @@ export function KampanyEpitoOldal({ kampanyId, ut, Oldalfej, dm }) {
         className=${'epito__ful' + (aktiv === k ? ' epito__ful--aktiv' : '')}>${n}</a>`)}
     </nav>
     ${prep.hiba && !prep.adat ? html`<${Uzenet}>${prep.hiba.message}<//>` : !prep.adat ? html`<${Betoltes} szoveg="Az előkészítés betöltése…"/>`
+      : aktiv === 'kalandok' ? html`<${KalandokNezet} prep=${prep} cel=${cel}/>`
       : aktiv === 'elemek' ? html`<${KampanyElemek} prep=${prep} cel=${cel}/>`
       : aktiv === 'dobotablak' ? html`<${KampanyDobotablak} prep=${prep}/>`
       : html`<${KeretSzerkeszto} key=${kampanyId} prep=${prep} kampany=${kampany} dm=${dm}/>`}
@@ -67,8 +71,8 @@ function KampanyElemek({ prep, cel }) {
     <${K.Panel} title="Szintek és öröklés">
       <p className="szoveg">A kampányelem csak ebben a kampányban él. Ha egy sablonra vagy a világ egy elemére épül, az alapja minden mezőjét
         örökli, és csak az eltéréseit tárolja; a mező mellett látszik, honnan jön az értéke. A világ elemei (zöld helyett kék jelölés) minden kampányban
-        ugyanazok: ha itt másként kellenek, a szerkesztőjükben „Kampányváltozat” készíthető. A kalandok, jelenetek, helyszínek és a többi elemtípus
-        saját mezői a következő alépésekben kerülnek be, a könyv fejezetei szerint.</p>
+        ugyanazok: ha itt másként kellenek, a szerkesztőjükben „Kampányváltozat” készíthető. A kalandok, részeik és jeleneteik ívenként a Kalandok
+        fülön látszanak együtt. A jelenetek, helyszínek és a többi elemtípus saját mezői a következő alépésekben kerülnek be, a könyv fejezetei szerint.</p>
     <//>
     ${uj ? html`<${UjElemParbeszed} prep=${prep} cel=${cel} onBezar=${() => setUj(false)}/>` : null}
   </div>`;
@@ -343,14 +347,14 @@ function KihivasokLepes({ k, allit, setK, lapok, api }) {
 }
 
 // ---- A kampány ívei ----
-function IvekLepes({ k, allit }) {
+function IvekLepes({ k, allit, prep, kampany }) {
   return html`<${Lepes} lepes=${KR.LEPESEK[6]}>
     ${KR.IVEK.map((iv) => {
       const x = k.ivek[iv.kulcs];
       const aktiv = KR.ivAktiv(iv, k);
       const mezo = (m, label, sorok) => html`<${K.TextField} label=${label} multiline=${sorok > 1} rows=${sorok} value=${x[m]}
         onChange=${(e) => allit('ivek.' + iv.kulcs + '.' + m, e.target.value)}/>`;
-      return html`<details key=${iv.kulcs} className="lenyilo keret__iv" open=${aktiv && (iv.kulcs === 'kezdo' || !!x.cel) ? true : undefined}>
+      return html`<details key=${iv.kulcs} className="lenyilo keret__iv" open=${aktiv && (iv.kulcs === 'kezdo' || !!x.cel || (kampany && prep.adat.elemek.some((e) => e.tipus === 'kaland' && e.kampany_id === kampany.id && E.megjelenitett(e, prep.ix).iv === iv.kulcs))) ? true : undefined}>
         <summary>${iv.nev} (${iv.en}), ${iv.tol}–${iv.ig}. szint${!aktiv ? html` <span className="halvany kicsi">a tervezett szintsávon kívül</span>` : null}
           ${x.cel ? html` <span className="halvany kicsi">· ${x.cel.slice(0, 60)}</span>` : null}</summary>
         <div className="urlap-racs">
@@ -360,9 +364,10 @@ function IvekLepes({ k, allit }) {
           ${mezo('helyszinek', 'Fő helyszínek (Key Locations)', 2)}
         </div>
         ${mezo('keretvaltas', 'Keretváltás ebben az ívben (ha tervezed)', 1)}
+        ${kampany ? html`<${IvKalandjai} prep=${prep} ivKulcs=${iv.kulcs} kampanyId=${kampany.id}/>` : null}
       </details>`;
     })}
-    <p className="halvany kicsi">A specializációk a 4. és a 12. szinten jönnek, a mesterfokok a 8. és a 16. szinten, a 20. szint epikus: ezért négyszintenként érdemes ívet váltani. A kalandok az 5.2 alépéstől köthetők az ívekhez.</p>
+    <p className="halvany kicsi">A specializációk a 4. és a 12. szinten jönnek, a mesterfokok a 8. és a 16. szinten, a 20. szint epikus: ezért négyszintenként érdemes ívet váltani. A kalandot a szerkesztőjében vagy a Kalandok fülön kötheted egy ívhez.</p>
   <//>`;
 }
 

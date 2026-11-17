@@ -9,8 +9,15 @@ import {
 import * as E from '../kampany/elem.js';
 import * as F from '../kampany/fa.js';
 import * as KP from '../kampany/kapcsolat.js';
+import { peldanyFa, sablonFa } from '../kampany/kaland.js';
 import { DobotablaParbeszed } from './dobotabla.js';
 import { megjelenitettNev } from '../szabalyok.js';
+
+// A típusok saját mezői az elemszerkesztőben (a későbbi alépések moduljai töltik fel, például epito_kaland.js).
+// Függvény: ({ elem, ix, valt, prep, cel }) => tartalom.
+export const SAJAT_MEZOK = {};
+// A szerkezeti típusok, amelyek a kiinduló alapjukból a részfájukkal együtt példányosíthatók.
+const FAVAL_PELDANYOSITHATO = ['kaland', 'resz'];
 
 export const ujAzon = (elotag) => elotag + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const lapokBol = (szabalyok) => (szabalyok && szabalyok.adat && szabalyok.adat.lapok) || {};
@@ -212,34 +219,51 @@ export function ElemFa({ elemek, ix, cel, aktivId }) {
 // ================= Új elem =================
 
 // cel: a nézet; szulo: ha egy elem alá kerül. A kiindulás lehet üres, sablon vagy (kampányban) világelem.
-export function UjElemParbeszed({ prep, cel, szulo, tipusok, onBezar }) {
+// maradj: létrehozás után nem nyílik meg a szerkesztő (például a Kalandok fájából). elokeszit(e, { alapbol }): az új
+// elem kiegészítése mentés előtt (saját mezők alapértéke). extra: további mezők a párbeszéd alján.
+export function UjElemParbeszed({ prep, cel, szulo, tipusok, onBezar, maradj, elokeszit, cim, extra }) {
   const lehetseges = (tipusok || Object.keys(E.ELEMTIPUSOK)).filter((t) => !E.ELEMTIPUSOK[t].csakSablon || cel.szint === 'sablon')
     .filter((t) => !szulo || E.ELEMTIPUSOK[t].szulok.includes(szulo.tipus));
   const [tipus, setTipus] = useState(lehetseges[0] || 'helyszin');
   const [nev, setNev] = useState('');
   const [alap, setAlap] = useState('');
+  const [favalEgyutt, setFavalEgyutt] = useState(true);
   const [fut, indit] = useMuvelet();
   const minta = { tipus, vilag_id: cel.szint === 'vilag' ? cel.vilag_id : '', kampany_id: cel.szint === 'kampany' ? cel.kampany_id : '' };
   const jeloltek = E.alapJeloltek(minta, (prep.adat && prep.adat.elemek) || []);
+  const alapElem = alap ? prep.ix.get(alap) : null;
+  const alapLeszarmazottak = alapElem && FAVAL_PELDANYOSITHATO.includes(alapElem.tipus)
+    ? F.leszarmazottak(alapElem, prep.adat.elemek).filter((x) => x.aktiv !== false) : [];
   const letrehoz = () => indit(async () => {
     const id = ujAzon('el');
     const celAdat = { ...minta, szulo_id: szulo ? szulo.id : '', sorrend: F.kovetkezoSorrend(prep.adat.elemek, szulo ? szulo.id : '') };
     let e;
+    let tovabbiak = [];
     if (alap) {
-      e = E.peldany(prep.ix.get(alap), celAdat, id);
+      if (alapLeszarmazottak.length && favalEgyutt) {
+        let elso = true;
+        const lista = peldanyFa(alapElem, prep.adat.elemek, celAdat, () => (elso ? (elso = false, id) : ujAzon('el')));
+        e = lista[0];
+        tovabbiak = lista.slice(1);
+      } else {
+        e = E.peldany(alapElem, celAdat, id);
+      }
       if (nev.trim()) e = E.mezoBeallit(e, 'nev', nev.trim(), E.index(prep.adat.elemek.concat([e])));
     } else {
       if (!nev.trim()) throw new Error('Adj nevet az elemnek.');
       e = E.ujElem(tipus, celAdat, id, nev.trim());
     }
+    const ixUj = E.index(prep.adat.elemek.concat([e]));
+    if (elokeszit) e = elokeszit(e, { alapbol: !!alap, ix: ixUj }) || e;
     const h = E.ellenoriz(e, E.index(prep.adat.elemek.concat([e])));
     if (h.length) throw new Error(h[0]);
     prep.elemMent(e).catch(() => {});
-    onBezar();
-    navigal(elemUt(cel, id).slice(1));
+    tovabbiak.forEach((x) => prep.elemMent(x).catch(() => {}));
+    onBezar(e);
+    if (!maradj) navigal(elemUt(cel, id).slice(1));
   });
-  return html`<${Parbeszed} cim=${szulo ? 'Új elem ez alá: ' + E.nev(szulo, prep.ix) : 'Új elem'} onBezar=${onBezar} lab=${html`
-    <${K.Button} variant="quiet" onClick=${onBezar}>Mégse<//>
+  return html`<${Parbeszed} cim=${cim || (szulo ? 'Új elem ez alá: ' + E.nev(szulo, prep.ix) : 'Új elem')} onBezar=${() => onBezar()} lab=${html`
+    <${K.Button} variant="quiet" onClick=${() => onBezar()}>Mégse<//>
     <${K.Button} variant="primary" disabled=${fut} onClick=${letrehoz}>Létrehozás<//>`}>
     <div className="verem">
       ${lehetseges.length > 1 ? html`<${Valaszto} label="Típus" value=${tipus} onChange=${(t) => { setTipus(t); setAlap(''); }}
@@ -249,6 +273,9 @@ export function UjElemParbeszed({ prep, cel, szulo, tipusok, onBezar }) {
         opciok=${jeloltek.map((x) => ({ value: x.id, label: E.nev(x, prep.ix) + ' (' + E.SZINTEK[E.szint(x)].toLowerCase() + ')' }))}/>` : null}
       <${K.TextField} label="Név" value=${nev} onChange=${(e) => setNev(e.target.value)} placeholder=${alap ? E.nev(prep.ix.get(alap), prep.ix) : ''}
         hint=${alap ? 'Üresen az alap neve látszik.' : ''}/>
+      ${alapLeszarmazottak.length ? html`<${Jelolo} checked=${favalEgyutt} onChange=${setFavalEgyutt}>
+        A részeivel és jeleneteivel együtt (${alapLeszarmazottak.length} elem, mind az alapjára épülve)<//>` : null}
+      ${extra || null}
     </div>
   <//>`;
 }
@@ -387,8 +414,14 @@ export function ElemSzerkeszto({ id, prep, cel, Oldalfej, vissza, sajatMezok }) 
     uzen(celSzint === 'kampany' ? 'Kampányváltozat készült: csak az eltéréseket kell beírni.' : 'Világváltozat készült.');
   };
   const sablonKeszit = () => {
-    const id2 = ujAzon('el');
-    prep.elemMent(E.sablonbol(e, ix, id2)).catch(() => {});
+    const elemekMost = prep.adat.elemek.map((x) => (x.id === e.id ? e : x));
+    const lesz = FAVAL_PELDANYOSITHATO.includes(e.tipus) ? F.leszarmazottak(e, elemekMost).filter((x) => x.aktiv !== false) : [];
+    if (lesz.length) {
+      sablonFa(e, elemekMost, ix, () => ujAzon('el')).forEach((x) => prep.elemMent(x).catch(() => {}));
+      uzen('Sablon készült a Sablontárban, ' + lesz.length + ' részével és jelenetével együtt.');
+      return;
+    }
+    prep.elemMent(E.sablonbol(e, ix, ujAzon('el'))).catch(() => {});
     uzen('Sablon készült a Sablontárban.');
   };
   const dobasElfogad = (eredmeny, jegyzet, mezo, tablaNev) => {
@@ -436,7 +469,7 @@ export function ElemSzerkeszto({ id, prep, cel, Oldalfej, vissza, sajatMezok }) 
             </div>
           </div>
         <//>
-        ${sajatMezok ? sajatMezok({ elem: e, ix, valt }) : tipus.alepes && tipus.alepes !== '5.1' ? html`<p className="halvany kicsi">A ${tipus.nev.toLowerCase()} saját mezői a(z) ${tipus.alepes} alépésben kerülnek ide (a könyv megfelelő fejezete szerint).</p>` : null}
+        ${(sajatMezok || SAJAT_MEZOK[e.tipus]) ? (sajatMezok || SAJAT_MEZOK[e.tipus])({ elem: e, ix, valt, prep, cel }) : tipus.alepes && tipus.alepes !== '5.1' ? html`<p className="halvany kicsi">A ${tipus.nev.toLowerCase()} saját mezői a(z) ${tipus.alepes} alépésben kerülnek ide (a könyv megfelelő fejezete szerint).</p>` : null}
         ${(adat.dobasok || []).length ? html`<${K.Panel} title="Dobások menete">
           <ul className="sorlista">${adat.dobasok.slice().reverse().map((d, i) => html`<li key=${i} className="sorlista__sor sorlista__sor--fuggoleges">
             <span className="halvany kicsi">${idopont(d.ido)} · ${d.tabla} → ${E.MEZO_NEV[d.mezo] || d.mezo}</span>
