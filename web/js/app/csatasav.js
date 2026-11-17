@@ -57,7 +57,9 @@ function useJatekosCsata(szerver) {
 }
 
 function CsataSav({ szerver, allapot, naploz }) {
-  const { szabalyok, felhasznalo } = useApp();
+  const { szabalyok, felhasznalo, sync } = useApp();
+  // amíg a csata látszik, gyorsabb változásfigyelés (1 másodperc)
+  useEffect(() => { sync.gyors(true); return () => sync.gyors(false); }, []);
   const lapok = lapokBol(szabalyok);
   const { cs, vegrehajt, fuggoben } = useJatekosCsata(szerver);
   const [ablak, setAblak] = useState(null);

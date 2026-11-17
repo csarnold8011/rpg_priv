@@ -22,6 +22,8 @@ export class AppsScriptSync {
     this.api = api;
     this.idokoz = beallitas.idokoz || 3000;           // ennyi ms-enként kérdez rá a változásra
     this.hatterIdokoz = beallitas.hatterIdokoz || 20000; // ha a lap a háttérben van
+    this.gyorsIdokoz = beallitas.gyorsIdokoz || 1000;  // csata közben (gyors())
+    this._gyors = 0;
     this.kampanyId = null;
     this.verzio = null;
     this.allapot = null;
@@ -122,15 +124,32 @@ export class AppsScriptSync {
   }
 
   async _figyeles() {
-    if (!this._futo) return;
+    if (!this._futo || this._figyelFolyik) return;
+    this._figyelFolyik = true;
     try {
-      const v = await this.api.hivas('state.poll', { kampany_id: this.kampanyId });
+      const kampanyId = this.kampanyId;
+      const v = await this.api.hivas('state.poll', { kampany_id: kampanyId, ismert: this.verzio, teljes: true });
       this.online = true;
-      if (v.verzio !== this.verzio) await this.pull();
+      if (v.allapot && kampanyId === this.kampanyId) {
+        // a változás egy hívással megérkezett
+        this.allapot = v.allapot;
+        this.verzio = v.allapot.verzio;
+        this.utolsoSzinkron = new Date();
+        this._kuld({ tipus: 'allapot', allapot: v.allapot });
+        this._statusz();
+      } else if (v.verzio !== this.verzio) await this.pull();
     } catch (e) {
       if (e.kod === 'halozat') { this.online = false; this._statusz(); }
+    } finally {
+      this._figyelFolyik = false;
     }
-    this._kovetkezo(document.hidden ? this.hatterIdokoz : this.idokoz);
+    this._kovetkezo(document.hidden ? this.hatterIdokoz : (this._gyors > 0 ? this.gyorsIdokoz : this.idokoz));
+  }
+
+  // Gyors figyelés (például amíg csata fut és látszik): be/ki, számlálóval, hogy több nézet is kérhesse.
+  gyors(be) {
+    this._gyors = Math.max(0, (this._gyors || 0) + (be ? 1 : -1));
+    if (be && this._futo) this._kovetkezo(0);
   }
 
   async _sorKuldese() {

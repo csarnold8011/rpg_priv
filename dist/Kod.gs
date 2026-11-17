@@ -2656,9 +2656,15 @@ function kampanyVerziokNovelese_(ids, kampanyok) {
 }
 
 // action: state.poll   adat: { kampany_id }
-function allapotFigyeles_(a) {
+// adat: { kampany_id, ismert?: a kliens verziója, teljes?: igaz }. Ha a teljes kérés és a verzió eltér az ismerttől,
+// a válasz rögtön a kampány állapotát is hozza (state.get), így a változás egy hívással megérkezik.
+function allapotFigyeles_(a, felh) {
   if (!a.kampany_id) throw hiba_('hianyzo_adat', 'Hiányzik a kampány azonosítója.');
-  return { verzio: kampanyVerzio_(a.kampany_id) };
+  const verzio = kampanyVerzio_(a.kampany_id);
+  if (a.teljes && a.ismert !== undefined && a.ismert !== null && Number(a.ismert) !== Number(verzio)) {
+    return { verzio: verzio, allapot: allapotLekerese_({ kampany_id: a.kampany_id }, felh) };
+  }
+  return { verzio: verzio };
 }
 
 // ===== Karakterek.gs =====

@@ -410,6 +410,16 @@ ellenoriz(csata2 && !csata2.osszecsapas_id, 'gyors csata összecsapás nélkül'
 ellenoriz(hivas('combat.delete', { id: csata2.id }, dm2).ok && !hivas('state.get', { kampany_id: kampany.id }, dm2).csatak.some(c => c.id === csata2.id), 'csata törlése');
 
 
+// ---------- Változásfigyelés egy hívással ----------
+{
+  const pv = hivas('state.poll', { kampany_id: kampany.id }, bencT3).verzio;
+  const azonos = hivas('state.poll', { kampany_id: kampany.id, ismert: pv, teljes: true }, bencT3);
+  ellenoriz(azonos.ok && azonos.verzio === pv && !azonos.allapot, 'változatlan verziónál a figyelés könnyű marad');
+  const elteres = hivas('state.poll', { kampany_id: kampany.id, ismert: pv - 1, teljes: true }, bencT3);
+  ellenoriz(elteres.ok && elteres.allapot && elteres.allapot.kampany.id === kampany.id && !elteres.allapot.osszecsapasok, 'eltérő verziónál a figyelés rögtön a (szűrt) állapotot hozza');
+  ellenoriz(hivas('state.poll', { kampany_id: kampany.id, ismert: 0, teljes: true }, 'rossz-token').hiba, 'érvénytelen belépéssel nincs állapot');
+}
+
 // ---------- Csata: a játékos oldala (3. lépés, 5. ütem) ----------
 const kapitany = hivas('npc.save', { nev: 'Őrkapitány', fajta: 'statblokk', kampanyok: [kampany.id], adat: { statblokk: { egeszseg: 20 }, allapot: {} } }, dm2).njk;
 const resz = (id, forras, nev, oldal, extra) => Object.assign({ id, resztvevo_id: id, forras, nev, oldal, csoport: '', fontos: false, rejtett: false, meglepett: false,

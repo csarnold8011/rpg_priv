@@ -174,6 +174,8 @@ export function CsataInditasParbeszed({ allapot, osszecsapas = null, onBezar, on
 function useCsata(kampanyId, id) {
   const { sync, uzen } = useApp();
   const ka = useKampanyAllapot(kampanyId);
+  // csata közben gyorsabb változásfigyelés (1 másodperc)
+  useEffect(() => { sync.gyors(true); return () => sync.gyors(false); }, []);
   const szerver = ka.allapot && (ka.allapot.csatak || []).find((c) => c.id === id);
   const [cs, setCsAllapot] = useState(null);
   const [pk, setPk] = useState({});
