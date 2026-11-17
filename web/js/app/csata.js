@@ -922,7 +922,9 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
   const siker = dobas && dobas.siker;
   const mutKesz_ = !dobas || !dobas.mp || !siker || !!mut;
   const celKell = !!(sebzo || gyogyKif || proba);
-  const kesz = dobas && !mutNyitva && mutKesz_ && (!siker || !celKell || celLista.length > 0) && (!siker || (
+  // a varázslat ideje szerinti cselekvés (fő, kis vagy szabad) maradt-e még ebben a körben
+  const cselekvesVan = C.cselekvesEngedett(r, v.fajta);
+  const kesz = cselekvesVan && dobas && !mutNyitva && mutKesz_ && (!siker || !celKell || celLista.length > 0) && (!siker || (
     (!sebzo || !celLista.length || teljes || v.sebzes.kocka === 0) && (!kellCsokk || !celLista.length || csokk) &&
     (!vh.extra_kocka || !sebzo || !celLista.length || (extra && extraCel)) && (!gyogyKif || !celLista.length || gyogy || gyogyKif.kocka === 0)));
   const alkalmaz = () => {
@@ -943,7 +945,7 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
     <${K.Button} variant="primary" disabled=${!kesz} onClick=${alkalmaz}>Alkalmazás<//>`}>
     <div className="verem">
       <${Valaszto} label="Varázslat" value=${v.id} onChange=${(x) => { setVId(x); setMpSzam(''); setCelok(null); uj(); }}
-        opciok=${lista.map((x) => ({ value: x.v.id, label: `${x.v.nev} (${x.v.mp.min}${x.v.mp.plusz ? '+' : ''} MP${x.v.celertek ? ', Célérték ' + x.v.celertek : ''})` }))}/>
+        opciok=${lista.map((x) => ({ value: x.v.id, label: `${x.v.nev} (${x.v.mp.min}${x.v.mp.plusz ? '+' : ''} MP${x.v.celertek ? ', Célérték ' + x.v.celertek : ''}${C.cselekvesEngedett(r, x.v.fajta) ? '' : ', most nem vethető'})` }))}/>
       <p className="halvany kicsi" style=${{ margin: 0 }}>${[v.fajta === 'mellek' ? 'kis cselekvés' : v.fajta === 'szabad' ? 'szabad cselekvés' : 'fő cselekvés',
         v.terulet ? 'terület: ' + v.terulet : '', v.sebzes_szoveg ? 'sebzés: ' + v.sebzes_szoveg + (v.atuto ? ' (átütő)' : '') : '',
         v.gyogyitas_szoveg ? 'gyógyítás: ' + v.gyogyitas_szoveg : '', proba ? `célpont próbája: ${proba.nev} a Varázserő (${varazsero}) ellen` : ''].filter(Boolean).join(' · ')}</p>
@@ -955,6 +957,7 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
           onChange=${(e) => { setKezi(e.target.value.replace(/[^0-9−-]/g, '').replace('−', '-').slice(0, 3)); uj(); }}/>
       </div>
       <p className="kicsi" style=${{ margin: 0 }}>Ára: <strong>${fizet} MP</strong>${vh.mp_kedvezmeny ? ' (Ügyes varázslással)' : ''}${vanMp ? ` · van ${r.magiapont} MP` : ''}. A Mágiapont sikertelen próbánál is fogy.</p>
+      ${!cselekvesVan ? html`<${Uzenet} tonus="warning">Ebben a körben már nincs ${v.fajta === 'mellek' ? 'mellék' : 'fő'} cselekvése (${C.cselekvesSzoveg(r)}). Körönként egy fő és egy mellék, vagy két mellék cselekvés jár; többet csak a DM „+1 cselekvés” gombja vagy a Villámtámadás ad.<//>` : null}
       ${vanMp && fizet > r.magiapont ? html`<${Uzenet} tonus="warning">Nincs elég Mágiapont.<//>` : null}
       <div>
         <p className="cimke" style=${{ margin: 0 }}>Célpontok (koppints rájuk; több is lehet)</p>
@@ -965,8 +968,8 @@ export function VarazslatAblak({ cs, nezetek, lapok, kampany, forrasok, vegrehaj
         <span>3d6 ${ossz.reszek.map((x, i) => html`<span key=${i}> ${elojel(x.ertek)} (${x.eredet})</span>`)}</span>
         <span className="osszegsor__ertek">${elojel(ossz.bonusz)}${v.celertek ? ` vs ${v.celertek}` : ''}</span>
       </div>
-      <${Kockadobo} db=${3} kockak=${dobas ? dobas.kockak : null} kezi=${dobas && dobas.kezi} felirat="Varázslási próba: 3d6" onDobas=${dob}
-        eredmeny=${(o) => html`<span className="halvany">${elojel(ossz.bonusz)} → ${o + ossz.bonusz}</span>`}/>
+      ${cselekvesVan ? html`<${Kockadobo} db=${3} kockak=${dobas ? dobas.kockak : null} kezi=${dobas && dobas.kezi} felirat="Varázslási próba: 3d6" onDobas=${dob}
+        eredmeny=${(o) => html`<span className="halvany">${elojel(ossz.bonusz)} → ${o + ossz.bonusz}</span>`}/>` : null}
       ${dobas ? html`<${Uzenet} tonus=${siker ? 'success' : 'neutral'}>${dobas.osszeg}: ${siker ? 'sikerült' : 'nem sikerült, a Mágiapont így is fogy'}${dobas.mp && siker ? `, ${dobas.mp} Mutatványpont` : ''}.<//>` : null}
       ${dobas && siker && dobas.mp && !mut && !mutNyitva ? html`<div className="gombsor"><${K.Button} variant="primary" onClick=${() => setMutNyitva(true)}>${dobas.mp} Mutatványpont elköltése<//>
         <${K.Button} variant="quiet" onClick=${() => mutKesz({ mutatvanyok: [], plusz: [] })}>Nem költök<//></div>` : null}

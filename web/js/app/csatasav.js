@@ -39,6 +39,10 @@ function useJatekosCsata(szerver) {
     return x;
   }, [alap, fuggo]);
   const vegrehajt = (m) => {
+    // ugyanaz az ellenőrzés, mint a háttérben: ami ott elbukna, itt el sem indul (és nem is látszik)
+    const iranyitott = alap.resztvevok.filter((r) => r.iranyithato).map((r) => r.id);
+    const hiba = M.muveletEllenorzes(cs, m, { iranyitott });
+    if (hiba && m.tipus !== 'visszavonas') { uzen(hiba, 'warning'); return; }
     const kulcs = C.ujKulcs();
     setFuggo((f) => f.concat([{ kulcs, m }]));
     sync.push({ action: 'combat.player', adat: { id: szerver.id, kulcs, muvelet: m } })
