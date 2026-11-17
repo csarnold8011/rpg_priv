@@ -8,12 +8,13 @@ import * as E from '../kampany/elem.js';
 import * as F from '../kampany/fa.js';
 import * as KL from '../kampany/kaland.js';
 import * as KR from '../kampany/keret.js';
-import { SAJAT_MEZOK, ElemMezo, OroklesJel, UjElemParbeszed, elemUt, ujAzon, SzintJel } from './epito.js';
+import { SAJAT_MEZOK, SAJAT_LEPESEK, ElemMezo, OroklesJel, UjElemParbeszed, elemUt, ujAzon, SzintJel } from './epito.js';
 
 const PONT = { kesz: ['kaland__pont kaland__pont--kesz', '✓'], resz: ['kaland__pont kaland__pont--resz', '…'], ures: ['kaland__pont', ''] };
 
-function LepesPanel({ lepes, allapot, children, actions }) {
-  const l = KL.KALAND_LEPESEK[lepes];
+function LepesPanel({ lepes, allapot, children, actions, nev, en }) {
+  const l0 = KL.KALAND_LEPESEK[lepes];
+  const l = { ...l0, nev: nev || l0.nev, en: en || l0.en, oldal: en ? '25–26' : l0.oldal };
   const p = PONT[allapot || 'ures'];
   return html`<${K.Panel} actions=${actions} title=${html`${allapot ? html`<span className=${p[0]} aria-label=${allapot === 'kesz' ? 'kitöltve' : allapot === 'resz' ? 'részben kitöltve' : 'üres'}>${p[1]}</span> ` : null}${l.nev} <span className="halvany keret__en">(${l.en}, ${l.oldal}. oldal)</span>`}>
     <div className="verem"><p className="sugo">${l.utmutato}</p>${children}</div>
@@ -62,36 +63,36 @@ function UtemSzerkeszto({ elem, ix, valt, prep, kaland }) {
   };
   const sor = (u, i) => {
     const jel = KL.jelenetFelold(u.jelenet_id, kaland, elemek, ix);
-    return html`<li key=${u.id} className=${'utem' + (u.szunet ? ' utem--szunet' : '')}>
+    const kapcsolo = (mezo, felirat, cim, extra) => html`<button type="button" className="utemjel" aria-pressed=${u[mezo] ? 'true' : 'false'} title=${cim}
+      onClick=${() => modosit(i, { [mezo]: !u[mezo], ...(extra || {}) })}>${felirat}</button>`;
+    return html`<li key=${u.id} className=${'utem' + (u.szunet ? ' utem--szunet' : '') + (u.nagy_csata ? ' utem--csata' : '')}>
       <span className="utem__szam">${i + 1}.</span>
-      <div className="utem__test">
-        <input className="ka-field__input utem__szoveg" value=${u.szoveg} aria-label=${(i + 1) + '. ütem'}
-          placeholder=${u.szunet ? 'Pihenő: a csapat összegez, újratervez' : 'Mi történik, ami előre viszi a történetet?'}
-          onChange=${(e) => modosit(i, { szoveg: e.target.value })}/>
-        <div className="utem__jelek">
-          <${Csip} be=${u.kotetlen} onClick=${() => modosit(i, { kotetlen: !u.kotetlen })}>tetszőleges sorrend<//>
-          <${Csip} be=${u.szunet} onClick=${() => modosit(i, { szunet: !u.szunet, nagy_csata: false })}>pihenő<//>
-          ${!u.szunet ? html`<${Csip} be=${u.nagy_csata} onClick=${() => modosit(i, { nagy_csata: !u.nagy_csata })}>nagy csata<//>` : null}
-          <select className="ka-field__input valaszto utem__jelenet" aria-label="Jelenet" value=${jel ? jel.id : ''}
-            onChange=${(e) => modosit(i, { jelenet_id: e.target.value })}>
-            <option value="">nincs jelenet</option>
-            ${jelenetek.map((j) => html`<option key=${j.id} value=${j.id}>${E.nev(j, ix)}</option>`)}
-          </select>
-          ${jel ? html`<a className="kicsi" href=${elemUt(prep.cel || {}, jel.id)}>megnyitás</a>`
-            : kaland ? html`<button type="button" className="szoveggomb" onClick=${() => jelenetEbbol(i)}>jelenet ebből</button>` : null}
-        </div>
-      </div>
+      <input className="ka-field__input utem__szoveg" value=${u.szoveg} aria-label=${(i + 1) + '. ütem'}
+        placeholder=${u.szunet ? 'Pihenő: a csapat összegez, újratervez' : 'Mi történik, ami előre viszi a történetet?'}
+        onChange=${(e) => modosit(i, { szoveg: e.target.value })}/>
       <span className="utem__muveletek">
         ${kisGomb('↑', 'Feljebb', () => allit(KL.utemMozgat(utemek, i, -1)), i === 0)}
         ${kisGomb('↓', 'Lejjebb', () => allit(KL.utemMozgat(utemek, i, 1)), i === utemek.length - 1)}
         ${kisGomb('×', 'Törlés', () => allit(utemek.filter((_, j) => j !== i)))}
+      </span>
+      <span className="utem__jelek">
+        ${kapcsolo('kotetlen', 'kötetlen', 'Tetszőleges sorrendben a szomszédos kötetlen ütemekkel')}
+        ${kapcsolo('szunet', 'pihenő', 'Pihenő, összegzés', { nagy_csata: false })}
+        ${!u.szunet ? kapcsolo('nagy_csata', 'csata', 'Nagy csata (hosszú, ne az alkalom végén kezdődjön)') : null}
+        <select className="ka-field__input valaszto utem__jelenet" aria-label=${(i + 1) + '. ütem jelenete'} value=${jel ? jel.id : ''}
+          onChange=${(e) => modosit(i, { jelenet_id: e.target.value })}>
+          <option value="">nincs jelenet</option>
+          ${jelenetek.map((j) => html`<option key=${j.id} value=${j.id}>${E.nev(j, ix)}</option>`)}
+        </select>
+        ${jel ? html`<a className="kisgomb" href=${elemUt(prep.cel || {}, jel.id)} title="A jelenet megnyitása" aria-label="A jelenet megnyitása">↗</a>`
+          : kaland ? kisGomb('+', 'Jelenet ebből az ütemből', () => jelenetEbbol(i)) : null}
       </span>
     </li>`;
   };
   return html`<div className="verem">
     <${MezoCimke} elem=${elem} ix=${ix} mezo="utemek" valt=${valt}>Ütemsor<//>
     ${utemek.length ? html`<div className="utemsor">${csoportok.map((cs, k) => (cs.kotetlen && cs.utemek.length > 1
-      ? html`<div key=${'cs' + k} className="utemcsoport"><p className="cimke utemcsoport__cim">Tetszőleges sorrendben (együtt vezetnek tovább)</p>
+      ? html`<div key=${'cs' + k} className="utemcsoport"><p className="cimke utemcsoport__cim">Kötetlen sorrendben (együtt vezetnek tovább)</p>
           <ol className="utemlista">${cs.utemek.map((i) => sor(utemek[i], i))}</ol></div>`
       : html`<ol key=${'cs' + k} className="utemlista">${cs.utemek.map((i) => sor(utemek[i], i))}</ol>`))}</div>`
       : html`<p className="halvany">Még nincs ütem.</p>`}
@@ -102,13 +103,13 @@ function UtemSzerkeszto({ elem, ix, valt, prep, kaland }) {
 }
 
 // A kaland teljes ütemsora (a részeké is) és az alkalmakra bontás.
-function UtemAttekintes({ elem, ix, valt, prep, cel }) {
+function UtemAttekintes({ elem, ix, valt, prep, cel, teljesLista }) {
   const elemek = elemekMost(prep, elem);
   const sor = KL.utemSor(elem, elemek, ix);
   const hossz = KL.hosszNorm(E.mezoErtek(elem, 'hossz', ix).ertek);
   const allitHossz = (x) => valt(E.mezoBeallit(elem, 'hossz', { ...hossz, ...x }, ix));
   const beo = KL.alkalomBeosztas(sor, hossz);
-  const fig = KL.utemFigyelmeztetesek(sor).filter(() => sor.some((x) => x.gazda.id !== elem.id));
+  const fig = KL.utemFigyelmeztetesek(sor).filter(() => teljesLista || sor.some((x) => x.gazda.id !== elem.id));
   const reszUtem = sor.some((x) => x.gazda.id !== elem.id);
   const szamMezo = (label, m, hint) => html`<${K.TextField} label=${label} type="number" min="0" value=${hossz[m] || ''} hint=${hint}
     onChange=${(e) => allitHossz({ [m]: e.target.value === '' ? 0 : Number(e.target.value) })}/>`;
@@ -118,12 +119,18 @@ function UtemAttekintes({ elem, ix, valt, prep, cel }) {
       ${szamMezo('Tervezett alkalmak', 'alkalmak', 'Hány játékalkalomra tervezed?')}
       ${szamMezo('Jelenet egy alkalomra', 'jelenet_alkalom', 'Átlagosan hány jelenet fér bele egy alkalomba?')}
     </div>
-    ${reszUtem ? html`<div>
-      <p className="cimke">A teljes ütemsor (a részeké is, a fa sorrendjében)</p>
-      <ol className="utemattekintes">${sor.map((x, i) => html`<li key=${x.gazda.id + x.utem.id} className=${x.utem.szunet ? 'halvany' : ''}>
-        ${x.utem.szoveg || html`<span className="halvany">(üres ütem)</span>`}${x.utem.nagy_csata ? html` <${K.Badge} tone="danger">nagy csata<//>` : null}
-        ${x.utem.kotetlen ? html` <span className="halvany kicsi">tetszőleges sorrend</span>` : null}
-        <span className="halvany kicsi"> · ${x.gazda.id === elem.id ? 'a kaland' : html`<a href=${elemUt(cel, x.gazda.id)}>${E.nev(x.gazda, ix)}</a>`}</span></li>`)}</ol>
+    ${(reszUtem || teljesLista) && sor.length ? html`<div>
+      <p className="cimke">A teljes ütemsor (a fa sorrendjében)</p>
+      <div className="utemattekintes">${(() => {
+        const csop = [];
+        sor.forEach((x, i) => { const u = csop[csop.length - 1]; if (u && u.gazda.id === x.gazda.id) u.tetelek.push(i); else csop.push({ gazda: x.gazda, tetelek: [i] }); });
+        return csop.map((c) => html`<div key=${c.gazda.id + c.tetelek[0]} className="utemattekintes__resz">
+          <p className="utemattekintes__cim">${c.gazda.id === elem.id ? 'A kaland saját ütemei' : html`<a href=${elemUt(cel, c.gazda.id)}>${E.nev(c.gazda, ix)}</a>`}</p>
+          <ol start=${c.tetelek[0] + 1}>${c.tetelek.map((i) => { const u = sor[i].utem; return html`<li key=${u.id} className=${u.szunet ? 'halvany' : ''}>
+            ${u.szoveg || html`<span className="halvany">(üres ütem)</span>`}${u.nagy_csata ? html` <${K.Badge} tone="danger">nagy csata<//>` : null}
+            ${u.kotetlen ? html` <span className="halvany kicsi">kötetlen</span>` : null}${u.szunet ? html` <span className="halvany kicsi">pihenő</span>` : null}</li>`; })}</ol>
+        </div>`);
+      })()}</div>
     </div>` : null}
     ${beo.alkalmak.length ? html`<div>
       <p className="cimke">Alkalmakra bontva (${beo.becsult} alkalom${hossz.alkalmak ? ', terv: ' + hossz.alkalmak : ''})</p>
@@ -136,10 +143,9 @@ function UtemAttekintes({ elem, ix, valt, prep, cel }) {
 
 // ================= A kaland saját mezői =================
 
-function KalandMezok({ elem, ix, valt, prep, cel }) {
+function KalandMezok({ lepes, elem, ix, valt, prep, cel }) {
   const { uzen } = useApp();
   const a = E.megjelenitett(elem, ix);
-  const all = KL.lepesAllapot(a);
   const set = (m, x) => valt(E.mezoBeallit(elem, m, x, ix));
   const { karakterek, njkk } = useKarakterekNjkk(cel);
   const [otlet, setOtlet] = useState('');
@@ -164,10 +170,12 @@ function KalandMezok({ elem, ix, valt, prep, cel }) {
   const lista = KL.njkkNorm(a.njkk);
   const njkAllit = (id, x) => set('njkk', lista.map((n) => (n.id === id ? { ...n, ...x } : n)));
   const njkOpciok = njkk.map((n) => ({ value: n.id, label: n.nev }));
+  // a kaland saját ütemsora csak szabad formátumnál, rész nélküli kalandnál, vagy ha már van benne ütem
+  const sajatUtemek = formatum === 'szabad' || !reszek.length || KL.utemekNorm(a.utemek).length > 0;
   const miniReszek = reszek.filter((r) => (E.megjelenitett(r, ix).szerep || (formatum === 'plotpont' ? 'mini' : 'felvonas')) === 'mini');
 
   return html`<div className="verem kaland">
-    <${LepesPanel} lepes="hasznalat" allapot=${all.hasznalat}>
+    ${lepes === 'hasznalat' ? html`<${LepesPanel} lepes="hasznalat">
       <div className="urlap-racs">
         <${Valaszto} label=${html`Használat <${OroklesJel} info=${E.mezoErtek(elem, 'jelleg', ix)} elem=${elem} onVissza=${() => valt(E.visszaallit(elem, 'jelleg'))}/>`}
           value=${a.jelleg || ''} ures="nincs megadva" onChange=${(x) => set('jelleg', x)}
@@ -186,9 +194,9 @@ function KalandMezok({ elem, ix, valt, prep, cel }) {
         <p className="halvany kicsi">A formátum kiinduló részei: ${KL.FORMATUMOK[formatum].reszek.map((r) => r.nev).join(', ')}.</p>
         <${K.Button} size="sm" variant="secondary" onClick=${formatumAlkalmaz}>Részek létrehozása<//></div>` : null}
       ${reszek.length ? html`<p className="halvany kicsi">A kaland részei a „Helye a szerkezetben” panelen és a Kalandok nézetben látszanak; a formátum már nem hoz létre újat.</p>` : null}
-    <//>
+    <//>` : null}
 
-    <${LepesPanel} lepes="otlet" allapot=${all.otlet}>
+    ${lepes === 'otlet' ? html`<${LepesPanel} lepes="otlet">
       <${MezoCimke} elem=${elem} ix=${ix} mezo="otletek" valt=${valt}>Ötletszavak<//>
       ${otletek.length ? html`<div className="csipek">${otletek.map((o, i) => html`<span key=${i} className="csip csip--statikus">${o}
         <button type="button" className="csip__gomb" aria-label=${'Törlés: ' + o} onClick=${() => set('otletek', otletek.filter((_, j) => j !== i))}>×</button></span>`)}</div>` : null}
@@ -198,16 +206,16 @@ function KalandMezok({ elem, ix, valt, prep, cel }) {
       </form>
       <${ElemMezo} elem=${elem} ix=${ix} mezo="otlet_jegyzet" label="Jegyzet" multiline=${true} rows=${3} onValt=${valt}
         hint="Melyik ötlet izgat a legjobban? Mit szeretsz mesélőként (történet, NJK-k játszása, rejtvények, csapdák)?"/>
-    <//>
+    <//>` : null}
 
-    <${LepesPanel} lepes="jatekosok" allapot=${all.jatekosok}>
+    ${lepes === 'jatekosok' ? html`<${LepesPanel} lepes="jatekosok">
       <${ElemMezo} elem=${elem} ix=${ix} mezo="jatekosok" label="Mit mondtak a játékosok?" multiline=${true} rows=${3} onValt=${valt}
         hint="Mit élveznek, milyen karaktert játszanának, milyen elvarratlan szál, saját terv (erőd, bosszú) maradt. Amit javasolsz nekik (például Kézügyesség fókuszok a sok zár miatt)."/>
       <${ElemMezo} elem=${elem} ix=${ix} mezo="befolyas" label="A játékosok befolyása a történetre" multiline=${true} rows=${3} onValt=${valt}
         hint="Mennyi szabadságot adsz? Mi történik, ha váratlant tesznek (egy szerencsés lövés megöli a gonosztevőt, eladják a kulcstárgyat)? Ki lép a helyére?"/>
-    <//>
+    <//>` : null}
 
-    <${LepesPanel} lepes="tortenet" allapot=${all.tortenet}>
+    ${lepes === 'tortenet' ? html`<${LepesPanel} lepes="tortenet">
       <${ElemMezo} elem=${elem} ix=${ix} mezo="hangulat" label="Hangulat" onValt=${valt} placeholder="például fenyegető, nyomasztó, kalandos"
         hint="Néhány visszatérő szó a leírásokban elég, hogy tartsd a hangulatot."/>
       <div>
@@ -251,15 +259,15 @@ function KalandMezok({ elem, ix, valt, prep, cel }) {
         hint="Hogyan oldódhat meg a konfliktus, mi a jutalom és a következmény?"/>
       <${ElemMezo} elem=${elem} ix=${ix} mezo="csavarok" label="Csavarok" multiline=${true} rows=${2} onValt=${valt}
         hint="Ha a cél menet közben változik, legyen belső logikája, és előbb-utóbb derüljön ki az oka."/>
-    <//>
+    <//>` : null}
 
-    <${LepesPanel} lepes="utemek" allapot=${all.utemek}>
-      <${UtemSzerkeszto} elem=${elem} ix=${ix} valt=${valt} prep=${{ ...prep, cel }} kaland=${elem}/>
-      ${reszek.length ? html`<p className="halvany kicsi">A részek saját ütemsorát a rész lapján szerkesztheted; itt alább együtt látszanak.</p>` : null}
-      <${UtemAttekintes} elem=${elem} ix=${ix} valt=${valt} prep=${prep} cel=${cel}/>
-    <//>
+    ${lepes === 'utemek' ? html`<${LepesPanel} lepes="utemek">
+      ${sajatUtemek ? html`<${UtemSzerkeszto} elem=${elem} ix=${ix} valt=${valt} prep=${{ ...prep, cel }} kaland=${elem}/>`
+        : html`<p className="halvany kicsi">Az ütemek a részeknél vannak (a rész lapján szerkesztheted őket); itt együtt látszanak, alkalmakra bontva.</p>`}
+      <${UtemAttekintes} elem=${elem} ix=${ix} valt=${valt} prep=${prep} cel=${cel} teljesLista=${!sajatUtemek}/>
+    <//>` : null}
 
-    <${LepesPanel} lepes="ellenfel" allapot=${all.ellenfel}>
+    ${lepes === 'ellenfel' ? html`<${LepesPanel} lepes="ellenfel">
       <${MezoCimke} elem=${elem} ix=${ix} mezo="ellenfel" valt=${valt}>Az ellenfél<//>
       <div className="urlap-racs">
         <${K.TextField} label="Név" value=${ell.nev} onChange=${(e) => ellAllit({ nev: e.target.value })}/>
@@ -271,8 +279,8 @@ function KalandMezok({ elem, ix, valt, prep, cel }) {
         <p className="cimke">A terve lépésenként</p>
         ${ell.terv.length ? html`<ol className="utemlista">${ell.terv.map((t, i) => html`<li key=${t.id} className="utem">
           <span className="utem__szam">${i + 1}.</span>
-          <div className="utem__test"><input className="ka-field__input" value=${t.szoveg} aria-label=${'A terv ' + (i + 1) + '. lépése'}
-            onChange=${(e) => ellAllit({ terv: ell.terv.map((x, j) => (j === i ? { ...x, szoveg: e.target.value } : x)) })}/></div>
+          <input className="ka-field__input utem__szoveg" value=${t.szoveg} aria-label=${'A terv ' + (i + 1) + '. lépése'}
+            onChange=${(e) => ellAllit({ terv: ell.terv.map((x, j) => (j === i ? { ...x, szoveg: e.target.value } : x)) })}/>
           <span className="utem__muveletek">
             ${kisGomb('↑', 'Feljebb', () => ellAllit({ terv: KL.utemMozgat(ell.terv, i, -1) }), i === 0)}
             ${kisGomb('↓', 'Lejjebb', () => ellAllit({ terv: KL.utemMozgat(ell.terv, i, 1) }), i === ell.terv.length - 1)}
@@ -284,9 +292,9 @@ function KalandMezok({ elem, ix, valt, prep, cel }) {
       <${K.TextField} label="Mit tesz, ha kudarcot vall, vagy keresztülhúzzák a terveit?" multiline=${true} rows=${2} value=${ell.kudarc}
         onChange=${(e) => ellAllit({ kudarc: e.target.value })}/>
       <${K.TextField} label="Meddig hajlandó elmenni?" multiline=${true} rows=${2} value=${ell.meddig} onChange=${(e) => ellAllit({ meddig: e.target.value })}/>
-    <//>
+    <//>` : null}
 
-    <${LepesPanel} lepes="njkk" allapot=${all.njkk}>
+    ${lepes === 'njkk' ? html`<${LepesPanel} lepes="njkk">
       <${MezoCimke} elem=${elem} ix=${ix} mezo="njkk" valt=${valt}>A kaland szereplői<//>
       ${Object.entries(KL.NJK_SZEREPEK).map(([sz, d]) => {
         const sajat = lista.filter((n) => n.szerep === sz);
@@ -310,14 +318,14 @@ function KalandMezok({ elem, ix, valt, prep, cel }) {
         </div>`;
       })}
       <p className="halvany kicsi">A szereplő statblokkja az NJK-tárban készül (az 5.5 alépés bővíti a könyv 5. fejezete szerint); itt elég a név és a szerep.</p>
-    <//>
+    <//>` : null}
 
-    <${LepesPanel} lepes="jutalmak" allapot=${all.jutalmak}>
+    ${lepes === 'jutalmak' ? html`<${LepesPanel} lepes="jutalmak">
       <${ElemMezo} elem=${elem} ix=${ix} mezo="jutalmak" label="Jutalmak" multiline=${true} rows=${3} onValt=${valt}
         hint="Pénz, hírnév, tárgyak, szövetségesek, tapasztalat. A jutalomelemek (cím, tagság, társ, mágikus tárgy) az 5.6 alépésben kapcsolhatók."/>
-    <//>
+    <//>` : null}
 
-    ${formatum === 'plotpont' ? html`<${LepesPanel} lepes="plotpont" allapot=${all.plotpont}>
+    ${lepes === 'plotpont' ? html`<${LepesPanel} lepes="plotpont">
       <${ElemMezo} elem=${elem} ix=${ix} mezo="atfogo_szal" label="Az átfogó szál (Overarching Plots)" multiline=${true} rows=${3} onValt=${valt}
         hint="A nagyobb tétű történet, amelyhez minden mini kaland kapcsolódik: mit tudnak meg, mit szereznek, ami közelebb visz?"/>
       <div>
@@ -334,9 +342,9 @@ function KalandMezok({ elem, ix, valt, prep, cel }) {
         hint="A végső összecsapás, amelyben a hősök felhasználják, amit útközben megtudtak és szereztek."/>
     <//>` : null}
 
-    <${LepesPanel} lepes="letere" allapot=${all.letere}>
+    ${lepes === 'letere' ? html`<${LepesPanel} lepes="letere">
       <${ElemMezo} elem=${elem} ix=${ix} mezo="letere" label="Kerülőutak és visszavezetés" multiline=${true} rows=${3} onValt=${valt}/>
-    <//>
+    <//>` : null}
     ${ujMini ? html`<${UjElemParbeszed} prep=${prep} cel=${cel} szulo=${elem} tipusok=${['resz']} maradj=${true} cim="Új mini kaland"
       elokeszit=${(e, o) => (o.alapbol ? e : { ...e, adat: { ...e.adat, szerep: 'mini' } })} onBezar=${() => setUjMini(false)}/>` : null}
   </div>`;
@@ -395,13 +403,23 @@ function ReszMezok({ elem, ix, valt, prep, cel }) {
           onClick=${() => set('merre_tovabb', merre.concat([{ id: ujAzon('mt'), resz_id: '', szoveg: '' }]))}>Irány<//>
       </div>
     <//>` : null}
-    <${LepesPanel} lepes="utemek">
+    <${LepesPanel} lepes="utemek" nev="Ütemsor" en="Story Beats">
       <${UtemSzerkeszto} elem=${elem} ix=${ix} valt=${valt} prep=${{ ...prep, cel }} kaland=${kaland}/>
     <//>
   </div>`;
 }
 
-SAJAT_MEZOK.kaland = (p) => html`<${KalandMezok} ...${p}/>`;
+// A kaland a könyv lépései szerint, lépésenként (az elemszerkesztő lépéses módja).
+SAJAT_LEPESEK.kaland = {
+  lepesek: ({ elem, ix }) => {
+    const a = E.megjelenitett(elem, ix);
+    const all = KL.lepesAllapot(a);
+    return ['hasznalat', 'plotpont', 'otlet', 'jatekosok', 'tortenet', 'utemek', 'ellenfel', 'njkk', 'jutalmak', 'letere']
+      .filter((k) => k !== 'plotpont' || KL.formatumOf(a) === 'plotpont')
+      .map((k) => ({ kulcs: k, nev: KL.KALAND_LEPESEK[k].nev.replace(/^\d+\.\s*/, ''), allapot: all[k] }));
+  },
+  tartalom: (lepes, p) => html`<${KalandMezok} key=${lepes} lepes=${lepes} ...${p}/>`
+};
 SAJAT_MEZOK.resz = (p) => html`<${ReszMezok} ...${p}/>`;
 
 // ================= A Kalandok nézet: ívek, kalandok, részek, jelenetek =================

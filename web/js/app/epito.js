@@ -16,6 +16,9 @@ import { megjelenitettNev } from '../szabalyok.js';
 // A típusok saját mezői az elemszerkesztőben (a későbbi alépések moduljai töltik fel, például epito_kaland.js).
 // Függvény: ({ elem, ix, valt, prep, cel }) => tartalom.
 export const SAJAT_MEZOK = {};
+// Lépéses szerkesztő egy típushoz (például a kaland a könyv lépései szerint): ({ elem, ix }) => [{ kulcs, nev, allapot }],
+// és a lépés tartalma: tartalom(kulcs, { elem, ix, valt, prep, cel }). Az „alap” lépés az általános szerkesztő.
+export const SAJAT_LEPESEK = {};
 // A szerkezeti típusok, amelyek a kiinduló alapjukból a részfájukkal együtt példányosíthatók.
 const FAVAL_PELDANYOSITHATO = ['kaland', 'resz'];
 
@@ -377,6 +380,7 @@ export function ElemSzerkeszto({ id, prep, cel, Oldalfej, vissza, sajatMezok }) 
   const [kerdes, setKerdes] = useState(null);
   const [ujGyerek, setUjGyerek] = useState(false);
   const [dobas, setDobas] = useState(false);
+  const [lepes, setLepes] = useState('alap');
   const mentes = useAutoMentes(vazlat, (v) => prep.elemMent({ ...prep.elem(v.id), ...v, verzio: undefined }));
   // a betöltött vagy máshol mentett változat: ha nincs mentetlen módosítás, a vázlat követi
   useEffect(() => {
@@ -438,19 +442,15 @@ export function ElemSzerkeszto({ id, prep, cel, Oldalfej, vissza, sajatMezok }) 
     <${K.Button} size="sm" variant="secondary" onClick=${() => setDobas(true)} icon=${html`<${Ikon} nev="sarkanykocka" meret=${18}/>`}>Dobótábla<//>
   <//>` : null;
 
-  return html`<div>
-    ${fej}
-    <div className="cimkek elem__cimkek">
-      <${K.Badge}>${tipus.nev}<//><${SzintJel} elem=${e}/>
-      ${e.aktiv === false ? html`<${K.Badge} tone="warning">Archivált<//>` : null}
-      ${alap ? html`<span className="halvany kicsi">Alapja: <a href=${elemUt(cel, alap.id)}>${E.nev(alap, ix)}</a> (${E.SZINTEK[E.szint(alap)].toLowerCase()})</span>` : null}
-      ${e.szulo_id && ix.get(e.szulo_id) ? html`<span className="halvany kicsi">Helye: ${F.utvonal(ix.get(e.szulo_id), ix)}</span>` : null}
-    </div>
-    ${masikSzinten ? html`<div className="oldalfej__uzenet"><${Uzenet} tonus="warning">
-      ${sz === 'sablon' ? 'Ez sablon: a módosítás minden rá épülő elemre hat.' : 'Ez világelem: a módosítás a világ minden kampányára hat.'}
-      Ha csak itt térne el, készíts ${cel.szint === 'kampany' ? 'kampányváltozatot' : 'világváltozatot'} (csak az eltéréseket tárolja).
-      <span className="gombsor gombsor--szoros"><${K.Button} size="sm" onClick=${() => valtozat(cel.szint)}>${cel.szint === 'kampany' ? 'Kampányváltozat' : 'Világváltozat'}<//></span><//></div>` : null}
-    <div className="ket-hasab">
+  const lepesDef = SAJAT_LEPESEK[e.tipus] || null;
+  const sajat = lepesDef ? null : (sajatMezok || SAJAT_MEZOK[e.tipus]);
+  const lepesek = lepesDef ? [{ kulcs: 'alap', nev: 'Alapadatok és szerkezet', allapot: String(adat.leiras || adat.osszefoglalo || '').trim() ? 'kesz' : 'ures' }]
+    .concat(lepesDef.lepesek({ elem: e, ix })) : [];
+  const aktivLepes = lepesek.some((l) => l.kulcs === lepes) ? lepes : 'alap';
+  const lepesIndex = lepesek.findIndex((l) => l.kulcs === aktivLepes);
+  const lepj = (kulcs) => { setLepes(kulcs); window.scrollTo(0, 0); };
+
+  const alapTartalom = html`<div className="ket-hasab">
       <div className="verem">
         <${K.Panel} title="Alapadatok">
           <div className="verem">
@@ -469,7 +469,7 @@ export function ElemSzerkeszto({ id, prep, cel, Oldalfej, vissza, sajatMezok }) 
             </div>
           </div>
         <//>
-        ${(sajatMezok || SAJAT_MEZOK[e.tipus]) ? (sajatMezok || SAJAT_MEZOK[e.tipus])({ elem: e, ix, valt, prep, cel }) : tipus.alepes && tipus.alepes !== '5.1' ? html`<p className="halvany kicsi">A ${tipus.nev.toLowerCase()} saját mezői a(z) ${tipus.alepes} alépésben kerülnek ide (a könyv megfelelő fejezete szerint).</p>` : null}
+        ${sajat ? sajat({ elem: e, ix, valt, prep, cel }) : !lepesDef && tipus.alepes && tipus.alepes !== '5.1' ? html`<p className="halvany kicsi">A ${tipus.nev.toLowerCase()} saját mezői a(z) ${tipus.alepes} alépésben kerülnek ide (a könyv megfelelő fejezete szerint).</p>` : null}
         ${(adat.dobasok || []).length ? html`<${K.Panel} title="Dobások menete">
           <ul className="sorlista">${adat.dobasok.slice().reverse().map((d, i) => html`<li key=${i} className="sorlista__sor sorlista__sor--fuggoleges">
             <span className="halvany kicsi">${idopont(d.ido)} · ${d.tabla} → ${E.MEZO_NEV[d.mezo] || d.mezo}</span>
@@ -510,7 +510,37 @@ export function ElemSzerkeszto({ id, prep, cel, Oldalfej, vissza, sajatMezok }) 
           </div>
         <//>
       </div>
+    </div>`;
+
+  return html`<div>
+    ${fej}
+    <div className="cimkek elem__cimkek">
+      <${K.Badge}>${tipus.nev}<//><${SzintJel} elem=${e}/>
+      ${e.aktiv === false ? html`<${K.Badge} tone="warning">Archivált<//>` : null}
+      ${alap ? html`<span className="halvany kicsi">Alapja: <a href=${elemUt(cel, alap.id)}>${E.nev(alap, ix)}</a> (${E.SZINTEK[E.szint(alap)].toLowerCase()})</span>` : null}
+      ${e.szulo_id && ix.get(e.szulo_id) ? html`<span className="halvany kicsi">Helye: ${F.utvonal(ix.get(e.szulo_id), ix)}</span>` : null}
     </div>
+    ${masikSzinten ? html`<div className="oldalfej__uzenet"><${Uzenet} tonus="warning">
+      ${sz === 'sablon' ? 'Ez sablon: a módosítás minden rá épülő elemre hat.' : 'Ez világelem: a módosítás a világ minden kampányára hat.'}
+      Ha csak itt térne el, készíts ${cel.szint === 'kampany' ? 'kampányváltozatot' : 'világváltozatot'} (csak az eltéréseket tárolja).
+      <span className="gombsor gombsor--szoros"><${K.Button} size="sm" onClick=${() => valtozat(cel.szint)}>${cel.szint === 'kampany' ? 'Kampányváltozat' : 'Világváltozat'}<//></span><//></div>` : null}
+    ${lepesDef ? html`<div className="keret">
+      <nav className="keret__lepesek" aria-label=${'A ' + tipus.nev.toLowerCase() + ' lépései'}>
+        <p className="cimke">A könyv lépései</p>
+        <ul className="lepeslista">${lepesek.map((l, i) => html`<li key=${l.kulcs}>
+          <button type="button" aria-current=${l.kulcs === aktivLepes ? 'step' : undefined} onClick=${() => lepj(l.kulcs)}>
+            <span className=${'lepeslista__pont' + (l.allapot === 'kesz' ? ' lepeslista__pont--kesz' : l.allapot === 'resz' ? ' lepeslista__pont--resz' : '')}>${l.allapot === 'kesz' ? '✓' : i === 0 ? '•' : i}</span>${l.nev}</button></li>`)}
+        </ul>
+        <p className="halvany kicsi">Minden lépés kihagyható: a könyv szerint is csak annyit érdemes kidolgozni, amennyi a következő alkalmakhoz kell.</p>
+      </nav>
+      <div className="verem keret__tartalom">
+        ${aktivLepes === 'alap' ? alapTartalom : lepesDef.tartalom(aktivLepes, { elem: e, ix, valt, prep, cel })}
+        <div className="gombsor elem__lepesgombok">
+          ${lepesIndex > 0 ? html`<${K.Button} variant="secondary" onClick=${() => lepj(lepesek[lepesIndex - 1].kulcs)}>← ${lepesek[lepesIndex - 1].nev}<//>` : null}
+          ${lepesIndex < lepesek.length - 1 ? html`<${K.Button} variant="secondary" onClick=${() => lepj(lepesek[lepesIndex + 1].kulcs)}>${lepesek[lepesIndex + 1].nev} →<//>` : null}
+        </div>
+      </div>
+    </div>` : alapTartalom}
     ${ujGyerek ? html`<${UjElemParbeszed} prep=${prep} cel=${cel} szulo=${e} onBezar=${() => setUjGyerek(false)}/>` : null}
     ${dobas ? html`<${DobotablaParbeszed} onBezar=${() => setDobas(false)} kikapcsolt=${cel.szint === 'kampany' && prep.adat.keret ? prep.adat.keret.keret.generator_kikapcsolt : null}
       onElfogad=${dobasElfogad} lapok=${lapokBol(szabalyok)}/>` : null}
