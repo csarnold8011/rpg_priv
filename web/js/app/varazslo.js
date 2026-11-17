@@ -10,7 +10,7 @@ import { atallit } from '../karakter/adat.js';
 import { index } from '../karakter/szabalyindex.js';
 import { LEPESEK, lepesSzam, lepesFigyelmeztetesek, szurtLapok, elerhetoForrasok, kulcsmezokFrissit } from '../karakter/varazslo.js';
 import { szintlepesIndit, lezartSzint, felkeszSzint } from '../karakter/szintlepes.js';
-import { LEPES_KOMPONENSEK, Elonezet } from './varazslo_lepesek.js';
+import { LEPES_KOMPONENSEK, Elonezet, AjanlasKontextus } from './varazslo_lepesek.js';
 
 const lemasol = (x) => JSON.parse(JSON.stringify(x));
 
@@ -284,7 +284,7 @@ function VarazsloTest({ karakter, beallitKarakter, lepes, lapok, alap, dm, kampa
           <p className="cimke szeles-blokk">${n + 1} / ${LEPESEK.length}. lépés</p>
           <h2 className="lepescim">${LEPESEK[n].cim}</h2>
         </div>
-        <${Lepes} ...${props}/>
+        <${AjanlasKontextus.Provider} value=${kampany && kampany.keret_jatekosoknak || null}><${Lepes} ...${props}/><//>
         <div className="lap__lab">
           ${elozo ? html`<${K.Button} variant="quiet" size="lg" onClick=${() => ugras(elozo)}>Vissza<//>` : html`<span></span>`}
           ${tovabbGomb}

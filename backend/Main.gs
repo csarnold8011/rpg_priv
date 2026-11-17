@@ -49,8 +49,18 @@ function muveletek_() {
     'combat.act':              { fn: csataLepese_, szerep: 'dm' },
     'combat.player':           { fn: csataJatekosLepese_ },
     'combat.close':            { fn: csataLezarasa_, szerep: 'dm' },
-    'combat.delete':           { fn: csataTorlese_, szerep: 'dm' }
-    // 'ai.ask': a 4. fejlesztési lépésben
+    'combat.delete':           { fn: csataTorlese_, szerep: 'dm' },
+    'campaign.frame.save':     { fn: keretMentese_, szerep: 'dm' },
+    'prep.get':                { fn: elokeszitesLekerese_, szerep: 'dm' },
+    'world.save':              { fn: vilagMentese_, szerep: 'dm' },
+    'element.save':            { fn: elemMentese_, szerep: 'dm' },
+    'element.archive':         { fn: elemArchivalasa_, szerep: 'dm' },
+    'element.delete':          { fn: elemTorlese_, szerep: 'dm' },
+    'element.detach':          { fn: elemLevalasztasa_, szerep: 'dm' },
+    'element.promote':         { fn: elemEmelese_, szerep: 'dm' },
+    'link.save':               { fn: kapcsolatMentese_, szerep: 'dm' },
+    'link.delete':             { fn: kapcsolatTorlese_, szerep: 'dm' }
+    // 'ai.ask': kihasználatlan (a szabálybíró külön Claude projekt, lásd a 4. lépést)
   };
 }
 

@@ -20,6 +20,9 @@ import { BestiariumOldal } from './bestiarium.js';
 import { NjkTarOldal, UjNjkParbeszed, KampanyNjkPanel } from './njk.js';
 import { KampanyOsszecsapasPanel, OsszecsapasOldal, OsszecsapasbaParbeszed, CsataBeallitasok } from './osszecsapas.js';
 import { KampanyCsatakPanel, CsataOldal } from './csata.js';
+import { VilagokOldal, VilagOldal, SablonokOldal } from './epito.js';
+import { KampanyEpitoOldal } from './epito_keret.js';
+import { DobotablakOldal } from './dobotabla.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -32,7 +35,7 @@ const DmKontextus = createContext(null);
 const useDm = () => useContext(DmKontextus);
 
 export function DmFelulet({ ut }) {
-  const { api, felhasznalo, kilepes } = useApp();
+  const { api, felhasznalo, kilepes, szabalyok } = useApp();
   const [menu, setMenu] = useState(false);
   const [masolat, setMasolat] = useState(null); // a Bestiárium „Másolat az NJK-tárba” gombjából
   const [osszecsapasba, setOsszecsapasba] = useState(null); // a Bestiárium „Összecsapásba” gombjából
@@ -95,7 +98,12 @@ export function DmFelulet({ ut }) {
   if (oldal === 'kampanyok') tartalom = html`<${KampanyokOldal}/>`;
   else if (oldal === 'kampany' && azon && ut[2] === 'osszecsapas' && ut[3]) tartalom = html`<${OsszecsapasOldal} key=${ut[3]} kampanyId=${azon} id=${ut[3]} Oldalfej=${Oldalfej}/>`;
   else if (oldal === 'kampany' && azon && ut[2] === 'csata' && ut[3]) tartalom = html`<${CsataOldal} key=${ut[3]} kampanyId=${azon} id=${ut[3]} Oldalfej=${Oldalfej}/>`;
+  else if (oldal === 'kampany' && azon && ut[2] === 'epito') tartalom = html`<${KampanyEpitoOldal} key=${'epito' + azon} kampanyId=${azon} ut=${ut.slice(3)} Oldalfej=${Oldalfej} dm=${dm}/>`;
   else if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon}/>`;
+  else if (oldal === 'vilag' && azon) tartalom = html`<${VilagOldal} key=${'vilag' + azon} id=${azon} ut=${ut.slice(2)} Oldalfej=${Oldalfej}/>`;
+  else if (oldal === 'vilag') tartalom = html`<${VilagokOldal} Oldalfej=${Oldalfej}/>`;
+  else if (oldal === 'sablonok') tartalom = html`<${SablonokOldal} key="sablonok" azon=${azon} Oldalfej=${Oldalfej}/>`;
+  else if (oldal === 'dobotablak') tartalom = html`<${DobotablakOldal} Oldalfej=${Oldalfej} lapok=${(szabalyok && szabalyok.adat && szabalyok.adat.lapok) || {}}/>`;
   else if (oldal === 'karakterek') tartalom = html`<${KarakterekOldal}/>`;
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;
   else if (oldal === 'felhasznalok') tartalom = html`<${FelhasznalokOldal}/>`;
@@ -131,6 +139,9 @@ export function DmFelulet({ ut }) {
           ${menupont('/felhasznalok', 'felhasznalo', 'Felhasználók', oldal === 'felhasznalok')}
           ${menupont('/bestiarium', 'karom', 'Bestiárium', oldal === 'bestiarium')}
           ${menupont('/njk', 'csuklya', 'NJK-tár', oldal === 'njk')}
+          ${menupont('/vilag', 'foldgomb', 'Világ', oldal === 'vilag')}
+          ${menupont('/sablonok', 'sablon', 'Sablontár', oldal === 'sablonok')}
+          ${menupont('/dobotablak', 'sarkanykocka', 'Dobótáblák', oldal === 'dobotablak')}
           ${menupont('/szabalyok', 'konyv', 'Szabályok', oldal === 'szabalyok')}
           <${K.Divider} ornament=${false}/>
           <div className="oldalsav__cim">Kampányok</div>
@@ -298,7 +309,8 @@ function KampanyOldal({ id }) {
   if (!allapot) return html`<${Betoltes} szoveg="Kampány betöltése…"/>`;
   const k = allapot.kampany;
   return html`<div>
-    <${Oldalfej} cim=${k.cim} vissza=${['#/dm/kampanyok', 'Kampányok']}><${KampanyCimkek} kampany=${k}/><//>
+    <${Oldalfej} cim=${k.cim} vissza=${['#/dm/kampanyok', 'Kampányok']}><${KampanyCimkek} kampany=${k}/>
+      <${K.Button} variant="secondary" onClick=${() => navigal('/dm/kampany/' + k.id + '/epito')} icon=${html`<${Ikon} nev="toll" meret=${20}/>`}>Kampányépítő<//><//>
     ${k.allapot === ARCHIVALT ? html`<div className="oldalfej__uzenet"><${Uzenet} tonus="warning">Archivált kampány: a játékosok nem látják.<//></div>` : null}
     <div className="ket-hasab">
       <div className="verem">

@@ -56,10 +56,36 @@ async function indulas() {
       { id: 'faj_dwarf', nev_hu: 'Törp', nev_en: 'Dwarf', forras: 'Alapkönyv', reszletek: { tulajdonsag_bonusz: { tul_constitution: 1 }, sebesseg_alap: 8, elonydobasok: 2, elonytabla: [] } },
       { id: 'faj_halfling', nev_hu: 'Félszerzet', nev_en: 'Halfling', forras: 'Alapkönyv', reszletek: { tulajdonsag_bonusz: { tul_dexterity: 1 }, sebesseg_alap: 8, elonydobasok: 2, elonytabla: [] } }]) };
   }
+  // bemutató dobótáblák (kitalált tartalom, csak a szerkezetük követi a könyvekét), ha a szabályadatban még nincs
+  if (!lapok['Dobótáblák'] || !lapok['Dobótáblák'].length) lapok = { ...lapok, 'Dobótáblák': BEMUTATO_TABLAK };
   szabalyokBetoltese(lapok);
   if (!URES) bemutatoAdatok();
   inditas();
 }
+
+const BEMUTATO_TABLAK = [
+  { id: 'bem_bolt', nev_hu: 'Bemutató: bolttípus', nev_en: 'Demo: Shop Type', forras: 'Házi', csoport: 'Bemutató', reszletek: { kocka: '3d6', sorok: [
+    { t: [3, 7], e: 'Szatócsbolt', hivas: [{ tabla: 'bem_minoseg' }] },
+    { t: [8, 12], e: 'Fogadó', hivas: [{ tabla: 'bem_fogado' }] },
+    { t: [13, 16], e: 'Fegyverkovács', hivas: [{ tabla: 'bem_fegyver', darab: '1d6', egyedi: true }, { tabla: 'bem_minoseg' }] },
+    { t: [17, 18], e: 'Kettős profilú bolt', hivas: [{ tabla: '', darab: 2, egyedi: true }] }
+  ], kovetkezo: [{ tabla: 'bem_reszlet', darab: 'sarkany' }] } },
+  { id: 'bem_reszlet', nev_hu: 'Bemutató: boltrészlet', nev_en: 'Demo: Shop Detail', forras: 'Házi', csoport: 'Bemutató', reszletek: { kocka: 'd6d6', sorok: [
+    { t: [[1, 2], [1, 3]], e: 'A tulajdonos mindenkit megkérdez az időjárásról.' }, { t: [[1, 2], [4, 6]], e: 'Félárú kiárusítás.' },
+    { t: [[3, 4], [1, 3]], e: 'Egy macska alszik a pulton.' }, { t: [[3, 4], [4, 6]], e: 'Csak cserekereskedelem.' },
+    { t: [[5, 6], [1, 3]], e: 'Frissen festett, kicsit büdös.' }, { t: [[5, 6], [4, 6]], e: 'A raktárban valami mocorog.' }
+  ] } },
+  { id: 'bem_minoseg', nev_hu: 'Bemutató: minőség', nev_en: 'Demo: Quality', forras: 'Házi', csoport: 'Bemutató', reszletek: { kocka: '3d6', sorok: [
+    { t: [3, 6], e: 'Gyenge holmi' }, { t: [7, 13], e: 'Átlagos' }, { t: [14, 18], e: 'Kiváló, +{szam} bónusz', szam: { alap: 'sarkany', oszto: 3, kerekit: 'fel' } }
+  ] } },
+  { id: 'bem_fogado', nev_hu: 'Bemutató: fogadó', nev_en: 'Demo: Inn', forras: 'Házi', csoport: 'Bemutató', reszletek: { kocka: '1d6', sorok: [
+    { t: [1, 2], e: 'Tiszta szobák, korai zárás' }, { t: [3, 4], e: 'Zenés esték, hangos vendégek' }, { t: [5, 6], e: 'Titkos kártyaterem a pincében' }
+  ] } },
+  { id: 'bem_fegyver', nev_hu: 'Bemutató: fegyvercsoport', nev_en: 'Demo: Weapon Group', forras: 'Házi', csoport: 'Bemutató', reszletek: { kocka: 'd6d6', sorok: [
+    { t: [[1, 2], [1, 3]], e: 'Fejszék' }, { t: [[1, 2], [4, 6]], e: 'Buzogányok' }, { t: [[3, 4], [1, 6]], e: 'Kardok' },
+    { t: [[5, 5], [1, 6]], e: 'Íjak' }, { t: [[6, 6], [1, 4]], e: 'Botok' }, { t: [[6, 6], [5, 6]], e: 'Tűzfegyverek' }
+  ] } }
+];
 
 function bemutatoAdatok() {
   const dm = hivas('login', { nev: 'Arnold', jelszo: 'sarkany1' }).token;

@@ -635,3 +635,46 @@ a.sorgomb-teljes { text-decoration: none; }
 .probakartya--kiemelt { border-color: var(--accent); border-width: 2px; }
 .csatasav .probakartya > * + * { margin-top: var(--space-2); }
 .csatasav--soron > * { box-shadow: 0 0 0 2px var(--accent); border-radius: var(--radius-md); }
+
+/* ---- Kampányépítő (5. lépés) ---- */
+.epito__fulek { margin: calc(-1 * var(--space-3)) 0 var(--space-5); }
+.epito__ful { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 var(--space-4); background: var(--surface-raised);
+  color: var(--ink); font: 600 16px/20px var(--font-sans); text-decoration: none; }
+.epito__ful + .epito__ful { border-left: 1px solid var(--line-strong); }
+.epito__ful--aktiv { background: var(--accent); color: var(--on-accent); }
+.orokles { margin-left: var(--space-2); font: 600 12px/16px var(--font-sans); letter-spacing: 0.04em; text-transform: none; color: var(--ink-muted); }
+.orokles--sajat { color: var(--accent); }
+.orokles__vissza { margin-left: 6px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
+.elem__cimkek { margin: calc(-1 * var(--space-3)) 0 var(--space-4); }
+.elemfa { list-style: none; margin: 0; padding: 0; }
+.elemfa__sor { display: flex; align-items: center; gap: var(--space-2); min-height: 40px; padding: 4px 8px; border-radius: var(--radius-md);
+  color: var(--ink); text-decoration: none; font-family: var(--font-sans); }
+.elemfa__sor:hover { background: var(--accent-soft); }
+.elemfa__sor--aktiv { background: var(--accent-soft); color: var(--accent); }
+.elemfa__sor--archivalt { color: var(--ink-muted); }
+.elemfa__nev { font-weight: 700; }
+.elemfa__kesz { margin-left: auto; color: var(--success); font-weight: 700; }
+.dobasmenet { margin: 0; white-space: pre-wrap; font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--ink); }
+.generator__fa { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.generator__sor { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-1) 0; border-top: 1px solid var(--line); }
+.generator__fej { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-family: var(--font-sans); }
+.generator__tabla { font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.generator__eredmeny { font-weight: 700; color: var(--ink); }
+.generator__gombok { margin-left: auto; }
+.generator__valaszt { max-width: 520px; }
+.keret { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.keret__en { font-size: 14px; font-weight: 400; }
+.keret__lepes { scroll-margin-top: calc(56px + var(--space-4)); }
+.keret__kihivasok { display: flex; flex-wrap: wrap; gap: var(--space-5); }
+.keret__kihivas { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+.keret__jatekos { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.keret__jatekos:first-of-type { border-top: 0; padding-top: 0; }
+.keret__ajanlas { display: flex; flex-direction: column; gap: var(--space-2); }
+.keret__iv .urlap-racs { margin-bottom: var(--space-3); }
+.lepeslista__pont--resz { border-color: var(--accent); color: var(--accent); }
+.ajanlas--ajanlott[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.ajanlas--kizart[aria-pressed="true"] { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+@media (min-width: 1024px) {
+  .keret { grid-template-columns: 260px minmax(0, 1fr); }
+  .keret__lepesek { position: sticky; top: calc(56px + var(--space-5)); }
+}

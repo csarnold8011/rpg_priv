@@ -30,6 +30,12 @@ const UTAK = {
   pipa: html`<path d="M5 12.5 10 17.5 19 7"/>`,
   // csuklyás alak (NJK-tár), ideiglenes rajz
   csuklya: html`<path d="M12 3.5c-3.6 0-6 2.9-6 6.6V20h12v-9.9c0-3.7-2.4-6.6-6-6.6z"/><path d="M9 11.5c.6 1.6 1.7 2.5 3 2.5s2.4-.9 3-2.5M9 20v-3.5M15 20v-3.5"/>`,
+  // földgömb (Világ), ideiglenes rajz
+  foldgomb: html`<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.3 3.5 8.5s-1.1 6.1-3.5 8.5M12 3.5C9.6 5.9 8.5 8.8 8.5 12s1.1 6.1 3.5 8.5"/>`,
+  // egymásra tett lapok (Sablontár), ideiglenes rajz
+  sablon: html`<rect x="7.5" y="3.5" width="12" height="14" rx="1.5"/><path d="M4.5 7v11.5A2 2 0 0 0 6.5 20.5H15"/><path d="M10.5 8h6M10.5 11.5h6M10.5 15h3.5"/>`,
+  // vázlattoll (Kampányépítő), ideiglenes rajz
+  toll: html`<path d="M19.5 4.5c-6 1-10.5 5.5-12 11.5l-1.5 4 4-1.5c6-1.5 10.5-6 11.5-12z"/><path d="M6 20l5-5M13 7.5l3.5 3.5"/>`,
   karom: html`<path d="M6 4.5c3.5 3 5 7.5 4 15M11.5 4c3 3.5 4.2 8 3.2 15.5M17 4.5c2.3 3.5 3 7.5 2 13"/>`
 };
 

@@ -220,6 +220,17 @@ const SEMA = {
           "aktiv",
           "tipus"
         ],
+        "Dobótáblák": [
+          "id",
+          "nev_hu",
+          "nev_en",
+          "forras",
+          "oldal",
+          "leiras_hu",
+          "reszletek",
+          "aktiv",
+          "csoport"
+        ],
         "Szótár": [
           "eredeti",
           "projektben",
@@ -277,7 +288,9 @@ const SEMA = {
           "verzio",
           "modositva",
           "modositotta",
-          "aktiv"
+          "aktiv",
+          "vilag_id",
+          "alap_id"
         ],
         "Kampányok": [
           "id",
@@ -288,7 +301,8 @@ const SEMA = {
           "verzio",
           "dm_jegyzet",
           "letrehozva",
-          "beallitasok"
+          "beallitasok",
+          "keret"
         ],
         "Kampánykarakterek": [
           "kampany_id",
@@ -378,6 +392,40 @@ const SEMA = {
           "hivatkozas",
           "idopont"
         ],
+        "Világok": [
+          "id",
+          "nev",
+          "adat",
+          "verzio",
+          "modositva",
+          "modositotta",
+          "aktiv"
+        ],
+        "Elemek": [
+          "id",
+          "tipus",
+          "nev",
+          "vilag_id",
+          "kampany_id",
+          "alap_id",
+          "szulo_id",
+          "sorrend",
+          "adat",
+          "verzio",
+          "modositva",
+          "modositotta",
+          "aktiv"
+        ],
+        "Kapcsolatok": [
+          "id",
+          "honnan",
+          "hova",
+          "tipus",
+          "megjegyzes",
+          "vilag_id",
+          "kampany_id",
+          "aktiv"
+        ],
         "Változásnapló": [
           "idopont",
           "ki",
@@ -407,6 +455,7 @@ const SEMA = {
     "Mutatványok",
     "Szörnyek",
     "Különleges képességek",
+    "Dobótáblák",
     "Szótár",
     "Házi szabályok"
   ],
@@ -423,6 +472,7 @@ const SEMA = {
     "ellenfel",
     "allas",
     "kampanyok",
-    "pillanatkepek"
+    "pillanatkepek",
+    "keret"
   ]
 };

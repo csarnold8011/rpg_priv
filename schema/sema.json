@@ -21,6 +21,7 @@
         "Mutatványok": ["id", "nev_hu", "nev_en", "forras", "oldal", "leiras_hu", "reszletek", "aktiv", "tipus", "mutatvanypont"],
         "Szörnyek": ["id", "nev_hu", "nev_en", "forras", "oldal", "leiras_hu", "reszletek", "aktiv", "fenyegetes", "tipus", "csoport"],
         "Különleges képességek": ["id", "nev_hu", "nev_en", "forras", "oldal", "leiras_hu", "reszletek", "aktiv", "tipus"],
+        "Dobótáblák": ["id", "nev_hu", "nev_en", "forras", "oldal", "leiras_hu", "reszletek", "aktiv", "csoport"],
         "Szótár": ["eredeti", "projektben", "megjegyzes"],
         "Házi szabályok": ["id", "cim", "leiras", "erinti", "aktiv"],
         "Meta": ["kulcs", "ertek"]
@@ -31,18 +32,21 @@
       "lapok": {
         "Felhasználók": ["id", "nev", "szerep", "jelszo_hash", "so", "aktiv", "letrehozva"],
         "Karakterek": ["id", "nev", "jatekos_id", "faj", "osztaly", "szint", "adat", "verzio", "modositva", "modositotta", "aktiv", "njk"],
-        "NJK-k": ["id", "nev", "fajta", "alap_szorny", "fenyegetes", "kampanyok", "kotodes", "iranyito", "adat", "verzio", "modositva", "modositotta", "aktiv"],
-        "Kampányok": ["id", "cim", "mesterjatekos_id", "aktiv_forrasok", "allapot", "verzio", "dm_jegyzet", "letrehozva", "beallitasok"],
+        "NJK-k": ["id", "nev", "fajta", "alap_szorny", "fenyegetes", "kampanyok", "kotodes", "iranyito", "adat", "verzio", "modositva", "modositotta", "aktiv", "vilag_id", "alap_id"],
+        "Kampányok": ["id", "cim", "mesterjatekos_id", "aktiv_forrasok", "allapot", "verzio", "dm_jegyzet", "letrehozva", "beallitasok", "keret"],
         "Kampánykarakterek": ["kampany_id", "karakter_id", "allapot", "csatlakozott"],
         "Dobásnapló": ["id", "idopont", "kampany_id", "karakter_id", "dobta", "mire", "kockak", "modosito", "celertek", "eredmeny", "mutatvanypont", "rejtett", "proba_id", "tipus", "tulajdonsag", "fokusz", "kezi", "felfedve", "reszletek", "njk_id", "csata_id"],
         "Próbák": ["id", "kampany_id", "letrehozva", "letrehozta", "tipus", "cim", "tulajdonsag", "fokuszok", "fokusz_kotelezo", "celertek", "celertek_rejtett", "kuszob", "haladas", "idoegyseg", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "allapot", "lezarva"],
         "Összecsapások": ["id", "kampany_id", "cim", "allapot", "adat", "verzio", "letrehozva", "modositva", "modositotta", "aktiv"],
         "Csaták": ["id", "kampany_id", "osszecsapas_id", "cim", "allapot", "kor", "adat", "pillanatkepek", "verzio", "letrehozva", "modositva", "modositotta", "lezarva"],
         "Megosztások": ["id", "kampany_id", "cimzett", "tipus", "cim", "hivatkozas", "idopont"],
+        "Világok": ["id", "nev", "adat", "verzio", "modositva", "modositotta", "aktiv"],
+        "Elemek": ["id", "tipus", "nev", "vilag_id", "kampany_id", "alap_id", "szulo_id", "sorrend", "adat", "verzio", "modositva", "modositotta", "aktiv"],
+        "Kapcsolatok": ["id", "honnan", "hova", "tipus", "megjegyzes", "vilag_id", "kampany_id", "aktiv"],
         "Változásnapló": ["idopont", "ki", "mit", "elem_id", "regi_verzio", "uj_verzio"]
       }
     }
   },
-  "szabaly_lapok": ["Tulajdonságok", "Fókuszok", "Fajok", "Hátterek", "Osztályok", "Szintlépés", "Talentumok", "Specializációk", "Arkánumok", "Varázslatok", "Fegyvercsoportok", "Fegyverek", "Páncélok", "Felszerelés", "Mutatványok", "Szörnyek", "Különleges képességek", "Szótár", "Házi szabályok"],
-  "json_oszlopok": ["reszletek", "adat", "aktiv_forrasok", "kockak", "beallitasok", "fokuszok", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "kampanyok", "pillanatkepek"]
+  "szabaly_lapok": ["Tulajdonságok", "Fókuszok", "Fajok", "Hátterek", "Osztályok", "Szintlépés", "Talentumok", "Specializációk", "Arkánumok", "Varázslatok", "Fegyvercsoportok", "Fegyverek", "Páncélok", "Felszerelés", "Mutatványok", "Szörnyek", "Különleges képességek", "Dobótáblák", "Szótár", "Házi szabályok"],
+  "json_oszlopok": ["reszletek", "adat", "aktiv_forrasok", "kockak", "beallitasok", "fokuszok", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "kampanyok", "pillanatkepek", "keret"]
 }

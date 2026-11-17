@@ -10,6 +10,14 @@
 
 const SOR_KULCS = 'fage.varakozo';
 
+// Verziót láncoló műveletek: az azonos csoportú, azonos azonosítójú várakozó mentés a válasz verziójára épül
+// (és az előtte várakozó létrehozás után már nem új).
+const VERZIO_LANC = {
+  'character.save': 'karakter', 'combat.act': 'csata',
+  'element.save': 'elem', 'element.archive': 'elem', 'element.detach': 'elem', 'element.promote': 'elem',
+  'world.save': 'vilag', 'campaign.frame.save': 'keret'
+};
+
 function sorOlvasas() {
   try { return JSON.parse(localStorage.getItem(SOR_KULCS)) || []; } catch (e) { return []; }
 }
@@ -174,10 +182,11 @@ export class AppsScriptSync {
           else this._kuld({ tipus: 'hiba', valtozas: elem, hiba });
           if (var_) var_.elutasit(hiba);
         } else {
-          // ugyanannak a karakternek a következő, még várakozó mentése már az új verzióra épül
-          if (elem.action === 'character.save' || elem.action === 'combat.act') {
-            this.sor.filter(x => x.action === elem.action && x.adat.id === elem.adat.id)
-              .forEach(x => { x.adat.verzio = valasz.verzio; });
+          // ugyanannak az elemnek a következő, még várakozó mentése már az új verzióra épül
+          const lanc = VERZIO_LANC[elem.action];
+          if (lanc && valasz && valasz.verzio !== undefined) {
+            this.sor.filter(x => VERZIO_LANC[x.action] === lanc && x.adat.id === elem.adat.id)
+              .forEach(x => { if (x.adat.verzio !== undefined || x.action === elem.action) x.adat.verzio = valasz.verzio; x.adat.uj = undefined; });
             sorIras(this.sor);
           }
           if (var_) var_.teljesul(valasz);

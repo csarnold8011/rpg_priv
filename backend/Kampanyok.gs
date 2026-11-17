@@ -10,6 +10,9 @@ function kampanyNezet_(kampany, szerep) {
     beallitasok: kampanyBeallitasai_(kampany)
   };
   if (szerep === 'dm') o.dm_jegyzet = kampany.dm_jegyzet || '';
+  // a kampánykeret játékosoknak szóló része (bemutatás, szintsáv, karakterkészítési ajánlások), lásd Epito.gs
+  const jr = keretJatekosoknak_(keretAdat_(kampany));
+  if (jr) o.keret_jatekosoknak = jr;
   return o;
 }
 
@@ -41,7 +44,8 @@ function indulas_(a, felh) {
 
 // action: campaign.delete (csak DM)   adat: { id }
 // Csak archivált kampány törölhető. A kampánykapcsolatok törlődnek, a karakterek megmaradnak,
-// a dobásnapló és a megosztások sorai is maradnak. A kampány összecsapásai és csatái törlődnek.
+// a dobásnapló és a megosztások sorai is maradnak. A kampány összecsapásai, csatái, előkészítő elemei
+// (Kampányépítő) és azok kapcsolatai törlődnek; a világ elemei és a sablonok megmaradnak.
 function kampanyTorlese_(a, felh) {
   return zarolva_(function () {
     const k = kornyezet_();
@@ -51,6 +55,7 @@ function kampanyTorlese_(a, felh) {
     sorokTorlese_('jatek', 'Kampánykarakterek', kapcsolatok.map(function (x) { return x._sor; }));
     kampanyOsszecsapasainakTorlese_(kampany.id);
     kampanyCsatainakTorlese_(kampany.id);
+    kampanyElokeszitesTorlese_(kampany.id);
     sorTorlese_('jatek', 'Kampányok', kampany._sor);
     CacheService.getScriptCache().remove('kv_' + kampany.id);
     valtozasNaplozasa_(felh, 'kampany.torol', kampany.id, kampany.verzio, '');
