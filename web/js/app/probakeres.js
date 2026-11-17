@@ -112,7 +112,9 @@ export function UjProbaAblak({ kezdo, allapot, lapok, onBezar, onKuld }) {
   <//>`;
 }
 
-function ProbaKeresUrlap({ u, setU, karakterek, lapok, fokuszNev, fokLap, njkk = [] }) {
+// elokeszites: a Kampányépítő jelenetének előkészített próbája (5.3): a címzettek és a karakterenkénti módosítók nélkül,
+// mert azok a játék közbeni kiküldéskor dőlnek el.
+export function ProbaKeresUrlap({ u, setU, karakterek, lapok, fokuszNev, fokLap, njkk = [], elokeszites = false }) {
   const [kereses, setKereses] = useState('');
   const m = (kulcs) => (ertek) => setU((x) => ({ ...x, [kulcs]: ertek }));
   const tulFokuszai = (fokLap && fokLap['Fókuszok'] || []).filter((f) => f.tulajdonsag === u.tulajdonsag && f.aktiv !== false);
@@ -182,7 +184,7 @@ function ProbaKeresUrlap({ u, setU, karakterek, lapok, fokuszNev, fokLap, njkk =
           onChange=${(e) => m('ellenfel_bonusz')(e.target.value.replace(/[^0-9−-]/g, '').replace('−', '-').slice(0, 3))}/>
       </div>
     </fieldset>` : null}
-    <fieldset className="szakasz">
+    ${elokeszites ? null : html`<fieldset className="szakasz">
       <legend className="cimke">Kiknek</legend>
       ${!karakterek.length ? html`<p className="kicsi" style=${{ margin: 0, color: 'var(--warning)' }}>⚠ Ebben a kampányban nincs aktív karakter (az archivált és a nem aktív állapotú karakterek nem kapnak próbát). A Csapat panelen a „Karakter hozzáadása” résznél rendelhetsz karaktert a kampányhoz.</p>` : null}
       ${karakterek.length ? html`<div className="csipek">
@@ -190,9 +192,9 @@ function ProbaKeresUrlap({ u, setU, karakterek, lapok, fokuszNev, fokLap, njkk =
         ${karakterek.map((c) => html`<${Csip} key=${c.id} be=${!!kivalasztott && kivalasztott.includes(c.id)} onClick=${() => cimzettValt(c.id)}>${c.nev}<//>`)}
       </div>` : null}
       ${titkosLap.length ? html`<p className="kicsi" style=${{ color: 'var(--warning)' }}>⚠ ${titkosLap.map((id) => (karakterek.find((c) => c.id === id) || {}).nev).join(', ')}: a karakterlap még hiányos, értük nem tudok dobni.</p>` : null}
-    </fieldset>
+    </fieldset>`}
     ${u.tipus !== 'titkos' ? html`<${Jelolo} checked=${u.mutatvany_engedett} onChange=${m('mutatvany_engedett')}>Mutatványpont engedélyezve<//>` : null}
-    ${celpontok.length ? html`<details className="lenyilo">
+    ${celpontok.length && !elokeszites ? html`<details className="lenyilo">
       <summary>Módosító karakterenként${Object.values(u.modositok).some((x) => szamBol(x)) ? ' (van)' : ''}</summary>
       <div className="probakeres__modositok">${celpontok.map((id) => {
         const c = karakterek.find((x) => x.id === id) || {};

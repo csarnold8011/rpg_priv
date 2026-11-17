@@ -7,6 +7,7 @@ import * as KP from '../../web/js/kampany/kapcsolat.js';
 import * as KR from '../../web/js/kampany/keret.js';
 import * as G from '../../web/js/kampany/generator.js';
 import * as KL from '../../web/js/kampany/kaland.js';
+import * as JL from '../../web/js/kampany/jelenet.js';
 
 let hibak = 0;
 let db = 0;
@@ -304,6 +305,51 @@ ellenoriz(cs2.length === 1 && cs2[0].id === 'b' && cs2[0].sorrend === 30 && KL.s
 ellenoriz(KL.ellenfelNorm({ terv: [{ szoveg: 'x' }] }).terv[0].id === 'tl1' && KL.njkkNorm([{ szerep: 'rossz' }])[0].szerep === 'segito' && KL.hosszNorm({ alkalmak: '3' }).alkalmak === 3, 'mezők normalizálása');
 const la = KL.lepesAllapot({ formatum: 'harom', konfliktus: 'x', utemek: [{ szoveg: 'a' }] });
 ellenoriz(la.hasznalat === 'resz' && la.tortenet === 'resz' && la.utemek === 'kesz' && la.otlet === 'ures', 'a lépések kitöltöttsége');
+
+// ---------- Jelenetek (5.3) ----------
+{
+  const j1 = { id: 'j1', tipus: 'jelenet', kampany_id: 'c1', alap_id: '', szulo_id: 'kx', sorrend: 10, adat: { nev: 'Híd', tipusok: ['harc'], nagy_csata: true, osszecsapas_id: 'o_1' } };
+  const j2 = { id: 'j2', tipus: 'jelenet', kampany_id: 'c1', alap_id: '', szulo_id: 'kx', sorrend: 20, adat: { nev: 'Alku', tipusok: ['harc', 'szerepjatek', 'rossz'] } };
+  const j3 = { id: 'j3', tipus: 'jelenet', kampany_id: 'c1', alap_id: '', szulo_id: 'kx', sorrend: 30, adat: { nev: 'Üres' } };
+  const j4 = { id: 'j4', tipus: 'jelenet', kampany_id: 'c1', alap_id: '', szulo_id: 'kx', sorrend: 40, adat: { tipusok: ['felfedezes'] } };
+  const kx = { id: 'kx', tipus: 'kaland', kampany_id: 'c1', alap_id: '', szulo_id: '', adat: { nev: 'K', utemek: [{ szoveg: 'a', jelenet_id: 'j1' }, { szoveg: 'b' }, { szoveg: 'c', jelenet_id: 'j2' }] } };
+  const je = [kx, j1, j2, j3, j4];
+  const jix = E.index(je);
+  ellenoriz(JL.tipusokOf(j2.adat).join(',') === 'harc,szerepjatek' && JL.tipusFelirat(['harc', 'szerepjatek']) === 'Harc + Szerepjáték (vegyes)' && JL.tipusFelirat([]) === '', 'típusok: az ismeretlen kimarad, a vegyes felirata');
+  const ar = JL.tipusArany(KL.kalandJelenetei(kx, je, jix), jix);
+  ellenoriz(ar.db === 4 && ar.tipizalt === 3 && ar.vegyes === 1 && ar.szamok.harc === 2 && Math.abs(ar.sulyok.harc - 1.5) < 1e-9 && ar.szazalek.harc === 50 && ar.szazalek.felfedezes === 33, 'jelenettípusok aránya, a vegyes jelenet súlya megoszlik', ar);
+  const ov = JL.kihivasOsszevetes(ar, { kihivasok: { harc: 2, felfedezes: 1, szerepjatek: 1 } });
+  ellenoriz(ov.length === 3 && ov[0].terv === 50 && ov[0].teny === 50 && ov[2].teny === 17 && ov[2].elteres === 17 - 25, 'tervezett és tényleges arány a kampánykeret kihívásaihoz', ov);
+  ellenoriz(JL.kihivasOsszevetes(JL.tipusArany([], jix), {}).length === 0, 'típus nélkül nincs összevetés');
+  const egy = JL.egyhanguSorok([j1, j1, { ...j4, adat: { tipusok: ['harc'] } }, j4], jix);
+  ellenoriz(egy.length === 1 && egy[0].db === 3 && egy[0].tol === 0, 'három egymás utáni harc jelzés', egy);
+  ellenoriz(JL.egyhanguSorok([j1, j2, j1, j3, j3, j3], jix).length === 0, 'vegyes és típus nélküli jelenet megszakítja a sort');
+  const sor = JL.utemSorJelenettel(KL.utemSor(kx, je, jix), kx, je, jix);
+  ellenoriz(sor[0].utem.nagy_csata && sor[0].utem.jelenet_csata && !sor[1].utem.nagy_csata && !sor[2].utem.nagy_csata, 'a nagy csata jelenet ütemét a beosztás nagy csatának látja');
+  const beo = KL.alkalomBeosztas(sor, { jelenet_alkalom: 1 });
+  ellenoriz(beo.alkalmak.length === 3 && beo.figyelmeztetesek.length === 0, 'egy jelenet alkalmanként: nincs „alkalom végére esik” figyelmeztetés');
+  const beo2 = KL.alkalomBeosztas([sor[1], sor[0]], { jelenet_alkalom: 2 });
+  ellenoriz(beo2.figyelmeztetesek.length === 1, 'a jelenet nagy csatája az alkalom végén figyelmeztet');
+  const p = JL.probaNorm({ tulajdonsag: 'tul_perception', fokuszok: ['fok_x', ''], celertek: 13, cimzettek: ['c'], modositok: { c: 2 } }, 0);
+  ellenoriz(p.id === 'pr1' && p.tipus === 'alap' && p.fokuszok.length === 1 && p.celertek_rejtett === true && p.mutatvany_engedett === true && p.cimzettek === undefined && p.modositok === undefined, 'előkészített próba: a próbakérés mezői, címzettek nélkül');
+  const u = JL.probaUrlap(p);
+  ellenoriz(u.cimzettek === 'mindenki' && u.celertek === 13 && u.tulajdonsag === 'tul_perception' && JL.urlapbolProba({ ...u, celertek: 15 }, 'pr9', 'a kapunál').celertek === 15, 'próba ↔ űrlap oda-vissza');
+  const os = JL.probaOsszegzes({ tulajdonsag: 'tul_perception', fokuszok: ['fok_x'], celertek: 13 }, () => 'Keresés');
+  ellenoriz(os.cim === 'Észlelés (Keresés)' && os.feltetel.includes('Célérték 13') && os.feltetel.includes('rejtett'), 'a próba összegzése', os);
+  ellenoriz(JL.probaOsszegzes({ tipus: 'ellen', tulajdonsag: 'tul_strength', ellenfel_nev: 'Őr', ellenfel_bonusz: 3 }).feltetel === 'Ellenfél: Őr (+3)', 'ellenpróba összegzése');
+  const fig = JL.figyelmeztetesek({ konfliktusok: [{ cel: 'át a hídon', akadaly: 'őrök' }], megoldasok: [{ mod: 'harc' }], tipusok: ['felfedezes'] });
+  ellenoriz(fig.some((f) => f.lepes === 'megoldas') && fig.some((f) => f.lepes === 'konfliktus') && fig.some((f) => f.lepes === 'terkep'), 'figyelmeztetések: egy megoldás, hiányzó „miért”, térkép nélküli felfedezés', fig);
+  ellenoriz(JL.figyelmeztetesek({ konfliktusok: [{ cel: 'x', akadaly: 'y', miert: 'z' }], megoldasok: [{ mod: 'harc' }, { mod: 'megvesztegetés' }] }).length === 0, 'két megoldással, „miért”-tel nincs figyelmeztetés');
+  ellenoriz(JL.figyelmeztetesek({ kepek: [{ kep: 'f1', terkep: true }], tipusok: ['felfedezes'] }).length === 0, 'térképpel nincs térkép-figyelmeztetés');
+  ellenoriz(JL.kepekNorm([{ kep: 'a', cim: 'x' }, { cim: 'nincs fájl' }]).length === 1 && JL.kepekNorm([{ kep: 'a' }])[0].belyeg === 'a', 'képek normalizálása');
+  ellenoriz(JL.jelenetXp({ nehezseg: 'kozepes' }) === 250 && JL.jelenetXp({}) === null && JL.becslesbolNehezseg('Nagyon nehéz') === 'nehez' && JL.becslesbolNehezseg('Átlagos') === 'kozepes', 'XP a nehézségből, a becslés fordítása');
+  const la = JL.lepesAllapot({ tipusok: ['harc'], konfliktusok: [{ cel: 'a', akadaly: 'b' }], osszecsapas_id: 'o', tet: 'x' });
+  ellenoriz(la.tipus === 'kesz' && la.konfliktus === 'resz' && la.kihivasok === 'kesz' && la.hely === 'resz' && la.terkep === 'ures', 'a jelenet lépéseinek kitöltöttsége', la);
+  const sj = E.sablonbol(j1, jix, 's_j1');
+  ellenoriz(sj.adat.osszecsapas_id === undefined && sj.adat.nagy_csata === true, 'a sablonba a kampány összecsapása nem kerül át');
+  const sfj = KL.sablonFa(kx, je, jix, (() => { let n = 0; return () => 'sf' + (++n); })());
+  ellenoriz(sfj.filter((x) => x.tipus === 'jelenet').every((x) => x.adat.osszecsapas_id === undefined), 'a részfa sablonjában sem');
+}
 
 console.log(hibak ? `\n${hibak} HIBA (${db} ellenőrzésből)` : `\nMind a ${db} ellenőrzés sikeres.`);
 process.exit(hibak ? 1 : 0);

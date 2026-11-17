@@ -11,6 +11,7 @@ import * as F from '../kampany/fa.js';
 import * as KP from '../kampany/kapcsolat.js';
 import { peldanyFa, sablonFa } from '../kampany/kaland.js';
 import { DobotablaParbeszed } from './dobotabla.js';
+import { KepekPanel } from './epito_kepek.js';
 import { megjelenitettNev } from '../szabalyok.js';
 
 // A típusok saját mezői az elemszerkesztőben (a későbbi alépések moduljai töltik fel, például epito_kaland.js).
@@ -270,7 +271,7 @@ export function UjElemParbeszed({ prep, cel, szulo, tipusok, onBezar, maradj, el
     <${K.Button} variant="primary" disabled=${fut} onClick=${letrehoz}>Létrehozás<//>`}>
     <div className="verem">
       ${lehetseges.length > 1 ? html`<${Valaszto} label="Típus" value=${tipus} onChange=${(t) => { setTipus(t); setAlap(''); }}
-        opciok=${lehetseges.map((t) => ({ value: t, label: E.ELEMTIPUSOK[t].nev + (E.ELEMTIPUSOK[t].alepes !== '5.1' ? ' (saját mezői: ' + E.ELEMTIPUSOK[t].alepes + ')' : '') }))}/>` : null}
+        opciok=${lehetseges.map((t) => ({ value: t, label: E.ELEMTIPUSOK[t].nev + (E.ELEMTIPUSOK[t].alepes !== '5.1' && !SAJAT_LEPESEK[t] && !SAJAT_MEZOK[t] ? ' (saját mezői: ' + E.ELEMTIPUSOK[t].alepes + ')' : '') }))}/>` : null}
       ${cel.szint !== 'sablon' ? html`<${Valaszto} label="Kiindulás" value=${alap} onChange=${setAlap} ures="üres elem"
         hint="Sablonra vagy világelemre építve az elem az alapját követi, csak az eltéréseit tárolja (felülírás). Később leválasztható."
         opciok=${jeloltek.map((x) => ({ value: x.id, label: E.nev(x, prep.ix) + ' (' + E.SZINTEK[E.szint(x)].toLowerCase() + ')' }))}/>` : null}
@@ -490,6 +491,7 @@ export function ElemSzerkeszto({ id, prep, cel, Oldalfej, vissza, sajatMezok }) 
           </div>
         <//>
         <${KapcsolatokPanel} elem=${e} prep=${prep} cel=${cel}/>
+        <${KepekPanel} elem=${e} ix=${ix} valt=${valt} prep=${prep}/>
         <${K.Panel} title="Öröklés és szint">
           <div className="verem">
             <p className="sugo kicsi">${sz === 'sablon' ? 'Sablon: világtól független minta. Világ- vagy kampányelem épülhet rá.'

@@ -59,7 +59,9 @@ function muveletek_() {
     'element.detach':          { fn: elemLevalasztasa_, szerep: 'dm' },
     'element.promote':         { fn: elemEmelese_, szerep: 'dm' },
     'link.save':               { fn: kapcsolatMentese_, szerep: 'dm' },
-    'link.delete':             { fn: kapcsolatTorlese_, szerep: 'dm' }
+    'link.delete':             { fn: kapcsolatTorlese_, szerep: 'dm' },
+    'element.image.add':       { fn: elemKepFeltoltese_, szerep: 'dm' },
+    'element.image.trash':     { fn: elemKepTorlese_, szerep: 'dm' }
     // 'ai.ask': kihasználatlan (a szabálybíró külön Claude projekt, lásd a 4. lépést)
   };
 }

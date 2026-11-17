@@ -398,3 +398,80 @@ function kampanyElokeszitesTorlese_(kampanyId) {
   if (elemek.length) sorokTorlese_('jatek', 'Elemek', elemek.map(function (e) { return e._sor; }));
   return elemek.length;
 }
+
+// ---- Az elemek képei (5.3: jelenetképek és térképek; közös mező minden elemen) ----
+// A képek a Drive „Kampányképek” mappájában vannak; az elem adatában csak a fájlazonosítók (adat.kepek:
+// [{ kep, belyeg, cim, terkep, szel, mag }]). Csak a DM tölthet fel és kérhet le ilyen képet.
+
+function kampanyKepMappa_() {
+  const id = beallitas_('KAMPANYKEPMAPPA_ID');
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (e) { /* törölték: újra létrehozzuk */ }
+  }
+  const mappa = mappa_(DriveApp.getFolderById(beallitas_('MAPPA_ID')), 'Kampányképek');
+  PropertiesService.getScriptProperties().setProperty('KAMPANYKEPMAPPA_ID', mappa.getId());
+  CacheService.getScriptCache().put('prop_KAMPANYKEPMAPPA_ID', mappa.getId(), BEALLITAS_CACHE_MP);
+  return mappa;
+}
+
+// Az elemekben hivatkozott képfájlok azonosítói (a saját és az örökölt értékek is, hiszen mind az adatban vannak).
+function elemKepei_(elemek) {
+  const ki = {};
+  (elemek || epitoSorok_('Elemek')).forEach(function (e) {
+    const kepek = objektum_(e.adat).kepek;
+    (Array.isArray(kepek) ? kepek : []).forEach(function (k) {
+      if (k && k.kep) ki[k.kep] = true;
+      if (k && k.belyeg) ki[k.belyeg] = true;
+    });
+  });
+  return ki;
+}
+
+// action: element.image.add (DM)   adat: { kep, belyeg? }  (base64 JPEG)  → { kep: { kep, belyeg } }
+// Csak a fájlokat hozza létre; az elem adatába a felület írja be (element.save), mert a képlista öröklődhet.
+function elemKepFeltoltese_(a, felh) {
+  if (!a.kep) throw hiba_('hianyzo_adat', 'Hiányzik a kép.');
+  if (String(a.kep).length > MAX_KEP_MERET || String(a.belyeg || '').length > MAX_KEP_MERET) throw hiba_('tul_nagy', 'A kép túl nagy.');
+  const mappa = kampanyKepMappa_();
+  const azon = 'kep_' + Utilities.getUuid().slice(0, 8);
+  const fajl = function (b64, nev) {
+    return mappa.createFile(Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', azon + '_' + nev + '.jpg'));
+  };
+  const kep = fajl(a.kep, 'kep').getId();
+  const belyeg = a.belyeg ? fajl(a.belyeg, 'belyeg').getId() : kep;
+  valtozasNaplozasa_(felh, 'elem.kep', kep, 0, 1);
+  return { kep: { kep: kep, belyeg: belyeg } };
+}
+
+// action: element.image.trash (DM)   adat: { kep: { kep, belyeg } }
+// A fájlok a kukába kerülnek, de csak ha már egyetlen elem sem hivatkozik rájuk (a sablon képét a példányok is használják),
+// és ha a Kampányképek mappában vannak (más képet így nem lehet törölni).
+function elemKepTorlese_(a, felh) {
+  const k = objektum_(a.kep);
+  return zarolva_(function () {
+    const hasznalt = elemKepei_();
+    const mappaId = kampanyKepMappa_().getId();
+    const torolt = [];
+    [k.kep, k.belyeg].filter(Boolean).forEach(function (id) {
+      if (hasznalt[id] || torolt.indexOf(id) >= 0) return;
+      try {
+        const f = DriveApp.getFileById(id);
+        const szulok = f.getParents();
+        let benne = false;
+        while (szulok.hasNext()) if (szulok.next().getId() === mappaId) benne = true;
+        if (!benne) return;
+        f.setTrashed(true);
+        torolt.push(id);
+      } catch (e) { /* már nincs meg */ }
+    });
+    if (torolt.length) valtozasNaplozasa_(felh, 'elem.kep:torol', torolt[0], 1, 0);
+    return { torolve: torolt };
+  });
+}
+
+// Az image.get engedélylistájához: a DM az elemek képeit is lekérheti.
+function elemKepekEngedese_(felh, engedett) {
+  if (!felh || felh.r !== 'dm') return;
+  const kepek = elemKepei_();
+  Object.keys(kepek).forEach(function (id) { engedett[id] = true; });
+}

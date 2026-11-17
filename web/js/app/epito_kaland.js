@@ -9,6 +9,8 @@ import * as F from '../kampany/fa.js';
 import * as KL from '../kampany/kaland.js';
 import * as KR from '../kampany/keret.js';
 import { SAJAT_MEZOK, SAJAT_LEPESEK, ElemMezo, OroklesJel, UjElemParbeszed, elemUt, ujAzon, SzintJel } from './epito.js';
+import * as JL from '../kampany/jelenet.js';
+import { JelenetArany } from './epito_jelenet.js';
 
 const PONT = { kesz: ['kaland__pont kaland__pont--kesz', '✓'], resz: ['kaland__pont kaland__pont--resz', '…'], ures: ['kaland__pont', ''] };
 
@@ -105,7 +107,8 @@ function UtemSzerkeszto({ elem, ix, valt, prep, kaland }) {
 // A kaland teljes ütemsora (a részeké is) és az alkalmakra bontás.
 function UtemAttekintes({ elem, ix, valt, prep, cel, teljesLista }) {
   const elemek = elemekMost(prep, elem);
-  const sor = KL.utemSor(elem, elemek, ix);
+  // a nagy csata jelenet ütemét is nagy csatának veszi (5.3)
+  const sor = JL.utemSorJelenettel(KL.utemSor(elem, elemek, ix), elem, elemek, ix);
   const hossz = KL.hosszNorm(E.mezoErtek(elem, 'hossz', ix).ertek);
   const allitHossz = (x) => valt(E.mezoBeallit(elem, 'hossz', { ...hossz, ...x }, ix));
   const beo = KL.alkalomBeosztas(sor, hossz);
@@ -127,7 +130,7 @@ function UtemAttekintes({ elem, ix, valt, prep, cel, teljesLista }) {
         return csop.map((c) => html`<div key=${c.gazda.id + c.tetelek[0]} className="utemattekintes__resz">
           <p className="utemattekintes__cim">${c.gazda.id === elem.id ? 'A kaland saját ütemei' : html`<a href=${elemUt(cel, c.gazda.id)}>${E.nev(c.gazda, ix)}</a>`}</p>
           <ol start=${c.tetelek[0] + 1}>${c.tetelek.map((i) => { const u = sor[i].utem; return html`<li key=${u.id} className=${u.szunet ? 'halvany' : ''}>
-            ${u.szoveg || html`<span className="halvany">(üres ütem)</span>`}${u.nagy_csata ? html` <${K.Badge} tone="danger">nagy csata<//>` : null}
+            ${u.szoveg || html`<span className="halvany">(üres ütem)</span>`}${u.nagy_csata ? html` <${K.Badge} tone="danger">nagy csata${u.jelenet_csata ? ' (a jelenet)' : ''}<//>` : null}
             ${u.kotetlen ? html` <span className="halvany kicsi">kötetlen</span>` : null}${u.szunet ? html` <span className="halvany kicsi">pihenő</span>` : null}</li>`; })}</ol>
         </div>`);
       })()}</div>
@@ -265,6 +268,10 @@ function KalandMezok({ lepes, elem, ix, valt, prep, cel }) {
       ${sajatUtemek ? html`<${UtemSzerkeszto} elem=${elem} ix=${ix} valt=${valt} prep=${{ ...prep, cel }} kaland=${elem}/>`
         : html`<p className="halvany kicsi">Az ütemek a részeknél vannak (a rész lapján szerkesztheted őket); itt együtt látszanak, alkalmakra bontva.</p>`}
       <${UtemAttekintes} elem=${elem} ix=${ix} valt=${valt} prep=${prep} cel=${cel} teljesLista=${!sajatUtemek}/>
+      <div>
+        <p className="cimke">A jelenetek típusai (Varying Encounters, 33. oldal)</p>
+        <${JelenetArany} jelenetek=${KL.kalandJelenetei(elem, elemek, ix)} ix=${ix} keret=${keret}/>
+      </div>
     <//>` : null}
 
     ${lepes === 'ellenfel' ? html`<${LepesPanel} lepes="ellenfel">
@@ -437,6 +444,7 @@ export function KalandokNezet({ prep, cel }) {
   const lathato = (e) => archivalt || e.aktiv !== false;
   const kalandok = elemek.filter((e) => e.tipus === 'kaland' && e.kampany_id === cel.kampany_id && lathato(e));
   const csoportok = KL.ivSzerint(kalandok, ix);
+  const kampanyJelenetek = JL.kampanyJelenetei(csoportok.flatMap((c) => c.kalandok).filter((k) => k.aktiv !== false), elemek, ix);
   const archivDb = elemek.filter((e) => e.kampany_id === cel.kampany_id && ['kaland', 'resz', 'jelenet'].includes(e.tipus) && e.aktiv === false).length;
   const vilagKalandok = prep.adat.vilag_id ? elemek.filter((e) => e.tipus === 'kaland' && e.vilag_id === prep.adat.vilag_id && e.aktiv !== false) : [];
   const sablonKalandok = elemek.filter((e) => e.tipus === 'kaland' && E.szint(e) === 'sablon' && e.aktiv !== false);
@@ -454,11 +462,12 @@ export function KalandokNezet({ prep, cel }) {
       <div className=${'kalandfa__sor kalandfa__sor--' + e.tipus + (e.aktiv === false ? ' kalandfa__sor--archivalt' : '')}>
         <span className="kalandfa__jel" aria-hidden="true">${kaland ? '◆' : e.tipus === 'resz' ? '▸' : '•'}</span>
         <a className="kalandfa__nev" href=${elemUt(cel, e.id)}>${E.nev(e, ix)}</a>
-        ${!kaland ? html`<span className="halvany kicsi">${szerep || TIPUS_JEL[e.tipus]}</span>` : null}
+        ${!kaland ? html`<span className="halvany kicsi">${szerep || (e.tipus === 'jelenet' && JL.tipusFelirat(JL.tipusokOf(a))) || TIPUS_JEL[e.tipus]}</span>` : null}
         ${kaland && KL.formatumOf(a) ? html`<${K.Badge}>${KL.FORMATUMOK[KL.formatumOf(a)].nev}<//>` : null}
         ${e.alap_id ? html`<span className="halvany kicsi" title="Alapra épül">↳ ${E.nev(ix.get(e.alap_id), ix)}</span>` : null}
         ${E.szint(e) !== 'kampany' ? html`<${SzintJel} elem=${e}/>` : null}
         ${(a.allapot || 'vazlat') === 'kesz' ? html`<span className="elemfa__kesz" title="kész">✓</span>` : null}
+        ${kaland && osz.jelenetek ? html`<${JelenetArany} jelenetek=${KL.kalandJelenetei(e, elemek, ix)} ix=${ix} kicsi=${true} egyhangu=${false}/>` : null}
         ${kaland ? html`<span className="halvany kicsi">${osz.reszek} rész · ${osz.jelenetek} jelenet · ${osz.utemek} ütem</span>`
           : utemDb ? html`<span className="halvany kicsi">${utemDb} ütem</span>` : null}
         <span className="kalandfa__muveletek">
@@ -493,6 +502,10 @@ export function KalandokNezet({ prep, cel }) {
       <${K.Button} variant="primary" onClick=${() => ujKaland('')} icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Új kaland<//>
     </div>
     ${archivDb ? html`<${Jelolo} checked=${archivalt} onChange=${setArchivalt}>Archiváltak is (${archivDb})<//>` : null}
+    ${kampanyJelenetek.length ? html`<${K.Panel} title="A kampány jelenetei típus szerint">
+      <${JelenetArany} jelenetek=${kampanyJelenetek} ix=${ix} keret=${keret} egyhangu=${false}/>
+      <p className="halvany kicsi">A könyv (Varying Encounters, 33. oldal) a típusok váltogatását javasolja; a kaland szerkesztőjének „Ütemek és hossz” lépése a kaland saját sorrendjét is ellenőrzi.</p>
+    <//>` : null}
     ${csoportok.map((cs) => {
       const aktiv = cs.iv ? KR.ivAktiv(cs.iv, keret) : true;
       if (!cs.iv && !cs.kalandok.length) return null;

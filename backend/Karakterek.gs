@@ -321,6 +321,7 @@ function kepekLekerese_(a, felh) {
     }
   });
   njkKepekEngedese_(felh, k, engedett);
+  elemKepekEngedese_(felh, engedett);
   const kepek = {};
   idk.forEach(function (id) {
     if (!engedett[id]) return;

@@ -566,6 +566,24 @@ ellenoriz(v.ok && v.kapcsolatok.includes('ln_kapcs0001'), 'archivált elem törl
 ellenoriz(hivas('link.delete', { id: 'ln_kapcs0003' }, dm2).ok && hivas('link.delete', { id: 'ln_kapcs0003' }, dm2).ok, 'kapcsolat törlése (ismételten is)');
 hivas('link.save', { id: 'ln_kapcs0004', uj: true, honnan: 'el_kamp0002', hova: 'el_vilag001', tipus: 'resze', kampany_id: kampany.id }, dm2);
 
+// Az elemek képei (5.3)
+ellenoriz(hivas('element.image.add', { kep: b64('TERKEP') }, annaT).hiba === 'nincs_jogosultsag', 'elemképet játékos nem tölthet fel');
+v = hivas('element.image.add', { kep: b64('TERKEP'), belyeg: b64('TBELYEG') }, dm2);
+const ekep = v.kep;
+ellenoriz(v.ok && ekep.kep && ekep.belyeg && ekep.kep !== ekep.belyeg && mappaKeres(gyoker, tulajdonsagok.KAMPANYKEPMAPPA_ID).nev === 'Kampányképek'
+  && fajlok[ekep.kep].szulo === tulajdonsagok.KAMPANYKEPMAPPA_ID, 'elemkép feltöltése a Kampányképek mappába', v);
+ellenoriz(Object.keys(hivas('image.get', { idk: [ekep.kep] }, dm2).kepek).length === 0, 'elemhez nem kötött kép nem kérhető le');
+hivas('element.save', { id: 'el_kamp0002', verzio: 1, adat: { kepek: [{ kep: ekep.kep, belyeg: ekep.belyeg, cim: 'Híd', terkep: true }] } }, dm2);
+v = hivas('image.get', { idk: [ekep.kep, ekep.belyeg] }, dm2);
+ellenoriz(Buffer.from(v.kepek[ekep.kep], 'base64').toString() === 'TERKEP' && v.kepek[ekep.belyeg], 'a DM lekéri az elem képét és bélyegét');
+ellenoriz(Object.keys(hivas('image.get', { idk: [ekep.kep] }, annaT).kepek).length === 0, 'a játékos nem kéri le az elem képét');
+v = hivas('element.image.trash', { kep: ekep }, dm2);
+ellenoriz(v.ok && v.torolve.length === 0 && !fajlok[ekep.kep].kuka, 'használt elemkép nem kerül a kukába');
+ellenoriz(hivas('element.image.trash', { kep: { kep: kep3.kep } }, dm2).torolve.length === 0, 'más mappa képe (karakterkép) nem törölhető így');
+hivas('element.save', { id: 'el_kamp0002', verzio: 2, adat: {} }, dm2);
+v = hivas('element.image.trash', { kep: ekep }, dm2);
+ellenoriz(v.torolve.length === 2 && fajlok[ekep.kep].kuka && fajlok[ekep.belyeg].kuka, 'a már nem használt elemkép a kukába kerül');
+
 ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).hiba === 'hibas_adat', 'nem archivált kampány nem törölhető');
 hivas('campaign.update', { id: kampany.id, allapot: 'archivált' }, dm2);
 ellenoriz(hivas('campaigns.list', {}, annaT).kampanyok.length === 0, 'archivált kampányt a mesterjátékos nem látja');

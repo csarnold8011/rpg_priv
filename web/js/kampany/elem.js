@@ -149,10 +149,14 @@ export function peldany(alap, cel, id) {
   };
 }
 
+// Egy kampányhoz kötött mezők (például a jelenet összecsapása a kampány összecsapásai közül): a sablonba nem kerülnek át.
+export const KAMPANYHOZ_KOTOTT = ['osszecsapas_id'];
+
 // Sablon bármely elemből: a megjelenített tartalom önálló sablonként (szülő és alap nélkül).
 export function sablonbol(e, ix, id) {
   const adat = megjelenitett(e, ix);
   delete adat.dobasok;
+  KAMPANYHOZ_KOTOTT.forEach((m) => { delete adat[m]; });
   return { id, tipus: e.tipus, nev: adat.nev || e.nev || '', vilag_id: '', kampany_id: '', alap_id: '', szulo_id: '', sorrend: 0, adat, verzio: 0, aktiv: true };
 }
 

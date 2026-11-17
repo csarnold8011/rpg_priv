@@ -76,7 +76,8 @@ function letrehoz() {
     if (!fajlok[id]) throw new Error('Nincs ilyen fájl: ' + id);
     return { getId: () => id, getName: () => fajlok[id].cim, setName: (n) => { fajlok[id].cim = n; }, getMimeType: () => fajlok[id].mime || 'sheets',
       isTrashed: () => !!fajlok[id].kuka, setTrashed: (x) => { fajlok[id].kuka = !!x; }, moveTo: (m) => { fajlok[id].szulo = m.id; },
-      getBlob: () => ({ getBytes: () => fajlok[id].bajtok || [] }) };
+      getBlob: () => ({ getBytes: () => fajlok[id].bajtok || [] }),
+      getParents: () => { let kesz = false; return { hasNext: () => !kesz, next: () => { kesz = true; return { getId: () => fajlok[id].szulo }; } }; } };
   };
   function mappaKeres(m, id) { if (m.id === id) return m; for (const a of m.almappak) { const x = mappaKeres(a, id); if (x) return x; } return null; }
   const tulajdonsagok = {};
