@@ -20,6 +20,9 @@ export const SAJAT_MEZOK = {};
 // Lépéses szerkesztő egy típushoz (például a kaland a könyv lépései szerint): ({ elem, ix }) => [{ kulcs, nev, allapot }],
 // és a lépés tartalma: tartalom(kulcs, { elem, ix, valt, prep, cel }). Az „alap” lépés az általános szerkesztő.
 export const SAJAT_LEPESEK = {};
+// További panelek a világ oldalán (a későbbi alépések moduljai töltik fel, például a földrajz: epito_helyszin.js).
+// Függvény: ({ prep, cel, vazlat, setVazlat }) => tartalom.
+export const VILAG_PANELEK = [];
 // A szerkezeti típusok, amelyek a kiinduló alapjukból a részfájukkal együtt példányosíthatók.
 const FAVAL_PELDANYOSITHATO = ['kaland', 'resz'];
 
@@ -643,7 +646,7 @@ function VilagAttekintes({ id, prep, cel, Oldalfej }) {
               value=${a.fontos_jellemzok || ''} onChange=${(e) => allit('fontos_jellemzok', e.target.value)}/>
             <${K.TextField} label="Leírás" multiline=${true} rows=${6} value=${a.leiras || ''} onChange=${(e) => allit('leiras', e.target.value)}/>
             <${K.TextField} label="A DM titkai" hint="Csak te látod." multiline=${true} rows=${4} value=${a.titkok || ''} onChange=${(e) => allit('titkok', e.target.value)}/>
-            <p className="halvany kicsi">A világ földrajza (régió, ország, település, helyszín) az 5.4 alépésben épül a helyszínek fájából; az istenségek az 5.8-ban.</p>
+            <p className="halvany kicsi">A világ földrajza a helyszínek fájából áll (régió, ország, település, hely, üzlet); az istenségek az 5.8 alépésben jönnek.</p>
             <div className="gombsor gombsor--szoros">
               ${vazlat.aktiv === false
                 ? html`<${K.Button} size="sm" onClick=${() => setVazlat({ ...vazlat, aktiv: true })}>Visszaállítás<//>`
@@ -653,6 +656,7 @@ function VilagAttekintes({ id, prep, cel, Oldalfej }) {
         <//>
       </div>
       <div className="verem">
+        ${VILAG_PANELEK.map((P, i) => html`<${P} key=${i} prep=${prep} cel=${cel} vazlat=${vazlat} setVazlat=${setVazlat}/>`)}
         <${K.Panel} title="Világelemek">
           <div className="verem">
             <${K.TextField} label="Keresés" value=${szoveg} onChange=${(e) => setSzoveg(e.target.value)}/>

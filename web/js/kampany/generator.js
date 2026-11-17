@@ -8,8 +8,8 @@
 //     t: 5 | [3, 4] | [[1, 1], [1, 3]]   (összegnél tartomány; oszloposnál kockánként tartomány)
 //     e: 'rövid magyar eredmény', en: 'angol név' (nem kötelező),
 //     ertek: tetszőleges szerkezett érték a hívó modulnak (például { szazalek: 110 } vagy { kategoriak: [...] }),
-//     szam: { alap: 'sarkany' | '1d6' | ..., oszto: 2 | 3, kerekit: 'fel' | 'le' }  →  az e szövegben {szam}
-//     hivas: [{ tabla: 'id' | '' (ugyanez a tábla), darab: 1 | '1d6' | '2d6' | 'd3' | 'sarkany', egyedi, sajat_ujra }]
+//     szam: { alap: 'sarkany' | '1d6' | ..., oszto: 2 | 3, kerekit: 'fel' | 'le', plusz: −1 }  →  az e szövegben {szam}
+//     hivas: [{ tabla: 'id' | '' (ugyanez a tábla), darab: 1 | '1d6' | '2d6' | 'd3' | 'sarkany', darab_plusz: 1, egyedi, sajat_ujra }]
 //   }],
 //   kovetkezo: [{ tabla, darab }]   minden dobás után (például az üzlettípus után az üzletrészletek a sárkánykocka szerint)
 // }
@@ -134,7 +134,7 @@ function szamSzamol(sz, sarkany, rng) {
   else alap = Number(sz.alap) || 0;
   const o = Number(sz.oszto) || 1;
   const nyers = alap / o;
-  return sz.kerekit === 'le' ? Math.floor(nyers) : Math.ceil(nyers);
+  return (sz.kerekit === 'le' ? Math.floor(nyers) : Math.ceil(nyers)) + (Number(sz.plusz) || 0);
 }
 
 function szovegKitolt(e, csomopont) {
@@ -194,7 +194,7 @@ function hivasVegrehajt(hv, tablaId, sor, sarkany, korny, ctx) {
   const celId = hv.tabla || tablaId;
   const cel = tablaKeres(korny.tablak, celId);
   const d = darabFeloldas(hv.darab, sarkany, korny.rng);
-  const db = d.kesobb ? Math.min(MAX_DARAB, d.dobas.osszeg) : d.db;
+  const db = Math.max(0, Math.min(MAX_DARAB, (d.kesobb ? d.dobas.osszeg : d.db) + (Number(hv.darab_plusz) || 0)));
   const gyerekek = [];
   for (let i = 0; i < db && ctx.szamlalo.n < MAX_CSOMOPONT; i++) {
     const tiltottSorok = [];
@@ -203,7 +203,7 @@ function hivasVegrehajt(hv, tablaId, sor, sarkany, korny, ctx) {
     gyerekek.push(csomopontKeszit(celId, korny, { melyseg: ctx.melyseg + 1, osSarkany: sarkany, szamlalo: ctx.szamlalo, tiltottSorok }));
   }
   return { tabla: celId, nev: cel ? cel.nev_hu : celId, darab: hv.darab === undefined ? 1 : hv.darab, darabDobas: d.dobas,
-    egyedi: !!hv.egyedi, sajat_ujra: !!hv.sajat_ujra, gyerekek };
+    darab_plusz: Number(hv.darab_plusz) || 0, egyedi: !!hv.egyedi, sajat_ujra: !!hv.sajat_ujra, gyerekek };
 }
 
 // ---- Módosítás útvonal szerint: ut = [hivasIndex, gyerekIndex, hivasIndex, gyerekIndex, ...] ----
@@ -301,7 +301,7 @@ export function dobasSzoveg(cs) {
 
 function darabSzoveg(h) {
   if (h.darab === 'sarkany') return 'a sárkánykocka szerint ' + h.gyerekek.length + '×';
-  if (h.darabDobas && h.darabDobas.forma !== 'sarkany') return h.darabDobas.forma + ' = ' + h.darabDobas.osszeg + '×';
+  if (h.darabDobas && h.darabDobas.forma !== 'sarkany') return h.darabDobas.forma + (h.darab_plusz ? '+' + h.darab_plusz : '') + ' = ' + (h.darabDobas.osszeg + (h.darab_plusz || 0)) + '×';
   return h.gyerekek.length === 1 ? '' : h.gyerekek.length + '×';
 }
 

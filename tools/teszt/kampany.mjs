@@ -8,6 +8,8 @@ import * as KR from '../../web/js/kampany/keret.js';
 import * as G from '../../web/js/kampany/generator.js';
 import * as KL from '../../web/js/kampany/kaland.js';
 import * as JL from '../../web/js/kampany/jelenet.js';
+import * as HS from '../../web/js/kampany/helyszin.js';
+import * as B from '../../web/js/kampany/bolt.js';
 
 let hibak = 0;
 let db = 0;
@@ -349,6 +351,119 @@ ellenoriz(la.hasznalat === 'resz' && la.tortenet === 'resz' && la.utemek === 'ke
   ellenoriz(sj.adat.osszecsapas_id === undefined && sj.adat.nagy_csata === true, 'a sablonba a kampány összecsapása nem kerül át');
   const sfj = KL.sablonFa(kx, je, jix, (() => { let n = 0; return () => 'sf' + (++n); })());
   ellenoriz(sfj.filter((x) => x.tipus === 'jelenet').every((x) => x.adat.osszecsapas_id === undefined), 'a részfa sablonjában sem');
+}
+
+// ---------- 5.4: helyszínek, földrajz, boltgenerátor ----------
+{
+  const reg = { id: 'h_r', tipus: 'helyszin', vilag_id: 'w1', kampany_id: '', alap_id: '', szulo_id: '', sorrend: 0, adat: { nev: 'Partvidék', fajta: 'regio', arszorzo: 120 } };
+  const varos = { id: 'h_v', tipus: 'helyszin', vilag_id: 'w1', kampany_id: '', alap_id: '', szulo_id: 'h_r', sorrend: 0, adat: { nev: 'Kikötőváros', fajta: 'telepules' } };
+  const bolt = { id: 'h_b', tipus: 'helyszin', vilag_id: 'w1', kampany_id: '', alap_id: '', szulo_id: 'h_v', sorrend: 0, adat: { nev: 'Vasbolt', fajta: 'uzlet' } };
+  const kbolt = { id: 'h_kb', tipus: 'helyszin', vilag_id: '', kampany_id: 'c1', alap_id: 'h_b', szulo_id: 'h_v', sorrend: 1, adat: { arszint: 150 } };
+  const hel = [reg, varos, bolt, kbolt];
+  const hix = E.index(hel);
+  const megj = (e) => E.megjelenitett(e, hix);
+  ellenoriz(HS.fajtaOf({}) === 'hely' && HS.fajtaOf({ fajta: 'orszag' }) === 'orszag', 'a helyszín fajtája, alapból hely');
+  ellenoriz(HS.lepesKulcsok({ fajta: 'uzlet' }).slice(0, 3).join() === 'fajta,bolt,kinalat' && HS.lepesKulcsok({ fajta: 'orszag' }).includes('orszag') && !HS.lepesKulcsok({}).includes('bolt'), 'a lépések a fajta szerint');
+  const fa = HS.foldrajziFa(hel, hix);
+  ellenoriz(fa.length === 1 && fa[0].gyerekek[0].gyerekek.length === 2, 'földrajzi fa: régió, város, két bolt', fa.length);
+  ellenoriz(HS.osok(bolt, hix).map((x) => x.id).join() === 'h_r,h_v', 'a bolt ősei');
+  ellenoriz(HS.legkozelebbi(bolt, hix, megj, ['telepules']).id === 'h_v', 'a bolt települése');
+  ellenoriz(HS.uzletei(reg, hel, megj).length === 2, 'a régió üzletei');
+  ellenoriz(B.arszorzo(bolt, hix, megj, null).szazalek === 120, 'árszorzó a régióból öröklődik');
+  ellenoriz(B.arszorzo(reg, hix, megj, { adat: { arszorzo: 90 } }).szazalek === 90 && B.arszorzo(reg, hix, megj, null).szazalek === 100, 'árszorzó a világból, különben 100');
+  ellenoriz(HS.figyelmeztetesek({ fajta: 'orszag' }, { fajta: 'telepules' }).some((f) => f.lepes === 'fajta'), 'ország település alatt: figyelmeztet');
+  ellenoriz(HS.figyelmeztetesek({ titkok: 'x', szereplok: [{ nev: 'a' }, { nev: 'b' }] }).some((f) => f.lepes === 'lakok'), 'két szereplő konfliktus nélkül: figyelmeztet');
+  ellenoriz(HS.figyelmeztetesek({}).some((f) => /titka/.test(f.szoveg)), 'titok nélküli helyszín: figyelmeztet');
+  const la = HS.lepesAllapot({ koncepcio: 'rom', titkok: 't', lakok: [{ nev: 'tolvajok' }], uzlet_tipusok: ['szabo'] });
+  ellenoriz(la.koncepcio === 'kesz' && la.lakok === 'resz' && la.bolt === 'kesz' && la.tortenet === 'ures', 'a helyszín lépéseinek kitöltöttsége', la);
+  ellenoriz(HS.mutatvanyokNorm([{ nev: 'Omlás', ar: 9 }])[0].ar === 6 && HS.korulmenyekNorm([{ mire: 'zsebtolvajlás', modosito: '2' }])[0].modosito === 2, 'helyszín-mutatványok és körülményi módosítók normalizálása');
+  ellenoriz(HS.ittTortenik('h_v', [{ id: 'k', tipus: 'itt_tortenik', honnan: 'j1', hova: 'h_v' }]).join() === 'j1', 'itt történik: a helyszín jelenetei');
+
+  // kitalált mini szabályadat (nem a könyv tételei)
+  const lapok = {
+    Felszerelés: [
+      { id: 'fel_a', nev_hu: 'Kabát', nev_en: 'Coat', kategoria: 'Ruházat', reszletek: { ar_rez: 100 } },
+      { id: 'fel_b', nev_hu: 'Kalap', nev_en: 'Hat', kategoria: 'Ruházat', reszletek: { ar_rez: 30 } },
+      { id: 'fel_c', nev_hu: 'Szoba', nev_en: 'Lodging (night)', kategoria: 'Étel és szállás', reszletek: { ar_rez: 20 } },
+      { id: 'fel_d', nev_hu: 'Leves', nev_en: 'Meal (soup)', kategoria: 'Étel és szállás', reszletek: { ar_rez: 5 } },
+      { id: 'fel_e', nev_hu: 'Kenyér', nev_en: 'Bread', kategoria: 'Étel és szállás', ar: '5 réz' }
+    ],
+    Páncélok: [
+      { id: 'pan_light_leather', nev_hu: 'K. bőr', reszletek: { tipus: 'pancel', ar_rez: 150 } }, { id: 'pan_heavy_leather', nev_hu: 'N. bőr', reszletek: { tipus: 'pancel', ar_rez: 300 } },
+      { id: 'pan_light_mail', nev_hu: 'K. sodrony', reszletek: { tipus: 'pancel', ar_rez: 500 } }, { id: 'pan_light_shield', nev_hu: 'K. pajzs', reszletek: { tipus: 'pajzs', ar_rez: 150 } },
+      { id: 'pan_medium_shield', nev_hu: 'Ip. pajzs', reszletek: { tipus: 'pajzs', ar_rez: 300 } }
+    ],
+    Fegyverek: [
+      { id: 'fgy_1', nev_hu: 'Fejsze 1', csoport: 'fcs_axes', reszletek: { ar_rez: 100 } }, { id: 'fgy_2', nev_hu: 'Fejsze 2', csoport: 'fcs_axes', reszletek: { ar_rez: 140 } },
+      { id: 'fgy_3', nev_hu: 'Fejsze 3', csoport: 'fcs_axes', reszletek: { ar_rez: 200 } }, { id: 'fgy_g', nev_hu: 'Fiola', csoport: null, reszletek: { tipus: 'granat', ar_rez: 90 } }
+    ],
+    Fegyvercsoportok: [{ id: 'fcs_axes', nev_hu: 'Fejszék' }]
+  };
+  ellenoriz(B.listaAr(lapok.Felszerelés[4]) === 5 && B.listaAr(lapok.Felszerelés[0]) === 100, 'listaár az ar_rez-ből vagy az ár szövegéből');
+  const pk = { uzlet_tipusok: ['pancelkovacs'], pancel_max: 'pan_heavy_leather', pajzs_max: 'pan_light_shield' };
+  const pf = B.forrasok(pk, lapok);
+  ellenoriz(pf.find((f) => f.kulcs === 'Páncélok:pancel').sorok.length === 2 && pf.find((f) => f.kulcs === 'Páncélok:pajzs').sorok.length === 1, 'páncélkovács: a kidobott és minden alatta');
+  ellenoriz(B.forrasok({ uzlet_tipusok: ['kocsma'] }, lapok)[0].sorok.map((s) => s.id).join() === 'fel_d,fel_e', 'kocsma: étel szállás nélkül');
+  ellenoriz(B.forrasok({ uzlet_tipusok: ['elelmiszer'] }, lapok)[0].sorok.map((s) => s.id).join() === 'fel_e', 'élelmiszerbolt: kész étel és szállás nélkül');
+  ellenoriz(B.forrasok({ uzlet_tipusok: ['szabo', 'kocsma'] }, lapok).length === 2, 'kettős profil: két forrás');
+  ellenoriz(B.forrasok({ sajat_kategoriak: ['Fegyverek:fcs_axes', 'Felszerelés:Ruházat'] }, lapok).length === 2, 'saját bolttípus kategóriákból');
+  const fk = { uzlet_tipusok: ['fegyverkovacs'], fegyvercsoportok: ['fcs_axes'], granat: 'granat', boseg: 'teljes' };
+  ellenoriz(B.forrasok(fk, lapok).map((f) => f.kulcs).join() === 'Fegyverek:fcs_axes,Fegyverek:granat', 'fegyverkovács: csoportok és gránát');
+  let k = B.kinalatGeneral(fk, lapok, { rng: kockak(3, 4, 5) });
+  ellenoriz(k.length === 4 && k.every((t) => t.darab >= 1), 'teljes kínálat: minden tétel darabszámmal', k.length);
+  k = B.kinalatGeneral({ ...fk, fegyverek_konkret: true }, lapok, { rng: kockak(5) });
+  ellenoriz(k.filter((t) => t.forras === 'Fegyverek:fcs_axes').length === 1 && k.find((t) => t.forras === 'Fegyverek:fcs_axes').tetel === 'fgy_3', 'konkrét fegyver: d3 a csoportból (5 → 3.)');
+  k = B.kinalatGeneral({ uzlet_tipusok: ['fegyverkovacs'], granat: 'granat_alapanyag' }, lapok, { rng: kockak(2) });
+  ellenoriz(k.length === 1 && k[0].forras === 'egyedi' && /alapanyag/.test(k[0].nev), 'gránát-alapanyag egyedi tételként');
+  const szk = B.kinalatGeneral({ uzlet_tipusok: ['szabo'], boseg: 'szukos' }, lapok, { rng: kockak(6) });
+  ellenoriz(szk.length === 1, 'szűkös kínálat: legalább egy tétel marad', szk.length);
+  ellenoriz(B.alacsonyKeszlet(kockak(2, 2, 5)) === 5 && B.alacsonyKeszlet(kockak(1, 2, 3)) === 0, 'alacsony készlet: dupla nélkül elfogyott, duplánál a sárkánykocka');
+  const regiK = { uzlet_tipusok: ['szabo', 'pancelkovacs'], pancel_max: 'pan_light_leather', boseg: 'teljes',
+    kinalat: [{ id: 'x1', forras: 'egyedi', nev: 'Ezüst bross', lista_rez: 400 }, { id: 'x2', forras: 'Felszerelés:Ruházat', tetel: 'fel_a' }] };
+  const uj1 = B.kinalatGeneral(regiK, lapok, { rng: kockak(3), csakForras: 'Páncélok:pancel' });
+  ellenoriz(uj1.some((t) => t.id === 'x1') && uj1.some((t) => t.id === 'x2') && uj1.filter((t) => t.forras === 'Páncélok:pancel').length === 1, 'egy forrás újragenerálása a többit megtartja');
+  const uj2 = B.kinalatGeneral(regiK, lapok, { rng: kockak(3) });
+  ellenoriz(uj2.some((t) => t.id === 'x1') && !uj2.some((t) => t.id === 'x2'), 'teljes újragenerálás: az egyedi tétel marad');
+  ellenoriz(B.boltAr(100, { arszint: 150 }, 120) === 180 && B.boltAr(100, { arszint: 150, uzlet_reszletek: [{ hatas: 'felar' }] }, 100) === 50, 'ár: listaár × szorzó × árszint; félárú részlet');
+  ellenoriz(B.boltAr(1, { arszint: 50 }) === 1 && B.boltAr(null, {}) === null, 'legalább 1 réz; ár nélkül nincs ár');
+  const ta = B.tetelAr({ tetel: 'fel_a' }, { arszint: 100, uzlet_reszletek: [{ hatas: 'csapat_kedvezmeny', szazalek: 25 }] }, 100, lapok);
+  ellenoriz(ta.ar === 100 && ta.csapat === 75 && !ta.kezi, 'csapatkedvezmény 25%');
+  ellenoriz(B.tetelAr({ tetel: 'fel_a', ar_rez: 77 }, { arszint: 300 }, 100, lapok).ar === 77, 'kézi ár nyer');
+  ellenoriz(B.tetelAr({ tetel: '', nev: 'Bross', lista_rez: 400 }, { arszint: 50 }, 100, lapok).ar === 200, 'egyedi tétel listaárral');
+  ellenoriz(B.felvasarlasAr(100, {}) === 25 && B.felvasarlasAr(100, { felvasarlas: 40 }) === 40, 'felvásárlás: alapból 25%');
+
+  // a dt_uzlet szerkezetű, kitalált táblák generátorfájából a bolt mezői
+  const T = [
+    { id: 'dt_uzlet', nev_hu: 'Ü', reszletek: { kocka: '1d6', sorok: [
+      { t: [1, 3], e: 'Páncél', ertek: { uzlet: 'pancelkovacs' }, hivas: [{ tabla: 'dt_pancel' }, { tabla: 'dt_pajzs' }, { tabla: 'dt_kidolgozottsag' }, { tabla: 'dt_arszint' }] },
+      { t: [4, 6], e: 'Kettős', ertek: { uzlet: 'kettos' }, hivas: [{ tabla: 'dt_uzlet_alap', darab: 2, egyedi: true }, { tabla: 'dt_arszint' }] }
+    ], kovetkezo: [{ tabla: 'dt_uzlet_reszlet', darab: 2 }] } },
+    { id: 'dt_uzlet_alap', nev_hu: 'Üa', reszletek: { kocka: '1d6', sorok: [{ t: [1, 3], e: 'Szabó', ertek: { uzlet: 'szabo' } }, { t: [4, 6], e: 'Fogadó', ertek: { uzlet: 'fogado' }, hivas: [{ tabla: 'dt_fogado' }] }] } },
+    { id: 'dt_fogado', nev_hu: 'F', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'Medence' }] } },
+    { id: 'dt_pancel', nev_hu: 'P', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'nb', ertek: { pancel: 'pan_heavy_leather' } }] } },
+    { id: 'dt_pajzs', nev_hu: 'Pj', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'nincs', ertek: { pajzs: '' } }] } },
+    { id: 'dt_kidolgozottsag', nev_hu: 'K', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'finom', ertek: { minoseg: 'finom' } }] } },
+    { id: 'dt_arszint', nev_hu: 'A', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: '125%', ertek: { szazalek: 125 } }] } },
+    { id: 'dt_uzlet_reszlet', nev_hu: 'R', reszletek: { kocka: '1d6', sorok: [{ t: [1, 3], e: 'Féláras', ertek: { hatas: 'felar' } }, { t: [4, 6], e: 'Mágikus', ertek: { hatas: 'magikus' } }] } }
+  ];
+  const f1 = G.general('dt_uzlet', { tablak: T, rng: kockak(2, 1, 1, 1, 1, 2, 5) });
+  const b1 = B.fabolBolt(f1);
+  ellenoriz(b1.uzlet_tipusok.join() === 'pancelkovacs' && b1.pancel_max === 'pan_heavy_leather' && b1.pajzs_max === '' && b1.kidolgozottsag === 'finom' && b1.arszint === 125, 'a dobásból: típus, páncél, pajzs, kidolgozottság, árszint', b1);
+  ellenoriz(b1.uzlet_reszletek.length === 2 && b1.magikus_db === 1 && B.ervenyesArszint(b1) === 50, 'üzletrészletek hatással: félár és mágikus kínálat', b1.uzlet_reszletek);
+  const f2 = G.general('dt_uzlet', { tablak: T, rng: kockak(5, 1, 5, 1, 1, 1, 1) });
+  const b2 = B.fabolBolt(f2);
+  ellenoriz(b2.uzlet_tipusok.join() === 'szabo,fogado' && b2.uzlet_reszletek.some((r) => /^Fogadó: /.test(r.e)), 'kettős profil: két típus, a fogadó részlete is', b2);
+  ellenoriz(B.tipusFelirat(b2) === 'Szabó és Fogadó' && B.osszefoglalo(b2).includes('árszint ' + B.ervenyesArszint(b2) + '%'), 'a bolt felirata és összefoglalója');
+  ellenoriz(B.figyelmeztetesek({ uzlet_tipusok: ['pancelkovacs'] }).some((x) => /újra/.test(x)) && B.figyelmeztetesek({}).length === 1, 'bolt figyelmeztetések');
+  ellenoriz(B.fizikai({ uzlet_tipusok: ['kocsma'] }) === false && B.fizikai({ uzlet_tipusok: ['kocsma', 'szabo'] }) === true, 'fizikai árut árul-e');
+  const sab = E.sablonbol(kbolt, hix, 's_b');
+  ellenoriz(sab.adat.fajta === 'uzlet' && sab.adat.arszint === 150, 'boltból sablon (saját bolttípus mentése)');
+  // a generátor bővítései
+  const T2 = [{ id: 't', nev_hu: 't', reszletek: { kocka: '1d6', sorok: [{ t: [1, 5], e: 'x {szam}', szam: { alap: '1d6', plusz: -1 } },
+    { t: 6, e: 'sok', hivas: [{ tabla: '', darab: 'd3', darab_plusz: 1, sajat_ujra: true }] }] } }];
+  ellenoriz(G.general('t', { tablak: T2, rng: kockak(1, 1) }).eredmeny === 'x 0', 'szám mínusz eggyel (1d6−1)');
+  const g6 = G.general('t', { tablak: T2, rng: kockak(6, 2, 1, 1, 1) });
+  ellenoriz(g6.hivasok[0].gyerekek.length === 2 && /d3\+1 = 2×/.test(G.jegyzet(g6)), 'darab d3+1', G.jegyzet(g6));
 }
 
 console.log(hibak ? `\n${hibak} HIBA (${db} ellenőrzésből)` : `\nMind a ${db} ellenőrzés sikeres.`);

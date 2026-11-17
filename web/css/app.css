@@ -755,3 +755,10 @@ a.kisgomb { text-decoration: none; }
 .jelenetarany__pont { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: var(--radius-pill); vertical-align: baseline; }
 .jelenetarany--kicsi { width: 96px; }
 .jelenetarany--kicsi .jelenetarany__csik { height: 8px; }
+
+/* ---- Kampányépítő, helyszínek (5.4): földrajzi fa, üzletek, kínálat ---- */
+.helyfa__sor { flex-wrap: wrap; row-gap: 0; }
+.helyfa__sor:hover { background: transparent; }
+.helyfa__sor .elemfa__nev { color: var(--ink); }
+.helyfa__gombok { margin-left: auto; display: flex; align-items: center; gap: var(--space-1); }
+.szammezo { width: 96px; min-height: var(--control-sm); padding-top: 0; padding-bottom: 0; font-variant-numeric: tabular-nums; }

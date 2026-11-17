@@ -11,6 +11,7 @@ import * as KR from '../kampany/keret.js';
 import { SAJAT_MEZOK, SAJAT_LEPESEK, ElemMezo, OroklesJel, UjElemParbeszed, elemUt, ujAzon, SzintJel } from './epito.js';
 import * as JL from '../kampany/jelenet.js';
 import { JelenetArany } from './epito_jelenet.js';
+import { HelyszinKotes } from './epito_helyszin.js';
 
 const PONT = { kesz: ['kaland__pont kaland__pont--kesz', '✓'], resz: ['kaland__pont kaland__pont--resz', '…'], ures: ['kaland__pont', ''] };
 
@@ -382,7 +383,8 @@ function ReszMezok({ elem, ix, valt, prep, cel }) {
     <//>
     ${szerep === 'mini' ? html`<${LepesPanel} lepes="plotpont">
       <${ElemMezo} elem=${elem} ix=${ix} mezo="helyszin" label="Helyszín" onValt=${valt}
-        hint="A világ útikönyvének helye, lehetőleg egy karakter hátteréhez kötve. A helyszínelemek az 5.4 alépéstől kapcsolhatók (kapcsolat: helyszíne)."/>
+        hint="A világ útikönyvének helye, lehetőleg egy karakter hátteréhez kötve. Szabadon, vagy alatta helyszínelemként (kapcsolat: helyszíne)."/>
+      <${HelyszinKotes} elem=${elem} prep=${prep} cel=${cel} cim="Helyszínelem"/>
       <${ElemMezo} elem=${elem} ix=${ix} mezo="horog" label="Horog" multiline=${true} rows=${2} onValt=${valt}/>
       <${ElemMezo} elem=${elem} ix=${ix} mezo="kapcsolodas" label="Kapcsolódás az átfogó szálhoz" multiline=${true} rows=${2} onValt=${valt}
         hint="Mit tudnak meg, milyen tárgyat vagy szövetségest szereznek, ami közelebb visz?"/>

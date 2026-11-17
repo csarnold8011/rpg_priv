@@ -19,7 +19,7 @@ function Kockak({ cs }) {
 }
 
 // Az eredményfa sorai (újradobás, választás, elhagyás).
-function FaSor({ cs, ut, melyseg, tablak, onUjra, onValaszt, onElhagy }) {
+export function FaSor({ cs, ut, melyseg, tablak, onUjra, onValaszt, onElhagy }) {
   const [valaszt, setValaszt] = useState(false);
   const tabla = G.tablaKeres(tablak, cs.tabla);
   return html`<li className="generator__sor" style=${{ marginLeft: melyseg * 20 + 'px' }}>
@@ -43,7 +43,7 @@ function FaSor({ cs, ut, melyseg, tablak, onUjra, onValaszt, onElhagy }) {
     ${(cs.hivasok || []).map((h, i) => html`<ul key=${i} className="generator__fa">
       ${h.darab !== 1 ? html`<li className="halvany kicsi" style=${{ marginLeft: (melyseg + 1) * 20 + 'px' }}>${h.nev}: ${
         h.darab === 'sarkany' ? 'a sárkánykocka szerint ' + h.gyerekek.length + ' dobás'
-        : h.darabDobas ? h.darabDobas.forma + ' = ' + h.darabDobas.osszeg + ' dobás' : h.gyerekek.length + ' dobás'}</li>` : null}
+        : h.darabDobas ? h.darabDobas.forma + (h.darab_plusz ? '+' + h.darab_plusz : '') + ' = ' + (h.darabDobas.osszeg + (h.darab_plusz || 0)) + ' dobás' : h.gyerekek.length + ' dobás'}</li>` : null}
       ${h.gyerekek.map((g, j) => html`<${FaSor} key=${j} cs=${g} ut=${ut.concat([i, j])} melyseg=${melyseg + 1} tablak=${tablak}
         onUjra=${onUjra} onValaszt=${onValaszt} onElhagy=${onElhagy}/>`)}
     </ul>`)}
@@ -74,7 +74,7 @@ export function GeneratorPanel({ lapok, tablaId, kikapcsolt, onKikapcsol, onElfo
   const tabla = G.tablaKeres(tablak, valasztott);
   if (!tablak.length) {
     return html`<p className="halvany">Még nincs dobótábla a Szabályadatbázisban. A könyvek táblái fejezetenként, a megfelelő alépésben kerülnek be
-      (az első adag az 5.4 alépésben: helyszínek, üzletek, árszint, kidolgozottság).</p>`;
+      (az üzletek, helyszínek és bűnszervezetek táblái az Import 12-ben).</p>`;
   }
   const csoportok = Array.from(new Set(tablak.map((t) => t.csoport || 'egyéb')));
   const hibak = tabla ? G.tablaHibak(tabla, tablak) : [];

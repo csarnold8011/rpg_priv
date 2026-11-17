@@ -13,6 +13,7 @@ import * as JL from '../kampany/jelenet.js';
 import * as O from '../jatek/osszecsapas.js';
 import { megjelenitettNev } from '../szabalyok.js';
 import { SAJAT_LEPESEK, ElemMezo, OroklesJel, elemUt, ujAzon } from './epito.js';
+import { HelyszinKotes } from './epito_helyszin.js';
 
 const PONT = { kesz: ['kaland__pont kaland__pont--kesz', '✓'], resz: ['kaland__pont kaland__pont--resz', '…'], ures: ['kaland__pont', ''] };
 const lapokBol = (szabalyok) => (szabalyok && szabalyok.adat && szabalyok.adat.lapok) || {};
@@ -129,6 +130,7 @@ function JelenetMezok({ lepes, elem, ix, valt, prep, cel }) {
         <${ElemMezo} elem=${elem} ix=${ix} mezo="feltetel" label="Feltétel" onValt=${valt} placeholder="például csak ha elfogják a futárt"
           hint="Ha a jelenet csak bizonyos esetben kerül elő."/>
       </div>
+      <${HelyszinKotes} elem=${elem} prep=${prep} cel=${cel} cim="Hol játszódik?"/>
       <p className="cimke">A tét (Defining the Stakes)</p>
       <${ElemMezo} elem=${elem} ix=${ix} mezo="tet" label="Mi történik, ha kudarcot vallanak?" multiline=${true} rows=${3} onValt=${valt}
         hint="Erősítést hívnak az orkok? Vagy épp a győzelmüket ünneplik, és kevésbé veszélyesek, amikor a hősök visszatérnek?"/>

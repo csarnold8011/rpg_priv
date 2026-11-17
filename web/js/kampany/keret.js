@@ -172,6 +172,7 @@ export function normalizal(k0) {
     vilag_id: szoveg(k.vilag_id),
     alapkoncepcio: szoveg(k.alapkoncepcio),
     kiindulo_helyszinek: szoveg(k.kiindulo_helyszinek),
+    kiindulo_helyszin_idk: lista(k.kiindulo_helyszin_idk).map(String).filter(Boolean),
     fontos_jellemzok: szoveg(k.fontos_jellemzok),
     tema: szoveg(k.tema),
     jatekosok: jatekosNormalizal(k.jatekosok),
@@ -250,7 +251,7 @@ export function lepesAllapot(k0, karakterek) {
   const kulcsok = Array.from(new Set((karakterek || []).map(jatekosKulcs)));
   const ajDb = AJANLAS_KATEGORIAK.filter((c) => k.ajanlasok[c.kulcs].ajanlott.length || k.ajanlasok[c.kulcs].kizart.length).length;
   return {
-    alapok: allapot([k.peldakeret || k.sajat_keret, k.almufajok.length || k.stilus, k.vilag_id || k.alapkoncepcio, k.kiindulo_helyszinek].filter((x) => (typeof x === 'number' ? x > 0 : van(x))).length, 4),
+    alapok: allapot([k.peldakeret || k.sajat_keret, k.almufajok.length || k.stilus, k.vilag_id || k.alapkoncepcio, k.kiindulo_helyszinek || (k.kiindulo_helyszin_idk.length ? 'x' : '')].filter((x) => (typeof x === 'number' ? x > 0 : van(x))).length, 4),
     tema: van(k.tema) ? 'kesz' : 'ures',
     jatekosok: kulcsok.length ? allapot(kulcsok.filter((x) => k.jatekosok[x] && (k.jatekosok[x].kedvel.length || van(k.jatekosok[x].jegyzet))).length, kulcsok.length) : 'ures',
     veg: allapot([k.veg.zaro_jelenet, k.veg.tet, k.veg.ellenfel.nev || k.veg.ellenfel.njk_id].filter(van).length, 3),
@@ -308,7 +309,7 @@ export function ajanlasValt(k0, kategoria, id) {
 }
 
 // A kampányhoz kötött mezők, amelyek sablonba nem kerülnek.
-const KAMPANYHOZ_KOTOTT = ['sablon_id', 'vilag_id', 'kezdes_datum', 'jatekosok', 'karakterek', 'generator_kikapcsolt'];
+const KAMPANYHOZ_KOTOTT = ['sablon_id', 'vilag_id', 'kezdes_datum', 'jatekosok', 'karakterek', 'generator_kikapcsolt', 'kiindulo_helyszin_idk'];
 
 // Keret sablonként (Sablontár, kampánykeret típusú sablon adata).
 export function sablonAdat(k0, nevSzoveg) {

@@ -12,6 +12,7 @@ import * as E from '../kampany/elem.js';
 import { usePrep, useAutoMentes, MentesJel, ElemSzerkeszto, ElemFa, UjElemParbeszed, ujAzon } from './epito.js';
 import { GeneratorPanel } from './dobotabla.js';
 import { KalandokNezet, IvKalandjai } from './epito_kaland.js';
+import { HelyszinekNezet, HelyszinekValaszto } from './epito_helyszin.js';
 import { forrasSzerint, megjelenitettNev } from '../szabalyok.js';
 import { beallitasValtozas } from '../jatek/probakeres.js';
 import * as G from '../kampany/generator.js';
@@ -27,10 +28,12 @@ export function KampanyEpitoOldal({ kampanyId, ut, Oldalfej, dm }) {
   if (lap === 'elem' && azon) {
     const e = prep.adat ? prep.ix.get(azon) : null;
     const kalandos = e && ['kaland', 'resz', 'jelenet'].includes(e.tipus);
+    const helyes = e && e.tipus === 'helyszin';
     return html`<${ElemSzerkeszto} key=${azon} id=${azon} prep=${prep} cel=${cel} Oldalfej=${Oldalfej}
-      vissza=${kalandos ? ['#/dm/kampany/' + kampanyId + '/epito/kalandok', cim + ': kalandok'] : ['#/dm/kampany/' + kampanyId + '/epito/elemek', cim + ': elemek']}/>`;
+      vissza=${kalandos ? ['#/dm/kampany/' + kampanyId + '/epito/kalandok', cim + ': kalandok']
+        : helyes ? ['#/dm/kampany/' + kampanyId + '/epito/helyszinek', cim + ': helyszínek'] : ['#/dm/kampany/' + kampanyId + '/epito/elemek', cim + ': elemek']}/>`;
   }
-  const fulek = [['keret', 'Kampánykeret'], ['kalandok', 'Kalandok'], ['elemek', 'Elemek'], ['dobotablak', 'Dobótáblák']];
+  const fulek = [['keret', 'Kampánykeret'], ['kalandok', 'Kalandok'], ['helyszinek', 'Helyszínek'], ['elemek', 'Elemek'], ['dobotablak', 'Dobótáblák']];
   const aktiv = fulek.some((f) => f[0] === lap) ? lap : 'keret';
   return html`<div>
     <${Oldalfej} cim=${'Kampányépítő: ' + cim} vissza=${['#/dm/kampany/' + kampanyId, cim]}/>
@@ -40,6 +43,7 @@ export function KampanyEpitoOldal({ kampanyId, ut, Oldalfej, dm }) {
     </nav>
     ${prep.hiba && !prep.adat ? html`<${Uzenet}>${prep.hiba.message}<//>` : !prep.adat ? html`<${Betoltes} szoveg="Az előkészítés betöltése…"/>`
       : aktiv === 'kalandok' ? html`<${KalandokNezet} prep=${prep} cel=${cel}/>`
+      : aktiv === 'helyszinek' ? html`<${HelyszinekNezet} prep=${prep} cel=${cel}/>`
       : aktiv === 'elemek' ? html`<${KampanyElemek} prep=${prep} cel=${cel}/>`
       : aktiv === 'dobotablak' ? html`<${KampanyDobotablak} prep=${prep}/>`
       : html`<${KeretSzerkeszto} key=${kampanyId} prep=${prep} kampany=${kampany} dm=${dm}/>`}
@@ -72,7 +76,7 @@ function KampanyElemek({ prep, cel }) {
       <p className="szoveg">A kampányelem csak ebben a kampányban él. Ha egy sablonra vagy a világ egy elemére épül, az alapja minden mezőjét
         örökli, és csak az eltéréseit tárolja; a mező mellett látszik, honnan jön az értéke. A világ elemei (zöld helyett kék jelölés) minden kampányban
         ugyanazok: ha itt másként kellenek, a szerkesztőjükben „Kampányváltozat” készíthető. A kalandok, részeik és jeleneteik ívenként a Kalandok
-        fülön látszanak együtt. A jelenetek, helyszínek és a többi elemtípus saját mezői a következő alépésekben kerülnek be, a könyv fejezetei szerint.</p>
+        fülön látszanak együtt. A helyszínek és üzletek a Helyszínek fülön, földrajzi fában látszanak. A többi elemtípus saját mezői a következő alépésekben kerülnek be, a könyv fejezetei szerint.</p>
     <//>
     ${uj ? html`<${UjElemParbeszed} prep=${prep} cel=${cel} onBezar=${() => setUj(false)}/>` : null}
   </div>`;
@@ -229,8 +233,9 @@ function AlapokLepes({ k, allit, setK, prep, dm, uzen }) {
     ${vilag && vilag.adat && vilag.adat.alapkoncepcio ? html`<p className="halvany kicsi">A világ alapkoncepciója: ${vilag.adat.alapkoncepcio}</p>` : null}
     <${K.TextField} label="A kampány helyszínének alapkoncepciója" hint="A munkalap High Concept mezője, erre a kampányra." multiline=${true} rows=${2}
       value=${k.alapkoncepcio} onChange=${(e) => allit('alapkoncepcio', e.target.value)}/>
-    <${K.TextField} label="Kiinduló helyszín(ek)" hint="A helyszínek mint elemek az 5.4 alépéstől kapcsolhatók ide." multiline=${true} rows=${2}
+    <${K.TextField} label="Kiinduló helyszín(ek)" hint="Szabadon, vagy alatta helyszínelemként (a Helyszínek fülről)." multiline=${true} rows=${2}
       value=${k.kiindulo_helyszinek} onChange=${(e) => allit('kiindulo_helyszinek', e.target.value)}/>
+    <${HelyszinekValaszto} prep=${prep} ertek=${k.kiindulo_helyszin_idk} onValt=${(x) => allit('kiindulo_helyszin_idk', x)} label="Kiinduló helyszínelemek"/>
     <${K.TextField} label="Fontos jellemzők" multiline=${true} rows=${3} value=${k.fontos_jellemzok} onChange=${(e) => allit('fontos_jellemzok', e.target.value)}/>
     <div className="sorban">
       <${Valaszto} label="Kiindulás sablonból" value=${sablonKerdes} ures=${keretSablonok.length ? 'Válassz…' : 'nincs még keret sablon'}
