@@ -434,3 +434,62 @@ export function targyFakbol(fajta, fak, lapok, rng = Math.random) {
   ki.nincs = !ki.alap_id && !ki.alap_nev; // „nincs páncél” vagy „nincs pajzs”
   return ki;
 }
+
+// ---------- A jutalomtérkép tippjei és a hősönkénti nézet ----------
+
+// Cellánkénti rövid tipp (szintsáv × fajta) a könyv tanácsai alapján: a kezdő és a gyakorlott sáv a könyv példája
+// (Highfalls Swale, 77–78. oldal), a többi a fejezet általános tanácsaiból (ritkaság, kincskategória, rangok, titulusok).
+export const CELLA_TIPPEK = {
+  kezdo: {
+    cim: 'Egy név az első tettekért (a könyv példájában a „Kiválasztottak”, a Szerencse kegyeltje mintájára).',
+    tagsag: 'Ajánlat egy szervezettől a 3. szint körül, a 4. szintes specializáció előtt; a város céhei is toborozhatnak.',
+    tars: 'Csak kevés: az első kalandok a csapat tagjai közti kötelékről szólnak.',
+    targy: 'Gyakori, főleg ideiglenes tárgyak; egy később ébredő ereklye is elrejthető (eleinte csak finom kidolgozású trófea).',
+    kincs: 'Csekély és szerény kincs; a pénz inkább a megbízóktól jön, a kezdéshez egy felszerelésnyi.'
+  },
+  gyakorlott: {
+    cim: 'Titulus a vidék hálájából (a példában a térség lovag-védelmezői); a hősöknek már van múltjuk.',
+    tagsag: 'Előléptetés a 2. rangra; egy korruptnak bizonyult szervezetből máshová léphetnek át.',
+    tars: 'Most jöhet egy-kettő: egy megmentett NJK, vagy egy jóvátételt kereső volt tag, aki információt hoz.',
+    targy: 'Hősönként nagyjából három-négy állandó tárgy, az ideiglenesek helyett; az ereklyék első képességei megnyílnak.',
+    kincs: 'Közepes kincs; a megbízói fizetség helyett egyre inkább talált kincs.'
+  },
+  szakerto: {
+    cim: 'A szakértelmet jelző cím ettől a sávtól illik.',
+    tagsag: 'A vezető rang (3.) felé; a második specializációhoz új szervezet is kellhet.',
+    tars: 'A társak fejlődhetnek (egy talentum), de maradjanak a második legalacsonyabb szintű hős szintjének fele alatt.',
+    targy: 'Ritkás tárgyak (+1-es bónuszok).',
+    kincs: 'Jelentős kincs; érdemes hordozható értékekbe (ékszer, drágakő, műtárgy) sűríteni.'
+  },
+  mester: {
+    cim: 'Nemesi vagy hivatali titulus birtokkal és kötelességgel; az örökölt cím itt teljesedhet be.',
+    tagsag: 'Vezető rang, vagy a 3. fölötti rangok a szervezet csúcsáig.',
+    tars: 'Egy kiemelt társ teljes statblokkot is kaphat (a könyv szerint ritkán kell).',
+    targy: 'Ritka tárgyak (+2-es bónuszok), több képességű ereklyék.',
+    kincs: 'Bőséges kincs; a befektetett vagyonból havi jövedelem lehet.'
+  },
+  legendas: {
+    cim: 'A világ ismeri a nevüket; az epikus jutalomnál a történet és a kötelezettség számít.',
+    tagsag: 'A szervezet vezetése a csúcson.',
+    tars: 'Legendás társ is lehet, de ne vegye át a főszerepet.',
+    targy: 'Legendás tárgyak és ereklyék, céllal megalkotva, nem dobással.',
+    kincs: 'Fényűző kincs.'
+  }
+};
+
+// A jutalom figyelmeztetései a térképhez (a szintsáv hiányát a rács maga mutatja).
+export const terkepFigyelmeztetesek = (a) => figyelmeztetesek(a).filter((f) => !/^Szintsáv nélkül/.test(f.szoveg));
+
+// Hősönkénti nézet: { [kulcs]: { [sav|'_nincs']: [elem] } }, ahol a kulcs egy karakter azonosítója, 'csapat', vagy
+// '_senki' (kinek nélkül). karakterIdk: a kampány karakterei (a sorrendhez és az ismeretlenek kiszűréséhez).
+export function hosonkent(elemek, megj, karakterIdk) {
+  const kulcsok = lista(karakterIdk).concat(['csapat', '_senki']);
+  const ki = Object.fromEntries(kulcsok.map((k) => [k, Object.fromEntries(SAVOK.map((s) => s.kulcs).concat(['_nincs']).map((s) => [s, []]))]));
+  lista(elemek).filter((e) => e.tipus === 'jutalom').forEach((e) => {
+    const a = obj(megj(e));
+    const sav = savOf(a.iv) ? a.iv : '_nincs';
+    const kinek = lista(a.kinek).filter((k) => ki[k]);
+    (kinek.length ? kinek : ['_senki']).forEach((k) => ki[k][sav].push(e));
+  });
+  return ki;
+}

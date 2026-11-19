@@ -572,8 +572,10 @@ export function UjJutalomParbeszed({ prep, cel, fajta: kezdoFajta, iv: kezdoIv, 
 function JutalomLink({ e, prep, cel }) {
   const a = E.megjelenitett(e, prep.ix);
   const csoport = a.csoport_id && prep.ix.get(a.csoport_id) ? E.nev(prep.ix.get(a.csoport_id), prep.ix) : '';
+  const fig = J.terkepFigyelmeztetesek(a);
   return html`<li className="jutalomracs__elem">
-    <a href=${elemUt(cel, e.id)}>${E.nev(e, prep.ix)}</a>
+    ${fig.length ? html`<span className="jutalomracs__figy" role="img" aria-label=${'Figyelmeztetés: ' + fig.map((f) => f.szoveg).join(' ')}
+      title=${fig.map((f) => f.szoveg).join('\n')}>⚠ </span>` : null}<a href=${elemUt(cel, e.id)}>${E.nev(e, prep.ix)}</a>
     ${cel.szint !== E.szint(e) ? html` <${SzintJel} elem=${e}/>` : null}
     ${e.aktiv === false ? html` <span className="halvany kicsi">archivált</span>` : null}
     <span className="halvany kicsi"> ${J.osszefoglalo(a, { csoport }).split(', ').slice(1).join(', ')}</span>
@@ -603,6 +605,7 @@ export function JutalomRacs({ prep, cel, elemek, keret, csakAktiv }) {
           <p className="halvany kicsi">${J.SAV_MERFOLDKO[sv.kulcs]} Illő tárgy: ${J.SAV_RITKASAG[sv.kulcs].map((r) => J.RITKASAGOK[r].nev.toLowerCase()).join(' vagy ')}; kincs: ${J.SAV_KINCS[sv.kulcs].map((r) => J.KINCS_KATEGORIAK[r].nev.toLowerCase()).join(' vagy ')}.</p>
           <div className="urlap-racs">${KR.JUTALOM_OSZLOPOK.map((c) => html`<div key=${c.kulcs} className="verem">
             <${K.TextField} label=${c.nev + ' (' + c.en + ')'} multiline=${true} rows=${2} value=${k.jutalomterkep[sv.kulcs][c.kulcs]}
+              placeholder=${J.CELLA_TIPPEK[sv.kulcs][c.kulcs]}
               onChange=${(e) => keret.allit('jutalomterkep.' + sv.kulcs + '.' + c.kulcs, e.target.value)}/>
             <div>${cella(sv, c)}</div>
           </div>`)}</div>
@@ -618,7 +621,8 @@ export function JutalomRacs({ prep, cel, elemek, keret, csakAktiv }) {
         <td><strong>${s.nev}</strong><br/><span className="halvany kicsi">${s.tol}–${s.ig}. szint</span>
           <br/><span className="halvany kicsi">${J.SAV_RITKASAG[s.kulcs].map((r) => J.RITKASAGOK[r].nev.toLowerCase()).join(', ')} tárgy; ${J.SAV_KINCS[s.kulcs].map((r) => J.KINCS_KATEGORIAK[r].nev.toLowerCase()).join(', ')} kincs</span></td>
         ${KR.JUTALOM_OSZLOPOK.map((c) => html`<td key=${c.kulcs} className="jutalomracs__cella">
-          ${k.jutalomterkep[s.kulcs][c.kulcs] ? html`<p className="kicsi jutalomracs__terv">${k.jutalomterkep[s.kulcs][c.kulcs]}</p>` : null}
+          ${k.jutalomterkep[s.kulcs][c.kulcs] ? html`<p className="kicsi jutalomracs__terv">${k.jutalomterkep[s.kulcs][c.kulcs]}</p>`
+            : !t[s.kulcs][c.kulcs].length ? html`<p className="kicsi halvany jutalomracs__tipp">${J.CELLA_TIPPEK[s.kulcs][c.kulcs]}</p>` : null}
           ${cella(s, c)}
         </td>`)}
       </tr>`)}</tbody>
@@ -656,12 +660,46 @@ export function JutalmakNezet({ prep, cel }) {
         <${JutalomRacs} prep=${prep} cel=${cel} elemek=${mutatott} csakAktiv=${csakAktiv}/>
       </div>
     <//>
+    <${HosonkentPanel} prep=${prep} cel=${cel} elemek=${mutatott} csakAktiv=${csakAktiv}/>
     <${K.Panel} title="A könyv szerint">
       <p className="szoveg">A jutalom kétféle: mérföldkő (cél és elismerés) és játékbeli előny (erőforrás). Nem kell mindenkinek ugyanolyan jutalom, és túl sok sem kell;
         a jutalomtérkép segít előre látni, mire lesz szükség. A mágikus tárgyak ritkasága és a kincskategória a szintsávhoz illeszkedjen. A kiosztás és a karakterlapra írás a játék közben,
         a Kampányjátszóval jön (6. lépés).</p>
     <//>
   </div>`;
+}
+
+// Hősönként: kinek milyen jutalom jut szintsávonként (a jutalom „Kinek szól?” mezője szerint).
+function HosonkentPanel({ prep, cel, elemek, csakAktiv }) {
+  const { karakterek } = useNjkkKarakterek(cel);
+  const megj = (x) => E.megjelenitett(x, prep.ix);
+  const k = KR.normalizal(prep.adat.keret ? prep.adat.keret.keret : {});
+  const savok = J.SAVOK.filter((s) => !csakAktiv || KR.ivAktiv(s, k));
+  const h = J.hosonkent(elemek, megj, karakterek.map((c) => c.id));
+  const sorok = karakterek.map((c) => ({ kulcs: c.id, nev: c.nev, hos: true })).concat([{ kulcs: 'csapat', nev: 'Az egész csapat' }, { kulcs: '_senki', nev: 'Kinek nincs megadva' }]);
+  const nincsSav = (x) => h[x]._nincs.length;
+  return html`<${K.Panel} title="Hősönként">
+    <div className="verem">
+      <p className="sugo">A könyv szerint nem kell mindenkinek ugyanolyan jutalom, de mindegyik illjen a karakterekhez és a céljaikhoz, és a játékosok várakozásai teljesüljenek. Itt látszik, kinek mi jut a jutalom „Kinek szól?” mezője szerint (a csapatnak szóló mindenkié).</p>
+      ${karakterek.length ? null : html`<p className="halvany kicsi">A kampányban még nincs karakter.</p>`}
+      <div className="tablazat-keret"><table className="tablazat jutalomracs">
+        <thead><tr><th>Kinek</th>${savok.map((s) => html`<th key=${s.kulcs}>${s.nev}</th>`)}<th>Szintsáv nélkül</th></tr></thead>
+        <tbody>${sorok.map((sor) => html`<tr key=${sor.kulcs} className=${sor.kulcs === '_senki' ? 'tablazat__sor--halvany' : ''}>
+          <td><strong>${sor.nev}</strong></td>
+          ${savok.map((s) => {
+            const sajat = h[sor.kulcs][s.kulcs];
+            const csapate = sor.hos ? h.csapat[s.kulcs].length : 0;
+            return html`<td key=${s.kulcs} className="jutalomracs__cella">
+              ${sajat.length ? html`<ul className="jutalomracs__lista">${sajat.map((e) => html`<${JutalomLink} key=${e.id} e=${e} prep=${prep} cel=${cel}/>`)}</ul>` : null}
+              ${csapate ? html`<p className="kicsi halvany">+ ${csapate} a csapatnak</p>` : null}
+              ${sor.hos && !sajat.length && !csapate && KR.ivAktiv(s, k) ? html`<p className="kicsi halvany">nincs jutalma</p>` : null}
+            </td>`;
+          })}
+          <td className="jutalomracs__cella">${nincsSav(sor.kulcs) ? html`<ul className="jutalomracs__lista">${h[sor.kulcs]._nincs.map((e) => html`<${JutalomLink} key=${e.id} e=${e} prep=${prep} cel=${cel}/>`)}</ul>` : null}</td>
+        </tr>`)}</tbody>
+      </table></div>
+    </div>
+  <//>`;
 }
 
 // ================= Kötés a kalandokhoz és jelenetekhez =================

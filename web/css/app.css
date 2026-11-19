@@ -785,3 +785,5 @@ a.kisgomb { text-decoration: none; }
 
 .jutalomracs__lista { list-style: none; margin: var(--space-1) 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
 .jutalomracs__terv { margin: 0 0 var(--space-1); white-space: pre-wrap; color: var(--ink-muted); }
+.jutalomracs__figy { color: var(--warning); font-weight: 700; cursor: help; }
+.jutalomracs__tipp { margin: 0 0 var(--space-1); font-style: italic; }

@@ -590,6 +590,11 @@ ellenoriz(la.hasznalat === 'resz' && la.tortenet === 'resz' && la.utemek === 'ke
   ellenoriz(J.holSzerzik('j1', kp).length === 1 && J.jutalmaiOf('k1', kp).length === 1, 'jutalom kötése kalandhoz (jutalma)');
   ellenoriz(KP.tipusNev('jutalma', 'ki') === 'jutalma ennek' && KP.tipusNev('jutalma', 'be') === 'jutalma', 'a jutalma kapcsolat feliratai');
   ellenoriz(J.osszefoglalo({ fajta: 'targy', tartos: 'ideiglenes', elonyok: [{ tipus: 'tamadas', ertek: 2 }] }) === 'Mágikus tárgy, ritkás, ideiglenes' && J.osszefoglalo({ fajta: 'kincs', kategoria: 'kozepes', ertek_ezust: 70 }) === 'Kincs, közepes, 70 ezüst', 'jutalom összefoglalója');
+  // a térkép tippjei, figyelmeztetései és a hősönkénti nézet
+  ellenoriz(J.SAVOK.every((sv) => KR.JUTALOM_OSZLOPOK.every((c) => typeof J.CELLA_TIPPEK[sv.kulcs][c.kulcs] === 'string' && J.CELLA_TIPPEK[sv.kulcs][c.kulcs].length > 10)), 'minden cellához van tipp');
+  ellenoriz(J.terkepFigyelmeztetesek({ fajta: 'cim' }).length === 0 && J.terkepFigyelmeztetesek({ fajta: 'targy', iv: 'kezdo', elonyok: [{ tipus: 'tamadas', ertek: 3 }], tortenet: 'x' }).length === 1, 'a térkép figyelmeztetései (szintsáv nélkül nem jelez)');
+  const hk = J.hosonkent([{ id: 'a', tipus: 'jutalom', adat: { iv: 'kezdo', kinek: ['c1', 'csapat'] } }, { id: 'b', tipus: 'jutalom', adat: { kinek: ['ismeretlen'] } }, { id: 'c', tipus: 'jutalom', adat: { iv: 'mester' } }], (e) => e.adat, ['c1', 'c2']);
+  ellenoriz(hk.c1.kezdo.length === 1 && hk.csapat.kezdo.length === 1 && hk.c2.kezdo.length === 0 && hk._senki._nincs.length === 1 && hk._senki.mester.length === 1, 'hősönkénti nézet', hk);
   // keret: a jutalomtérkép
   const kj = KR.normalizal({ jutalomterkep: { kezdo: { cim: 'Kiválasztottak', rossz: 'x' } } });
   ellenoriz(kj.jutalomterkep.kezdo.cim === 'Kiválasztottak' && kj.jutalomterkep.legendas.kincs === '' && !('rossz' in kj.jutalomterkep.kezdo), 'keret: jutalomtérkép normalizálása');
