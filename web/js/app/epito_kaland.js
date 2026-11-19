@@ -12,6 +12,7 @@ import { SAJAT_MEZOK, SAJAT_LEPESEK, ElemMezo, OroklesJel, UjElemParbeszed, elem
 import * as JL from '../kampany/jelenet.js';
 import { JelenetArany } from './epito_jelenet.js';
 import { HelyszinKotes } from './epito_helyszin.js';
+import { JutalomKotes } from './epito_jutalom.js';
 
 const PONT = { kesz: ['kaland__pont kaland__pont--kesz', '✓'], resz: ['kaland__pont kaland__pont--resz', '…'], ures: ['kaland__pont', ''] };
 
@@ -330,7 +331,8 @@ function KalandMezok({ lepes, elem, ix, valt, prep, cel }) {
 
     ${lepes === 'jutalmak' ? html`<${LepesPanel} lepes="jutalmak">
       <${ElemMezo} elem=${elem} ix=${ix} mezo="jutalmak" label="Jutalmak" multiline=${true} rows=${3} onValt=${valt}
-        hint="Pénz, hírnév, tárgyak, szövetségesek, tapasztalat. A jutalomelemek (cím, tagság, társ, mágikus tárgy) az 5.6 alépésben kapcsolhatók."/>
+        hint="Pénz, hírnév, tárgyak, szövetségesek, tapasztalat."/>
+      <${JutalomKotes} elem=${elem} prep=${prep} cel=${cel}/>
     <//>` : null}
 
     ${lepes === 'plotpont' ? html`<${LepesPanel} lepes="plotpont">

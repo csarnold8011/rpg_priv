@@ -172,10 +172,10 @@ async function kovetoEgeszsegSzamol(api, lapok, kotodes, kampanyId) {
 
 // kampanyId: előre kiválasztott kampány; szorny: a Bestiárium „Másolat az NJK-tárba” gombjából érkező szörny sora.
 // szint: 'szabad' | 'vilag' | 'sablon' (5.5), vilagId: a világ-NJK világa, szerep: előre kijelölt szerep (a Szereplők nézetből).
-export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorny = null, szint: kezdoSzint = 'szabad', vilagId = '', szerep = '' }) {
+export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorny = null, szint: kezdoSzint = 'szabad', vilagId = '', szerep = '', kezdoMod = '' }) {
   const { api, szabalyok, uzen } = useApp();
   const lapok = lapokBol(szabalyok);
-  const [mod, setMod] = useState(szorny ? 'szorny' : 'ures');
+  const [mod, setMod] = useState(szorny ? 'szorny' : kezdoMod || 'ures');
   const [szint, setSzint] = useState(kezdoSzint);
   const [vilag, setVilag] = useState(vilagId);
   const [alapId, setAlapId] = useState('');
@@ -183,8 +183,9 @@ export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorn
   const njkk = useLekeres(async () => (await api.hivas('npc.list', { archivaltak: true })).njkk, [], 'njkk');
   const prepS = useLekeres(() => api.hivas('prep.get', {}), [], 'prep.sablon');
   const vilagok = ((prepS.adat && prepS.adat.vilagok) || []).filter((w) => w.aktiv !== false);
-  const mintaTabla = ((lapok && lapok['Dobótáblák']) || []).find((t) => t.id === 'dt_koveto_minta');
-  const mintak = mintaTabla && mintaTabla.reszletek && mintaTabla.reszletek.sorok ? mintaTabla.reszletek.sorok : [];
+  // a Companion követőmintái (99.) és a Kampányépítő társmintái (76–77., Import 14)
+  const mintaSorai = (id, honnan) => { const t = ((lapok && lapok['Dobótáblák']) || []).find((x) => x.id === id); return t && t.reszletek && t.reszletek.sorok ? t.reszletek.sorok.map((m) => ({ ...m, honnan })) : []; };
+  const mintak = mintaSorai('dt_koveto_minta', 'Companion 99.').concat(mintaSorai('dt_tars_minta', 'Kampányépítő 76–77.'));
   const celNjk = { id: '', vilag_id: szint === 'vilag' ? vilag : '', adat: szint === 'sablon' ? { sablon: true } : {} };
   const alapJeloltek = SZ.alapJeloltek(celNjk, njkk.adat || [], new Map((njkk.adat || []).map((x) => [x.id, x])));
   const [nev, setNev] = useState(szorny ? szorny.nev_hu : '');
@@ -275,8 +276,8 @@ export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorn
         opciok=${N.FENYEGETESI_SABLONOK.map((s) => ({ value: s.nev, label: `${s.nev}: ${s.pont} pont (legfeljebb ${s.max}), ${s.fokusz} fókusz, ${s.talentum} talentumfok` }))}/>` : null}
       ${(mod === 'koveto' || (mod === 'szorny' && tarsallat)) && szint !== 'sablon' ? html`<${Valaszto} label="Kötődés" value=${kotodes} onChange=${setKotodes}
         opciok=${[{ value: 'csapat', label: 'a csapat' }].concat(karakterek.map((c) => ({ value: c.id, label: c.nev + ' (karakter)' })))}/>` : null}
-      ${mod === 'koveto' && mintak.length ? html`<${Valaszto} label="Minta (Companion 99.)" value=${minta} onChange=${(x) => { setMinta(x); const m = mintak[Number(x)]; if (m && !nev.trim()) setNev(m.e); }} ures="üres követő"
-        opciok=${mintak.map((m, i) => ({ value: String(i), label: m.e + (m.ertek && m.ertek.feladatok ? ': ' + m.ertek.feladatok.slice(0, 2).join(', ') : '') }))}/>` : null}
+      ${mod === 'koveto' && mintak.length ? html`<${Valaszto} label="Minta" value=${minta} onChange=${(x) => { setMinta(x); const m = mintak[Number(x)]; if (m && !nev.trim()) setNev(m.e); }} ures="üres követő"
+        opciok=${mintak.map((m, i) => ({ value: String(i), label: m.e + ' (' + m.honnan + ')' + (m.ertek && m.ertek.feladatok ? ': ' + m.ertek.feladatok.slice(0, 2).join(', ') : '') }))}/>` : null}
       ${mod === 'koveto' ? html`<div className="sorban">
         <${SzamMezo} label="Egészség" value=${egeszseg} onChange=${setEgeszseg}/>
         <${K.Button} variant="secondary" disabled=${fut} onClick=${ajanlott}>Ajánlott érték<//>

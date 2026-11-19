@@ -25,6 +25,8 @@ export const LEPESEK = [
     utmutato: 'A kihívások harci, felfedezési és szerepjátékos jellegűek; a keret szerint más az arányuk. Itt gyűjtsd össze az ellenfél embereit is (a gonosztevők képtára).' },
   { kulcs: 'ivek', nev: 'A kampány ívei', en: 'Campaign Arcs', oldal: '14',
     utmutato: 'A karakterek nagyjából négyszintenként változnak meg, ezért a kampány öt ívre bontható. Ívenként: cél, fő ellenfél, fő kihívások, fő helyszínek. Itt tervezhető a keret szándékos váltása is.' },
+  { kulcs: 'jutalmak', nev: 'Jutalomtérkép', en: 'Reward Mapping', oldal: '69–71, 125',
+    utmutato: 'A munkalap második oldala: szintsávonként milyen címeket, tagságokat, társakat, mágikus tárgyakat és kincset terveznek a hősök elérni. Mérföldkövek ezek, és célt adnak a játékosoknak. Ne tervezz túl sokat: csak ami a karakterekhez és a céljaikhoz illik; a váratlanhoz később is alkothatsz jutalmat.' },
   { kulcs: 'kalandra_hivas', nev: 'Kalandra hívás', en: 'A Call to Adventure', oldal: '7',
     utmutato: 'Most indulj az elejéről: hol kapcsolódnak be a hősök? A karakterkészítéshez ajánlásokat adhatsz (biztatni jobb, mint tiltani). A bemutatást és az ajánlásokat a játékosok a karakterkészítőben látják.' },
   { kulcs: 'szabalyok', nev: 'Választható szabályok és mutatványok', en: 'Optional Rules, Stunt Additions', oldal: '111–114, 124',
@@ -193,8 +195,24 @@ export function normalizal(k0) {
     ajanlasok,
     szabalyok,
     mutatvany_kiegeszitesek: kieg,
-    generator_kikapcsolt: kikapcsolt
+    generator_kikapcsolt: kikapcsolt,
+    jutalomterkep: jutalomterkepNormalizal(k.jutalomterkep)
   };
+}
+
+// A jutalomtérkép szövegei szintsávonként és fajtánként (a munkalap mezői, 125. oldal).
+export const JUTALOM_OSZLOPOK = [
+  { kulcs: 'cim', nev: 'Címek', en: 'Honorifics' }, { kulcs: 'tagsag', nev: 'Tagságok', en: 'Memberships' },
+  { kulcs: 'tars', nev: 'Társak', en: 'Companions' }, { kulcs: 'targy', nev: 'Mágikus tárgyak', en: 'Magic Items' },
+  { kulcs: 'kincs', nev: 'Kincs', en: 'Treasure' }
+];
+function jutalomterkepNormalizal(x) {
+  const ki = {};
+  IVEK.forEach((iv) => {
+    const o = obj(obj(x)[iv.kulcs]);
+    ki[iv.kulcs] = Object.fromEntries(JUTALOM_OSZLOPOK.map((c) => [c.kulcs, szoveg(o[c.kulcs])]));
+  });
+  return ki;
 }
 
 function korlat(x, min, max, alap) {
@@ -258,6 +276,7 @@ export function lepesAllapot(k0, karakterek) {
     visszafele: allapot([k.veg.ellenfel.cel, k.veg.ellenfel.modszer, k.veg.ellenfel.csatlosok].filter(van).length, 3),
     kihivasok: allapot((van(k.kihivasok.jegyzet) ? 1 : 0) + (k.keptar.length ? 1 : 0), 2),
     ivek: allapot(ivDb.filter((iv) => van(k.ivek[iv.kulcs].cel)).length, ivDb.length || 1),
+    jutalmak: allapot(ivDb.filter((iv) => JUTALOM_OSZLOPOK.some((c) => van(k.jutalomterkep[iv.kulcs][c.kulcs]))).length, ivDb.length || 1),
     kalandra_hivas: allapot([van(k.kalandra_hivas.kezdes), van(k.kalandra_hivas.jatekosoknak), ajDb > 0].filter(Boolean).length, 3),
     szabalyok: Object.values(k.szabalyok).some(Boolean) || Object.values(k.mutatvany_kiegeszitesek).some(van) ? 'kesz' : 'ures'
   };

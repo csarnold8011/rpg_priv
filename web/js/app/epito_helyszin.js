@@ -8,6 +8,7 @@ import { FaSor, tablakBol } from './dobotabla.js';
 import * as E from '../kampany/elem.js';
 import * as HS from '../kampany/helyszin.js';
 import * as B from '../kampany/bolt.js';
+import { magikusTetelek } from './epito_jutalom.js';
 import * as G from '../kampany/generator.js';
 import { penzSzoveg } from '../karakter/varazslo.js';
 import { SAJAT_LEPESEK, VILAG_PANELEK, ElemMezo, OroklesJel, UjElemParbeszed, elemUt, ujAzon, SzintJel } from './epito.js';
@@ -18,6 +19,8 @@ const kisGomb = (felirat, cim, onClick, disabled) => html`<button type="button" 
   disabled=${disabled} onClick=${onClick}>${felirat}</button>`;
 const mozgat = (l, i, d) => { const j = i + d; if (j < 0 || j >= l.length) return l; const m = l.slice(); [m[i], m[j]] = [m[j], m[i]]; return m; };
 const szamVagyUres = (v) => (v === '' || v === null || v === undefined || !Number.isFinite(Number(v)) ? '' : Number(v));
+
+const keretKikapcsolt = (prep) => (prep.adat.keret && prep.adat.keret.keret && prep.adat.keret.keret.generator_kikapcsolt) || {};
 
 function LepesPanel({ lepes, allapot, children, actions }) {
   const l = HS.HELYSZIN_LEPESEK[lepes];
@@ -451,8 +454,14 @@ function BoltLepes({ elem, ix, valt, prep, cel, allapot, njkk }) {
           <${K.Button} size="sm" variant="quiet" onClick=${() => set('uzlet_reszletek', reszletek.filter((_, j) => j !== i))}>Törlés<//>
         </li>`)}</ul>` : html`<p className="halvany kicsi">Nincs részlet.</p>`}
         ${hatasok.includes('magikus') ? html`<${K.TextField} label=${cimkeJellel(elem, ix, 'magikus_db', valt, 'Mágikus tárgyak száma (1–5)')} type="number" min="1" max="5"
-          value=${a.magikus_db === undefined ? '' : String(a.magikus_db)} hint="A tárgyakat egyedi tételként veheted fel a kínálatba; a véletlen mágikus tárgyak táblái az 5.6 alépésben jönnek."
-          onChange=${(e) => set('magikus_db', szamVagyUres(e.target.value))}/>` : null}
+          value=${a.magikus_db === undefined ? '' : String(a.magikus_db)} hint="A generált tárgyak egyedi tételként kerülnek a kínálatba (fegyverkovácsnál fegyver, páncélkovácsnál páncél vagy pajzs, máshol a fajtát te választod); az árukat te adod meg."
+          onChange=${(e) => set('magikus_db', szamVagyUres(e.target.value))}/>
+        <div className="sorban sorban--kozep">
+          <${K.Button} size="sm" variant="secondary" disabled=${!G.tablaKeres(tablak, 'dt_magikus_tulajdonsag')} icon=${html`<${Ikon} nev="sarkanykocka" meret=${16}/>`}
+            onClick=${() => set('kinalat', (Array.isArray(a.kinalat) ? a.kinalat : []).concat(magikusTetelek(a, lapok, Math.max(1, Math.min(5, Number(a.magikus_db) || 1)), { kikapcsolt: keretKikapcsolt(prep) })))}>
+            Mágikus tárgyak a kínálatba<//>
+          ${!G.tablaKeres(tablak, 'dt_magikus_tulajdonsag') ? html`<span className="halvany kicsi">A mágikus tulajdonságok táblája az Import 14-gyel jön.</span>` : null}
+        </div>` : null}
       </div>
     <//>
     <${K.Panel} title="Tulajdonos">

@@ -1,6 +1,6 @@
 // Kampányépítő (DM): a kampány áttekintő oldala a Kampányépítő könyv 1. fejezete (Building the Campaign Framework)
 // és a könyv végi kampány-munkalap (Campaign Worksheet) szerint, a kampány elemei és a kampány dobótáblái.
-// Útvonal: #/dm/kampany/<id>/epito[/keret | /kalandok | /helyszinek | /szereplok | /elemek | /elem/<id> | /dobotablak]. Minden mező kihagyható, a mentés
+// Útvonal: #/dm/kampany/<id>/epito[/keret | /kalandok | /helyszinek | /szereplok | /jutalmak | /elemek | /elem/<id> | /dobotablak]. Minden mező kihagyható, a mentés
 // automatikus. Tiszta függvények: web/js/kampany/keret.js. Terv: claude/kampanyepito-terv.md, „1. fejezet”.
 import {
   html, K, useApp, useState, useEffect, useMemo, useLekeres, navigal, Ikon, Betoltes, Uzenet, Valaszto, Jelolo,
@@ -14,6 +14,7 @@ import { GeneratorPanel } from './dobotabla.js';
 import { KalandokNezet, IvKalandjai } from './epito_kaland.js';
 import { HelyszinekNezet, HelyszinekValaszto } from './epito_helyszin.js';
 import { SzereplokNezet } from './epito_szereplo.js';
+import { JutalmakNezet, JutalomRacs } from './epito_jutalom.js';
 import { forrasSzerint, megjelenitettNev } from '../szabalyok.js';
 import { beallitasValtozas } from '../jatek/probakeres.js';
 import * as G from '../kampany/generator.js';
@@ -30,11 +31,13 @@ export function KampanyEpitoOldal({ kampanyId, ut, Oldalfej, dm }) {
     const e = prep.adat ? prep.ix.get(azon) : null;
     const kalandos = e && ['kaland', 'resz', 'jelenet'].includes(e.tipus);
     const helyes = e && e.tipus === 'helyszin';
+    const jutalom = e && e.tipus === 'jutalom';
     return html`<${ElemSzerkeszto} key=${azon} id=${azon} prep=${prep} cel=${cel} Oldalfej=${Oldalfej}
       vissza=${kalandos ? ['#/dm/kampany/' + kampanyId + '/epito/kalandok', cim + ': kalandok']
-        : helyes ? ['#/dm/kampany/' + kampanyId + '/epito/helyszinek', cim + ': helyszínek'] : ['#/dm/kampany/' + kampanyId + '/epito/elemek', cim + ': elemek']}/>`;
+        : helyes ? ['#/dm/kampany/' + kampanyId + '/epito/helyszinek', cim + ': helyszínek']
+        : jutalom ? ['#/dm/kampany/' + kampanyId + '/epito/jutalmak', cim + ': jutalmak'] : ['#/dm/kampany/' + kampanyId + '/epito/elemek', cim + ': elemek']}/>`;
   }
-  const fulek = [['keret', 'Kampánykeret'], ['kalandok', 'Kalandok'], ['helyszinek', 'Helyszínek'], ['szereplok', 'Szereplők'], ['elemek', 'Elemek'], ['dobotablak', 'Dobótáblák']];
+  const fulek = [['keret', 'Kampánykeret'], ['kalandok', 'Kalandok'], ['helyszinek', 'Helyszínek'], ['szereplok', 'Szereplők'], ['jutalmak', 'Jutalmak'], ['elemek', 'Elemek'], ['dobotablak', 'Dobótáblák']];
   const aktiv = fulek.some((f) => f[0] === lap) ? lap : 'keret';
   return html`<div>
     <${Oldalfej} cim=${'Kampányépítő: ' + cim} vissza=${['#/dm/kampany/' + kampanyId, cim]}/>
@@ -46,6 +49,7 @@ export function KampanyEpitoOldal({ kampanyId, ut, Oldalfej, dm }) {
       : aktiv === 'kalandok' ? html`<${KalandokNezet} prep=${prep} cel=${cel}/>`
       : aktiv === 'helyszinek' ? html`<${HelyszinekNezet} prep=${prep} cel=${cel}/>`
       : aktiv === 'szereplok' ? html`<${SzereplokNezet} prep=${prep} cel=${cel} dm=${dm}/>`
+      : aktiv === 'jutalmak' ? html`<${JutalmakNezet} prep=${prep} cel=${cel}/>`
       : aktiv === 'elemek' ? html`<${KampanyElemek} prep=${prep} cel=${cel}/>`
       : aktiv === 'dobotablak' ? html`<${KampanyDobotablak} prep=${prep}/>`
       : html`<${KeretSzerkeszto} key=${kampanyId} prep=${prep} kampany=${kampany} dm=${dm}/>`}
@@ -144,8 +148,7 @@ function KeretSzerkeszto({ prep, kampany, dm }) {
         <button type="button" onClick=${() => ugrik(l.kulcs)}>
           <span className=${'lepeslista__pont ' + PONT[allapotok[l.kulcs]][0]}>${PONT[allapotok[l.kulcs]][1] || i + 1}</span>${l.nev}</button></li>`)}
       </ul>
-      <p className="halvany kicsi">Minden mező kihagyható: a könyv szerint is csak annyit érdemes kidolgozni, amennyi a következő alkalomhoz kell.
-        A jutalomtérkép (a munkalap második oldala) az 5.6 alépésben kerül ide.</p>
+      <p className="halvany kicsi">Minden mező kihagyható: a könyv szerint is csak annyit érdemes kidolgozni, amennyi a következő alkalomhoz kell.</p>
     </nav>
     <div className="verem keret__tartalom">
       <${AlapokLepes} ...${p}/>
@@ -173,6 +176,7 @@ function KeretSzerkeszto({ prep, kampany, dm }) {
       <//>
       <${KihivasokLepes} ...${p}/>
       <${IvekLepes} ...${p}/>
+      <${JutalomTerkepLepes} ...${p}/>
       <${KalandraHivasLepes} ...${p}/>
       <${SzabalyokLepes} ...${p}/>
     </div>
@@ -378,6 +382,16 @@ function IvekLepes({ k, allit, prep, kampany }) {
   <//>`;
 }
 
+// ---- Jutalomtérkép (a munkalap második oldala, 6. fejezet) ----
+function JutalomTerkepLepes({ k, allit, prep, kampany }) {
+  const cel = useMemo(() => ({ szint: 'kampany', kampany_id: kampany.id }), [kampany.id]);
+  const elemek = prep.adat.elemek.filter((e) => e.tipus === 'jutalom' && e.aktiv !== false && (e.kampany_id === kampany.id || (k.vilag_id && e.vilag_id === k.vilag_id && !e.kampany_id)));
+  return html`<${Lepes} lepes=${KR.LEPESEK.find((l) => l.kulcs === 'jutalmak')}>
+    <${JutalomRacs} prep=${prep} cel=${cel} elemek=${elemek} keret=${{ k, allit }} csakAktiv=${true}/>
+    <p className="halvany kicsi">A cellák szövege a munkalap terve; alatta a kidolgozott jutalomelemek (a kampányé és a világé). A Jutalmak fülön a teljes térkép látszik.</p>
+  <//>`;
+}
+
 // ---- Kalandra hívás, karakterkészítési ajánlások ----
 function AjanlasKategoria({ kat, k, setK, lapok }) {
   const [keres, setKeres] = useState('');
@@ -401,7 +415,7 @@ function AjanlasKategoria({ kat, k, setK, lapok }) {
 }
 
 function KalandraHivasLepes({ k, allit, setK, lapok }) {
-  return html`<${Lepes} lepes=${KR.LEPESEK[7]}>
+  return html`<${Lepes} lepes=${KR.LEPESEK[8]}>
     <${K.TextField} label="A kezdés" multiline=${true} rows=${3} value=${k.kalandra_hivas.kezdes} onChange=${(e) => allit('kalandra_hivas.kezdes', e.target.value)}
       hint="Hol és hogyan kapcsolódnak be a hősök? Csak te látod."/>
     <${K.TextField} label="Bemutatás a játékosoknak" multiline=${true} rows=${4} value=${k.kalandra_hivas.jatekosoknak}
@@ -430,7 +444,7 @@ function SzabalyokLepes({ k, allit, kampany, dm, api, uzen }) {
   };
   const ertek = (s) => (s.beallitas ? m[s.beallitas.slice(12)] === true : k.szabalyok[s.kulcs]);
   const valt = (s, x) => (s.beallitas ? beallit(s.beallitas, x) : allit('szabalyok.' + s.kulcs, x));
-  return html`<${Lepes} lepes=${KR.LEPESEK[8]}>
+  return html`<${Lepes} lepes=${KR.LEPESEK[9]}>
     <fieldset className="mezocsoport">
       <legend className="ka-field__label">Választható szabályok</legend>
       ${KR.VALASZTHATO_SZABALYOK.map((s) => html`<${Jelolo} key=${s.kulcs} checked=${!!ertek(s)} onChange=${(x) => valt(s, x)}>

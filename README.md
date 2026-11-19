@@ -15,7 +15,7 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 | `web/js/app/` | A felület: `main.js` (belépési pont), `belepes.js`, `dm.js`, `jatekos.js`, `jatek.js` (közös játékelemek), `kozos.js`, `ikonok.js`, a karakterkészítő varázsló (`varazslo.js` keret és mentés, `varazslo_lepesek.js` a tíz lépés és az élő karakterlap), a szintlépés-varázsló (`szintlepes.js` keret, `szintlepes_lepesek.js` az öt lépés), a karakterlap (`karakterlap.js`, játék és szerkesztés mód), a karakterkép (`kepek.js`: gyorsítótár, kivágás, feltöltés), az XP kiosztása (`xpkiosztas.js`) és a kockadobó (`kockadobo.js`, Dobj vagy Beírom) |
 | `web/js/` | Közös modulok: `api.js` (háttérhívások), `sync.js` (szinkronréteg), `szabalyok.js` (szabályadat a böngészőben) |
 | `web/js/karakter/` | A karakter adatszerkezete és számolása: `adat.js` (szerkezet, átállás a korábbiról), `szamol.js` (végértékek a döntésekből, magyarázattal), `ellenoriz.js` (figyelmeztetések), `felszereles.js` (kezdő csomag), `varazslo.js` (a varázsló lépéseinek logikája), `szintlepes.js` (a szintlépés logikája), `magia.js` (arkánumok varázslatai fokozatonként), `xp.js` (XP-küszöbök és jutalmak), `leltar.js` (játék közbeni vásárlás, eladás, pénz, tárgyak), `tablak.js`, `szabalyindex.js` |
-| `web/js/kampany/` | A Kampányépítő (5. lépés) tiszta függvényei: `elem.js` (típusok, szintek, öröklés), `fa.js`, `kapcsolat.js`, `keret.js` (kampánykeret a könyv 1. fejezete szerint), `kaland.js` (2. fejezet), `jelenet.js` (3. fejezet: jelenetek, típusok aránya), `generator.js` (dobótáblák). Felület: `web/js/app/epito.js`, `epito_keret.js`, `epito_kaland.js`, `epito_jelenet.js`, `epito_kepek.js` (az elemek képei és térképei), `dobotabla.js`; háttér: `backend/Epito.gs` |
+| `web/js/kampany/` | A Kampányépítő (5. lépés) tiszta függvényei: `elem.js` (típusok, szintek, öröklés), `fa.js`, `kapcsolat.js`, `keret.js` (kampánykeret a könyv 1. fejezete szerint), `kaland.js` (2. fejezet), `jelenet.js` (3. fejezet: jelenetek, típusok aránya), `helyszin.js` és `bolt.js` (4. fejezet), `szereplo.js` (5. fejezet), `jutalom.js` (6. fejezet: jutalmak, jutalomtérkép, véletlen tárgyak), `generator.js` (dobótáblák). Felület: `web/js/app/epito.js`, `epito_keret.js`, `epito_kaland.js`, `epito_jelenet.js`, `epito_helyszin.js`, `epito_szereplo.js`, `epito_jutalom.js`, `epito_kepek.js` (az elemek képei és térképei), `dobotabla.js`; háttér: `backend/Epito.gs` |
 | `web/kaland/` | A design rendszer másolata (komponensek, tokenek), lásd `web/kaland/README.md` |
 | `web/css/app.css` | A felület elrendezése, csak tokenekkel |
 | `web/vendor/` | React 18 és htm helyben (nincs fordítási lépés) |
@@ -39,7 +39,7 @@ node tools/teszt/naplo.mjs         # a dobásnapló sorainak és szűrésének t
 node tools/teszt/probakeres.mjs    # a DM próbakérés tesztje (54)
 node tools/teszt/csata.mjs         # a csatamotor tesztje (61)
 node tools/teszt/csatamuvelet.mjs  # a csatalépések, varázslatok, a játékos szűrt csatája és a lezárás tesztje (65; valódi szabályadattal 68)
-node tools/teszt/kampany.mjs       # a Kampányépítő tiszta függvényei: öröklés, fa, kapcsolatok, kampánykeret, dobótábla-generátor, kalandok, jelenetek (138)
+node tools/teszt/kampany.mjs       # a Kampányépítő tiszta függvényei: öröklés, fa, kapcsolatok, kampánykeret, dobótábla-generátor, kalandok, jelenetek, helyszínek, boltok, szereplők, jutalmak (248)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 

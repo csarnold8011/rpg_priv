@@ -14,6 +14,7 @@ import * as O from '../jatek/osszecsapas.js';
 import { megjelenitettNev } from '../szabalyok.js';
 import { SAJAT_LEPESEK, ElemMezo, OroklesJel, elemUt, ujAzon } from './epito.js';
 import { HelyszinKotes } from './epito_helyszin.js';
+import { JutalomKotes } from './epito_jutalom.js';
 
 const PONT = { kesz: ['kaland__pont kaland__pont--kesz', '✓'], resz: ['kaland__pont kaland__pont--resz', '…'], ures: ['kaland__pont', ''] };
 const lapokBol = (szabalyok) => (szabalyok && szabalyok.adat && szabalyok.adat.lapok) || {};
@@ -325,7 +326,7 @@ function JelenetMezok({ lepes, elem, ix, valt, prep, cel }) {
       <${ElemMezo} elem=${elem} ix=${ix} mezo="targyak" label="Tárgyak (kinek szól?)" multiline=${true} rows=${2} onValt=${valt}
         hint="A karakterekre szabva, néven nevezve, így nem vesznek össze rajta."/>
       <${ElemMezo} elem=${elem} ix=${ix} mezo="egyeb_jutalom" label="Egyéb (információ, szövetséges, hírnév)" multiline=${true} rows=${2} onValt=${valt}/>
-      <p className="halvany kicsi">A jutalomelemek (cím, tagság, társ, mágikus tárgy) a 6. fejezettel (5.6 alépés) kapcsolhatók ide; a kiosztás a 6. lépésben, játék közben.</p>
+      <${JutalomKotes} elem=${elem} prep=${prep} cel=${cel}/>
     <//>`;
   }
   return null;

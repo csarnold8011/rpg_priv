@@ -13,6 +13,7 @@
 //   }],
 //   kovetkezo: [{ tabla, darab }]   minden dobás után (például az üzlettípus után az üzletrészletek a sárkánykocka szerint)
 // }
+// kocka: 'lista' esetén a tábla nem dobható, csak választható minták listája (például a mintacímek); a sorok: { e, en, ertek }.
 // A „sarkany” darabszám a legközelebbi olyan dobás sárkánykockája, amelynek volt (3d6-nál a harmadik kocka).
 // egyedi: egy hívás dobásai között nem lehet két azonos sor (újradob). sajat_ujra: ha a hívó sorát dobja ki
 // ugyanazon a táblán, újradob (például „dobj még kétszer, a 18-at dobd újra”).
@@ -77,9 +78,15 @@ function osszesDobas(forma) {
 }
 
 // A tábla ellenőrzése (importnál): minden dobás pontosan egy sorra essen, a hívott táblák létezzenek.
+export const listaE = (tabla) => reszletek(tabla).kocka === 'lista';
+
 export function tablaHibak(tabla, tablak) {
   const h = [];
   const r = reszletek(tabla);
+  if (r.kocka === 'lista') {
+    if (!Array.isArray(r.sorok) || !r.sorok.length) return ['Nincsenek sorok.'];
+    return r.sorok.some((s) => !s || !String(s.e || '').trim()) ? ['Van név nélküli sor.'] : [];
+  }
   if (!KOCKAFORMAK[r.kocka]) return ['Ismeretlen kockaforma: ' + r.kocka];
   if (!Array.isArray(r.sorok) || !r.sorok.length) return ['Nincsenek sorok.'];
   const lefedetlen = [];

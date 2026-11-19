@@ -11,6 +11,7 @@ import * as JL from '../../web/js/kampany/jelenet.js';
 import * as HS from '../../web/js/kampany/helyszin.js';
 import * as B from '../../web/js/kampany/bolt.js';
 import * as SZ from '../../web/js/kampany/szereplo.js';
+import * as J from '../../web/js/kampany/jutalom.js';
 import fs from 'fs';
 
 let hibak = 0;
@@ -163,7 +164,7 @@ ellenoriz(sa.nev === 'Nyomozós keret' && !('vilag_id' in sa.keret) && !('jateko
 const masik = KR.beallit(KR.beallit(KR.uresKeret(), 'vilag_id', 'w2'), 'tema', 'Régi');
 const alk = KR.sablonAlkalmaz(masik, { id: 'el_sab', adat: sa });
 ellenoriz(alk.tema === 'Saját téma.' && alk.vilag_id === 'w2' && alk.sablon_id === 'el_sab', 'sablon alkalmazása: a kampány világa marad');
-ellenoriz(KR.LEPESEK.length === 9 && KR.KERET_PELDAK.length === 9 && KR.ALMUFAJOK.length === 9, 'a könyv lépései, keret-példái és alműfajai');
+ellenoriz(KR.LEPESEK.length === 10 && KR.KERET_PELDAK.length === 9 && KR.ALMUFAJOK.length === 9, 'a könyv lépései, keret-példái és alműfajai');
 
 // ---------- Generátor ----------
 const TABLAK = [
@@ -539,6 +540,103 @@ ellenoriz(la.hasznalat === 'resz' && la.tortenet === 'resz' && la.utemek === 'ke
   ellenoriz(SZ.kapcsolatTipusFabol(G.general('dt_kapcsolat', { tablak, rng: kockak(1, 1) })) === 'ellensege' && SZ.kapcsolatTipusFabol(G.general('dt_kapcsolat', { tablak, rng: kockak(6, 6) })) === null, 'kapcsolattípus a tábla eredményéből');
   const km = SZ.kovetoMintabol({ adat: { statblokk: { tulajdonsagok: { tul_strength: 0 } }, szerep: {} } }, { nev: 'Testőr', tulajdonsagok: { tul_strength: 2 }, fokuszok: ['fok_x'], feladatok: ['őrködik'] });
   ellenoriz(km.adat.statblokk.tulajdonsagok.tul_strength === 2 && km.adat.statblokk.fokuszok[0] === 'fok_x' && km.adat.szerep.feladatok[0] === 'őrködik', 'követő mintából');
+}
+
+// ---------- Jutalmak (5.6) ----------
+{
+  // lépések a fajta szerint
+  ellenoriz(J.lepesKulcsok({}).join() === 'hasznalat,megnyitas' && J.lepesKulcsok({ fajta: 'targy' }).join() === 'hasznalat,targy,ereklye,megnyitas'
+    && J.lepesKulcsok({ fajta: 'targy', tartos: 'ideiglenes' }).join() === 'hasznalat,targy,megnyitas' && J.lepesKulcsok({ fajta: 'cim' }).join() === 'hasznalat,cim,megnyitas', 'jutalom lépései fajtánként');
+  const la = J.lepesAllapot({ fajta: 'kincs', iv: 'kezdo', szerepek: ['eroforras'], kategoria: 'szereny', ertek_ezust: 10, megnyitas: ['tortenet'] });
+  ellenoriz(la.hasznalat === 'kesz' && la.kincs === 'kesz' && la.megnyitas === 'kesz' && la.cim === 'ures', 'jutalom lépésállapot', la);
+  // ritkaság (Alapkönyv 119.): +1 ritkás, +2 ritka, +3 legendás; ideiglenes és korlátozott egy fokkal gyakoribb
+  ellenoriz(J.targyRitkasag({}) === 'gyakori' && J.targyRitkasag({ elonyok: [{ tipus: 'tamadas', ertek: 1 }] }) === 'ritkas'
+    && J.targyRitkasag({ elonyok: [{ tipus: 'tamadas', ertek: 1 }, { tipus: 'pancel', ertek: 2 }] }) === 'ritka'
+    && J.targyRitkasag({ elonyok: [{ tipus: 'sebzes', ertek: 3 }] }) === 'legendas', 'tárgy ritkasága az előnyökből');
+  ellenoriz(J.targyRitkasag({ tartos: 'ideiglenes', elonyok: [{ tipus: 'tamadas', ertek: 2 }] }) === 'ritkas'
+    && J.targyRitkasag({ elonyok: [{ tipus: 'tamadas', ertek: 2 }], korlatozasok: [{ tipus: 'hatter' }] }) === 'ritkas'
+    && J.targyRitkasag({ tartos: 'ideiglenes', elonyok: [{ tipus: 'tamadas', ertek: 1 }] }) === 'gyakori', 'ideiglenes és korlátozott tárgy egy fokkal gyakoribb');
+  ellenoriz(J.ervenyesRitkasag({ ritkasag: 'legendas', elonyok: [] }) === 'legendas', 'kézi ritkaság nyer');
+  // figyelmeztetések
+  const fg = (a) => J.figyelmeztetesek(a).map((x) => x.lepes);
+  ellenoriz(fg({}).includes('hasznalat'), 'fajta és szintsáv nélkül figyelmeztet');
+  ellenoriz(fg({ fajta: 'targy', iv: 'kezdo', elonyok: [{ tipus: 'tamadas', ertek: 2 }], tortenet: 'x' }).includes('targy'), 'túl ritka tárgy a sávhoz');
+  ellenoriz(!fg({ fajta: 'targy', iv: 'mester', elonyok: [{ tipus: 'tamadas', ertek: 2 }], tortenet: 'x' }).includes('targy'), 'illő ritkaság nem figyelmeztet');
+  ellenoriz(fg({ fajta: 'kincs', iv: 'legendas', kategoria: 'csekely' }).includes('kincs') && !fg({ fajta: 'kincs', iv: 'legendas', kategoria: 'fenyuzo' }).includes('kincs'), 'kincskategória a sávhoz');
+  ellenoriz(fg({ fajta: 'cim', iv: 'kezdo', bonusz: 4 }).includes('cim'), 'cím bónusza legfeljebb +3');
+  ellenoriz(fg({ fajta: 'cim', iv: 'kezdo', megnyitas: ['adomanyozas'] }).includes('megnyitas'), 'adományozó nélkül');
+  ellenoriz(fg({ fajta: 'tars', iv: 'kezdo' }).includes('tars') && !fg({ fajta: 'tars', iv: 'kezdo', njk_id: 'n1' }).includes('tars'), 'társ NJK vagy tulajdonságok nélkül');
+  ellenoriz(fg({ fajta: 'targy', iv: 'kezdo', atok: { van: true }, tortenet: 'x' }).includes('targy'), 'átok jelenet és büntetés nélkül');
+  ellenoriz(fg({ fajta: 'targy', ereklye: { fajta: 'zart', kepessegek: [{ nev: 'a' }] } }).filter((x) => x === 'ereklye').length === 2, 'zárt ereklye feltétel nélkül, kevés képességgel');
+  ellenoriz(fg({ szerepek: ['cel'] }).includes('hasznalat') && J.figyelmeztetesek({ szerepek: ['cel'], kinek: ['csapat'] }).every((x) => !/Célként/.test(x.szoveg)), 'cél: kinek szól');
+  // ereklye
+  ellenoriz(J.lepcsosNyitott(1) === 1 && J.lepcsosNyitott(5) === 2 && J.lepcsosNyitott(12) === 5 && J.lepcsosNyitott(20) === 7, 'lépcsős ereklye: nyitott képességek száma');
+  const er = { ereklye: { fajta: 'lepcsos', kepessegek: [{ nev: 'a' }, { nev: 'b' }, { nev: 'c', szint: 3 }] } };
+  const ea = J.ereklyeAllapot(er, 4);
+  ellenoriz(ea[0].nyitva && ea[1].nyitva && ea[2].nyitva && !J.ereklyeAllapot(er, 1)[1].nyitva && !J.ereklyeAllapot(er, 2)[2].nyitva, 'lépcsős ereklye a szint szerint');
+  ellenoriz(!J.ereklyeAllapot({ ereklye: { fajta: 'zart', kepessegek: [{ nev: 'a' }] } }, 20, false)[0].nyitva && J.ereklyeAllapot({ ereklye: { fajta: 'zart', kepessegek: [{ nev: 'a' }] } }, 1, true)[0].nyitva, 'zárt ereklye a feltételtől');
+  // kincs
+  const kd = J.kincsDobas('kozepes', kockak(3, 4));
+  ellenoriz(kd.ezust === 70 && /× 10/.test(kd.szoveg), 'kincs dobása (2d6 × 10)', kd);
+  ellenoriz(J.kincsDobas('csekely', kockak(5)).ezust === 5 && J.kincsDobas('nincs') === null, 'csekély kincs, ismeretlen kategória');
+  const bk = J.bankolas('szereny');
+  ellenoriz(bk.kell === 3 && bk.osszesen === 30 && bk.jovedelem === 'csekely' && J.bankolas('csekely').jovedelem === null, 'vagyonrendszer: bankolás (78. oldal)', bk);
+  ellenoriz(J.bankolas('kozepes').kell === 20, 'bankolás: 2d6 × 10 legkisebb értéke');
+  // térkép és kötések
+  const jel = [{ id: 'j1', tipus: 'jutalom', adat: { fajta: 'cim', iv: 'kezdo' } }, { id: 'j2', tipus: 'jutalom', adat: { fajta: 'targy' } }, { id: 'x', tipus: 'kaland', adat: {} }];
+  const tk = J.terkep(jel, (e) => e.adat);
+  ellenoriz(tk.kezdo.cim.length === 1 && tk._nincs.targy.length === 1 && tk.mester.kincs.length === 0, 'jutalomtérkép rácsa', tk);
+  const kp = [{ id: 'l1', honnan: 'j1', hova: 'k1', tipus: 'jutalma' }, { id: 'l2', honnan: 'j1', hova: 'k2', tipus: 'itt_tortenik' }, { id: 'l3', honnan: 'j2', hova: 'k1', tipus: 'jutalma', aktiv: false }];
+  ellenoriz(J.holSzerzik('j1', kp).length === 1 && J.jutalmaiOf('k1', kp).length === 1, 'jutalom kötése kalandhoz (jutalma)');
+  ellenoriz(KP.tipusNev('jutalma', 'ki') === 'jutalma ennek' && KP.tipusNev('jutalma', 'be') === 'jutalma', 'a jutalma kapcsolat feliratai');
+  ellenoriz(J.osszefoglalo({ fajta: 'targy', tartos: 'ideiglenes', elonyok: [{ tipus: 'tamadas', ertek: 2 }] }) === 'Mágikus tárgy, ritkás, ideiglenes' && J.osszefoglalo({ fajta: 'kincs', kategoria: 'kozepes', ertek_ezust: 70 }) === 'Kincs, közepes, 70 ezüst', 'jutalom összefoglalója');
+  // keret: a jutalomtérkép
+  const kj = KR.normalizal({ jutalomterkep: { kezdo: { cim: 'Kiválasztottak', rossz: 'x' } } });
+  ellenoriz(kj.jutalomterkep.kezdo.cim === 'Kiválasztottak' && kj.jutalomterkep.legendas.kincs === '' && !('rossz' in kj.jutalomterkep.kezdo), 'keret: jutalomtérkép normalizálása');
+  ellenoriz(KR.lepesAllapot({ jutalomterkep: { kezdo: { cim: 'x' } }, szintsav: { kezdo: 1, zaro: 4 } }, []).jutalmak === 'kesz' && KR.lepesAllapot({}, []).jutalmak === 'ures', 'keret: jutalomtérkép lépésállapota');
+  // véletlen tárgyak (kitalált minta táblák az Import 12 és 14 szerkezetével)
+  const tablak = [
+    { id: 'dt_fegyvercsoport', reszletek: { kocka: 'd6d6', sorok: [{ t: [[1, 5], [1, 6]], e: 'Fejszék', ertek: { csoport: 'fcs_axes' } }, { t: [6, [1, 5]], e: 'Alapanyag', ertek: { csoport: 'granat_alapanyag' } }, { t: [6, 6], e: 'Gránát', ertek: { csoport: 'granat' } }] } },
+    { id: 'dt_pancel', reszletek: { kocka: '3d6', sorok: [{ t: [3, 9], e: 'Nincs', ertek: { pancel: '' } }, { t: [10, 18], e: 'Bőr', ertek: { pancel: 'pan_b' } }] } },
+    { id: 'dt_pajzs', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'Pajzs', ertek: { pajzs: 'pan_p' } }] } },
+    { id: 'dt_kidolgozottsag', reszletek: { kocka: '3d6', sorok: [{ t: [3, 13], e: 'Átlagos', ertek: { minoseg: 'atlagos' } }, { t: [14, 18], e: 'Finom', ertek: { minoseg: 'finom' } }] } },
+    { id: J.MAGIKUS_TABLA, reszletek: { kocka: '3d6', sorok: [
+      { t: 3, e: 'Átok', ertek: { tipus: 'atok' }, hivas: [{ tabla: '', darab: 1, sajat_ujra: true }] },
+      { t: [4, 9], e: 'Támadás +{szam}', szam: { alap: 'sarkany', oszto: 2, kerekit: 'fel' }, ertek: { tipus: 'tamadas' } },
+      { t: [10, 14], e: 'Varázslat', ertek: { tipus: 'varazslat' } },
+      { t: [15, 17], e: 'Sebzés +{szam}', szam: { alap: 'sarkany', oszto: 3, kerekit: 'fel' }, ertek: { tipus: 'sebzes' } },
+      { t: 18, e: 'Több', ertek: { tipus: 'tobb' }, hivas: [{ tabla: '', darab: 2, egyedi: true, sajat_ujra: true }] }] } },
+    { id: 'dt_minta', reszletek: { kocka: 'lista', sorok: [{ e: 'Sárkányölő', en: 'Dragon Slayer' }] } }];
+  const lapok = { Fegyverek: [{ id: 'f1', csoport: 'fcs_axes', nev_hu: 'Csatabárd' }, { id: 'f2', csoport: 'fcs_axes', nev_hu: 'Hajítófejsze' }, { id: 'g1', reszletek: { tipus: 'granat' }, nev_hu: 'Tűzfiola' }],
+    'Páncélok': [{ id: 'pan_b', nev_hu: 'Bőrpáncél' }, { id: 'pan_p', nev_hu: 'Pajzs' }] };
+  ellenoriz(G.tablaHibak(tablak[5], tablak).length === 0 && G.listaE(tablak[5]) && G.tablaHibak({ reszletek: { kocka: 'lista', sorok: [{ e: '' }] } }).length === 1, 'választható lista (kocka: lista) ellenőrzése');
+  ellenoriz(tablak.slice(0, 5).every((t) => G.tablaHibak(t, tablak).length === 0), 'a minta táblák hibátlanok');
+  // 1+1+... = 3: átok, utána újradobás (4+4+6 = 14 varázslat, 6-os sárkánykocka)
+  const mf = G.general(J.MAGIKUS_TABLA, { tablak, rng: kockak(1, 1, 1, 4, 4, 6) });
+  const m1 = J.magikusFabol(mf);
+  ellenoriz(m1.atok && m1.elonyok.length === 1 && m1.elonyok[0].tipus === 'varazslat' && /Mágiapont nélkül/.test(m1.elonyok[0].jegyzet), 'átkozott tárgy, varázslat 6-os sárkánykockával', m1);
+  const m2 = J.magikusFabol(G.general(J.MAGIKUS_TABLA, { tablak, rng: kockak(2, 2, 5) }));
+  ellenoriz(m2.elonyok[0].tipus === 'tamadas' && m2.elonyok[0].ertek === 3 && !m2.atok, 'támadás a sárkánykocka fele felfelé (5 → +3)', m2);
+  const m3 = J.magikusFabol(G.general(J.MAGIKUS_TABLA, { tablak, rng: kockak(6, 6, 6, 2, 2, 5, 5, 5, 6) }));
+  ellenoriz(m3.elonyok.length === 2 && m3.elonyok[1].tipus === 'sebzes' && m3.elonyok[1].ertek === 2, 'több előny: két további dobás', m3);
+  const fak = J.veletlenTargyFak('fegyver', { tablak, rng: kockak(1, 1, 6, 6, 6, 2, 2, 5) }, { magikus: true });
+  const t1 = J.targyFakbol('fegyver', fak, lapok, kockak(2));
+  ellenoriz(t1.alap_id === 'f1' || t1.alap_id === 'f2', 'véletlen fegyver: d3 a csoport fegyvereiből', t1);
+  ellenoriz(t1.kidolgozottsag === 'finom' && t1.elonyok.length === 1 && t1.elonyok[0].ertek === 3, 'véletlen fegyver: kidolgozottság és mágikus előny', t1);
+  const fg2 = J.veletlenTargyFak('fegyver', { tablak, rng: kockak(6, 6, 1, 1, 1) }, {});
+  ellenoriz(J.targyFakbol('fegyver', fg2, lapok, kockak(1)).alap_id === 'g1' && !fg2.magikus, 'gránát: 1d6 a gránátok közül');
+  ellenoriz(J.targyFakbol('fegyver', J.veletlenTargyFak('fegyver', { tablak, rng: kockak(6, 1, 1, 1, 1) }, {}), lapok).targy_fajta === 'egyeb', 'gránát-alapanyag egyéb tárgy');
+  const tp = J.targyFakbol('pancel', J.veletlenTargyFak('pancel', { tablak, rng: kockak(1, 1, 1, 1, 1, 1) }, {}), lapok);
+  ellenoriz(tp.nincs && !tp.alap_id, 'véletlen páncél: nincs páncél');
+  const tp2 = J.targyFakbol('pancel', J.veletlenTargyFak('pancel', { tablak, rng: kockak(6, 6, 6, 1, 1, 1) }, {}), lapok);
+  ellenoriz(tp2.alap_id === 'pan_b' && tp2.alap_nev === 'Bőrpáncél' && tp2.kidolgozottsag === 'atlagos', 'véletlen páncél a szabályadatból', tp2);
+  // a valódi szabályadat táblái (ha meg van adva): FAGE_SZABALYOK=<lapok.json>
+  if (process.env.FAGE_SZABALYOK) {
+    const valodi = JSON.parse(fs.readFileSync(process.env.FAGE_SZABALYOK, 'utf8'))['Dobótáblák'] || [];
+    const ujak = valodi.filter((t) => [J.MAGIKUS_TABLA, J.CIM_MINTAK, J.TARS_MINTAK, J.EREKLYE_MINTAK].includes(t.id));
+    ellenoriz(ujak.length === 4 && ujak.every((t) => G.tablaHibak(t, valodi).length === 0), 'az Import 14 táblái hibátlanok', ujak.map((t) => [t.id, G.tablaHibak(t, valodi)]));
+    for (let i = 0; i < 200; i++) { const x = J.magikusFabol(G.general(J.MAGIKUS_TABLA, { tablak: valodi })); if (!x.elonyok.length) { ellenoriz(false, 'mágikus tulajdonság mindig ad előnyt', x); break; } }
+  }
 }
 
 console.log(hibak ? `\n${hibak} HIBA (${db} ellenőrzésből)` : `\nMind a ${db} ellenőrzés sikeres.`);

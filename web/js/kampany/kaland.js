@@ -32,7 +32,7 @@ export const KALAND_LEPESEK = {
   njkk: { nev: '4. Fontos NJK-k', en: 'Define Important NPCs', oldal: '26–27',
     utmutato: 'Néhány fontos szereplő: megbízók, ellenfelek és gonosztevők, szövetségesek, kapcsolatok és társak. Mindegyiknek legyen saját háttere, személyisége és külseje.' },
   jutalmak: { nev: '5. Jutalmak', en: 'Player Rewards', oldal: '27',
-    utmutato: 'Mit nyernek a hősök: pénz, hírnév, tárgyak, szövetségesek, tapasztalat. A jutalomelemek a 6. fejezettel (5.6 alépés) kapcsolhatók ide.' },
+    utmutato: 'Mit nyernek a hősök: pénz, hírnév, tárgyak, szövetségesek, tapasztalat. A jutalomelemek (cím, tagság, társ, mágikus tárgy, kincs) a 6. fejezet szerint köthetők ide.' },
   plotpont: { nev: 'Plot-point kaland', en: 'Plot-Point Adventures', oldal: '20–21',
     utmutato: 'Fontos helyszínek listája (a világ útikönyve), mindegyikben horog egy rövid, egy-két alkalmas mini kalandhoz, amely az átfogó szálhoz kapcsolódik. Kaland köthető feltételhez is (szint, specializáció, esemény). Minden mini kaland után legyen két-három irány, merre tovább.' },
   letere: { nev: 'Ha a csapat letér', en: 'Going Off the Rails', oldal: '18–19',

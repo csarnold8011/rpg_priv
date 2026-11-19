@@ -65,7 +65,8 @@ function SorTabla({ tabla, kikapcsolt, onKikapcsol }) {
 
 // A generátor: táblaválasztás, dobás, az eredményfa, a dobás menete. onElfogad esetén az eredmény egy mezőbe írható.
 export function GeneratorPanel({ lapok, tablaId, kikapcsolt, onKikapcsol, onElfogad }) {
-  const tablak = useMemo(() => tablakBol(lapok), [lapok]);
+  // a választható mintalisták (kocka: lista) nem dobhatók, a választóban nem szerepelnek
+  const tablak = useMemo(() => tablakBol(lapok).filter((t) => !G.listaE(t) || t.id === tablaId), [lapok, tablaId]);
   const [valasztott, setValasztott] = useState(tablaId || (tablak[0] && tablak[0].id) || '');
   const [fa, setFa] = useState(null);
   const [mezo, setMezo] = useState('leiras');

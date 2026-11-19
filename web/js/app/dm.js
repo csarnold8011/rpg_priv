@@ -32,7 +32,7 @@ const KARAKTER_ALLAPOTOK = ['aktív', 'távol', 'kilépett', 'elhunyt'];
 
 // A DM nézetek közös adatai: kampányok, karakterek, felhasználók.
 const DmKontextus = createContext(null);
-const useDm = () => useContext(DmKontextus);
+export const useDm = () => useContext(DmKontextus);
 
 export function DmFelulet({ ut }) {
   const { api, felhasznalo, kilepes, szabalyok } = useApp();
