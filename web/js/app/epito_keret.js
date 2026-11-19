@@ -1,6 +1,6 @@
 // Kampányépítő (DM): a kampány áttekintő oldala a Kampányépítő könyv 1. fejezete (Building the Campaign Framework)
 // és a könyv végi kampány-munkalap (Campaign Worksheet) szerint, a kampány elemei és a kampány dobótáblái.
-// Útvonal: #/dm/kampany/<id>/epito[/keret | /kalandok | /elemek | /elem/<id> | /dobotablak]. Minden mező kihagyható, a mentés
+// Útvonal: #/dm/kampany/<id>/epito[/keret | /kalandok | /helyszinek | /szereplok | /elemek | /elem/<id> | /dobotablak]. Minden mező kihagyható, a mentés
 // automatikus. Tiszta függvények: web/js/kampany/keret.js. Terv: claude/kampanyepito-terv.md, „1. fejezet”.
 import {
   html, K, useApp, useState, useEffect, useMemo, useLekeres, navigal, Ikon, Betoltes, Uzenet, Valaszto, Jelolo,
@@ -13,6 +13,7 @@ import { usePrep, useAutoMentes, MentesJel, ElemSzerkeszto, ElemFa, UjElemParbes
 import { GeneratorPanel } from './dobotabla.js';
 import { KalandokNezet, IvKalandjai } from './epito_kaland.js';
 import { HelyszinekNezet, HelyszinekValaszto } from './epito_helyszin.js';
+import { SzereplokNezet } from './epito_szereplo.js';
 import { forrasSzerint, megjelenitettNev } from '../szabalyok.js';
 import { beallitasValtozas } from '../jatek/probakeres.js';
 import * as G from '../kampany/generator.js';
@@ -33,7 +34,7 @@ export function KampanyEpitoOldal({ kampanyId, ut, Oldalfej, dm }) {
       vissza=${kalandos ? ['#/dm/kampany/' + kampanyId + '/epito/kalandok', cim + ': kalandok']
         : helyes ? ['#/dm/kampany/' + kampanyId + '/epito/helyszinek', cim + ': helyszínek'] : ['#/dm/kampany/' + kampanyId + '/epito/elemek', cim + ': elemek']}/>`;
   }
-  const fulek = [['keret', 'Kampánykeret'], ['kalandok', 'Kalandok'], ['helyszinek', 'Helyszínek'], ['elemek', 'Elemek'], ['dobotablak', 'Dobótáblák']];
+  const fulek = [['keret', 'Kampánykeret'], ['kalandok', 'Kalandok'], ['helyszinek', 'Helyszínek'], ['szereplok', 'Szereplők'], ['elemek', 'Elemek'], ['dobotablak', 'Dobótáblák']];
   const aktiv = fulek.some((f) => f[0] === lap) ? lap : 'keret';
   return html`<div>
     <${Oldalfej} cim=${'Kampányépítő: ' + cim} vissza=${['#/dm/kampany/' + kampanyId, cim]}/>
@@ -44,6 +45,7 @@ export function KampanyEpitoOldal({ kampanyId, ut, Oldalfej, dm }) {
     ${prep.hiba && !prep.adat ? html`<${Uzenet}>${prep.hiba.message}<//>` : !prep.adat ? html`<${Betoltes} szoveg="Az előkészítés betöltése…"/>`
       : aktiv === 'kalandok' ? html`<${KalandokNezet} prep=${prep} cel=${cel}/>`
       : aktiv === 'helyszinek' ? html`<${HelyszinekNezet} prep=${prep} cel=${cel}/>`
+      : aktiv === 'szereplok' ? html`<${SzereplokNezet} prep=${prep} cel=${cel} dm=${dm}/>`
       : aktiv === 'elemek' ? html`<${KampanyElemek} prep=${prep} cel=${cel}/>`
       : aktiv === 'dobotablak' ? html`<${KampanyDobotablak} prep=${prep}/>`
       : html`<${KeretSzerkeszto} key=${kampanyId} prep=${prep} kampany=${kampany} dm=${dm}/>`}

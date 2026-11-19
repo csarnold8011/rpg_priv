@@ -2155,6 +2155,7 @@ function muveletek_() {
     'npc.archive':             { fn: njkArchivalasa_, szerep: 'dm' },
     'npc.delete':              { fn: njkTorlese_, szerep: 'dm' },
     'npc.image.set':           { fn: njkKepBeallitasa_, szerep: 'dm' },
+    'npc.detach':              { fn: njkLevalasztasa_, szerep: 'dm' },
     'encounter.list':          { fn: osszecsapasLista_, szerep: 'dm' },
     'encounter.save':          { fn: osszecsapasMentese_, szerep: 'dm' },
     'encounter.archive':       { fn: osszecsapasArchivalasa_, szerep: 'dm' },
@@ -3077,6 +3078,94 @@ function kepekLekerese_(a, felh) {
 const NJK_FAJTAK = ['statblokk', 'rovid', 'koveto'];
 const MAX_NJK_MERET = 48000;
 
+// ---- Szintek és öröklés (5.5, Kampányépítő 5. fejezet) ----
+// Szint: sablon (adat.sablon), világ (vilag_id), szabad (a többi, kampányokhoz rendelhető). Az NJK épülhet egy másikra
+// (alap_id). Az öröklés materializált: a sor mindig a teljes adatot tárolja, az adat.felulirt pedig a saját mezőket.
+// Mentéskor a háttér kiszámolja a felülírásokat (az alaptól eltérő mezők), az alap módosításakor a rá épülőket frissíti.
+// A mezőlista azonos a web/js/kampany/szereplo.js OROKOLHETO listájával (a teszt összeveti).
+const NJK_SZEREPLO_MEZOK = ['szerepek', 'szerep_jegyzet', 'ellenpolus_id', 'epitesi_mod', 'epites_jegyzet', 'cel', 'indok', 'vonas',
+  'arnyalatok', 'hang', 'hibak', 'elet', 'gyerekkor', 'ma', 'kapcsolat_jegyzet', 'rejtett', 'kulcspontok', 'monologus', 'kerdesek',
+  'fejlodes_terv', 'valtozasok'];
+const NJK_OROKOLHETO = ['nev', 'fajta', 'fenyegetes', 'alap_szorny', 'adat.statblokk', 'adat.erosites', 'adat.kezi',
+  'adat.szerep.koncepcio', 'adat.szerep.megjelenes', 'adat.szerep.motivacio', 'adat.szerep.nyilvanos', 'adat.szerep.titkok',
+  'adat.szerep.kapcsolatok', 'adat.szerep.dm_jegyzet', 'adat.szerep.feladatok'].concat(NJK_SZEREPLO_MEZOK.map(function (m) { return 'adat.szereplo.' + m; }));
+const NJK_MAX_LANC = 4;
+
+function njkSablon_(n) { return !!njkAdat_(n).sablon; }
+function njkSzint_(n) { return njkSablon_(n) ? 'sablon' : n.vilag_id ? 'vilag' : 'szabad'; }
+
+function njkUt_(n, ut) {
+  let x = n;
+  const r = ut.split('.');
+  for (let i = 0; i < r.length; i++) { if (!x || typeof x !== 'object') return undefined; x = x[r[i]]; }
+  return x;
+}
+function njkUtBeallit_(n, ut, ertek) {
+  const r = ut.split('.');
+  let x = n;
+  for (let i = 0; i < r.length - 1; i++) { if (!x[r[i]] || typeof x[r[i]] !== 'object') x[r[i]] = {}; x = x[r[i]]; }
+  if (ertek === undefined) delete x[r[r.length - 1]]; else x[r[r.length - 1]] = JSON.parse(JSON.stringify(ertek));
+}
+function njkUres_(x) {
+  return x === undefined || x === null || x === '' || (Array.isArray(x) && !x.length) ||
+    (typeof x === 'object' && !Array.isArray(x) && !Object.keys(x).length);
+}
+function njkAzonos_(a, b) { return (njkUres_(a) && njkUres_(b)) || JSON.stringify(a) === JSON.stringify(b); }
+
+// A felülírások (az alaptól eltérő mezők), és az örökölt mezők beírása az alapból.
+function njkFelulirasok_(n, alap) {
+  return NJK_OROKOLHETO.filter(function (ut) { return !njkAzonos_(njkUt_(n, ut), njkUt_(alap, ut)); });
+}
+function njkFeloldas_(n, alap, felulirt) {
+  NJK_OROKOLHETO.forEach(function (ut) { if (felulirt.indexOf(ut) < 0) njkUtBeallit_(n, ut, njkUt_(alap, ut)); });
+  n.adat = njkAdat_(n);
+  n.adat.felulirt = felulirt.slice();
+}
+
+// Lehet-e az alapja (hibát dob, ha nem).
+function njkAlapEllenorzes_(n, alap, sorok) {
+  if (!alap) throw hiba_('nem_talalhato', 'Nincs ilyen alap NJK.');
+  if (alap.id === n.id) throw hiba_('hibas_adat', 'Egy NJK nem épülhet önmagára.');
+  const nsz = njkSzint_(n), asz = njkSzint_(alap);
+  if (nsz === 'sablon' && asz !== 'sablon') throw hiba_('hibas_adat', 'Sablon csak sablonra épülhet.');
+  if (nsz === 'vilag' && !(asz === 'sablon' || (asz === 'vilag' && alap.vilag_id === n.vilag_id))) {
+    throw hiba_('hibas_adat', 'Világ-NJK csak sablonra vagy ugyanannak a világnak az NJK-jára épülhet. Előbb válaszd le.');
+  }
+  let x = alap, hossz = 1;
+  const volt = {};
+  while (x) {
+    if (x.id === n.id || volt[x.id]) throw hiba_('hibas_adat', 'Körbe érne az öröklés.');
+    volt[x.id] = true;
+    hossz++;
+    if (hossz > NJK_MAX_LANC) throw hiba_('hibas_adat', 'Legfeljebb ' + NJK_MAX_LANC + ' szint örökölhető egymásra.');
+    const aid = x.alap_id;
+    x = aid ? sorok.find(function (y) { return y.id === aid; }) : null;
+  }
+}
+
+// Az alapjára épülő NJK-k frissítése (zárolás alatt): az örökölt mezők az új értéket kapják. A változott
+// NJK-k kampányainak listáját adja vissza.
+function njkPeldanyokFrissitese_(alap, sorok, felh, mely) {
+  const kampanyok = [];
+  if ((mely || 0) > NJK_MAX_LANC) return kampanyok;
+  sorok.filter(function (x) { return x.alap_id === alap.id; }).forEach(function (p) {
+    const elotte = JSON.stringify([p.nev, p.fajta, p.fenyegetes, p.alap_szorny, p.adat]);
+    const felulirt = (Array.isArray(njkAdat_(p).felulirt) ? njkAdat_(p).felulirt : []).filter(function (ut) { return NJK_OROKOLHETO.indexOf(ut) >= 0; });
+    p.adat = njkAdat_(p);
+    njkFeloldas_(p, alap, felulirt);
+    if (JSON.stringify([p.nev, p.fajta, p.fenyegetes, p.alap_szorny, p.adat]) === elotte) return;
+    const regi = Number(p.verzio) || 0;
+    p.verzio = regi + 1;
+    p.modositva = most_();
+    p.modositotta = felh.n;
+    sorFrissitese_('jatek', 'NJK-k', p);
+    valtozasNaplozasa_(felh, 'njk.orokles', p.id, regi, p.verzio);
+    njkKampanyai_(p).forEach(function (k) { kampanyok.push(k); });
+    njkPeldanyokFrissitese_(p, sorok, felh, (mely || 0) + 1).forEach(function (k) { kampanyok.push(k); });
+  });
+  return kampanyok;
+}
+
 // Az NJK-k lap sorai. Ha a lap még nincs meg (az elsoBeallitas előtt), üres lista.
 function njkSorok_() {
   try { return sorok_('jatek', 'NJK-k'); } catch (e) {
@@ -3106,7 +3195,9 @@ function njkOsszefoglalo_(n) {
     id: n.id, nev: n.nev, fajta: n.fajta || 'statblokk', alap_szorny: n.alap_szorny || '', fenyegetes: n.fenyegetes || '',
     kampanyok: njkKampanyai_(n), kotodes: n.kotodes || '', iranyito: n.iranyito || '',
     verzio: Number(n.verzio) || 0, modositva: n.modositva, aktiv: igaz_(n.aktiv),
-    kep: kep ? (kep.belyeg || kep.kep || '') : '', koncepcio: sz.koncepcio ? String(sz.koncepcio).slice(0, 160) : ''
+    kep: kep ? (kep.belyeg || kep.kep || '') : '', koncepcio: sz.koncepcio ? String(sz.koncepcio).slice(0, 160) : '',
+    vilag_id: n.vilag_id || '', alap_id: n.alap_id || '', sablon: njkSablon_(n),
+    szerepek: Array.isArray(objektum_(njkAdat_(n).szereplo).szerepek) ? njkAdat_(n).szereplo.szerepek : []
   };
 }
 
@@ -3117,8 +3208,10 @@ function njkNezet_(n, lathatosag) {
   const adat = njkAdat_(n);
   if (lathatosag === 'teljes') { o.adat = adat; return o; }
   const sz = adat.szerep || {};
+  delete o.vilag_id; delete o.alap_id; delete o.sablon; delete o.szerepek;
   if (lathatosag === 'kovetonek') {
     const masolat = JSON.parse(JSON.stringify(adat));
+    delete masolat.szereplo; delete masolat.felulirt; delete masolat.sablon;
     masolat.szerep = { kep: sz.kep || null, megjelenes: sz.megjelenes || '', koncepcio: sz.koncepcio || '',
       nyilvanos: sz.nyilvanos || '', feladatok: sz.feladatok || [] };
     o.adat = masolat;
@@ -3247,13 +3340,32 @@ function njkMezok_(n, a, k) {
   if (a.adat !== undefined) {
     if (!a.adat || typeof a.adat !== 'object') throw hiba_('hibas_adat', 'Hibás NJK-adat.');
     if (JSON.stringify(a.adat).length > MAX_NJK_MERET) throw hiba_('tul_nagy', 'Az NJK adatai túl nagyok egy cellához.');
-    // a kép csak az npc.image.set művelettel változhat
+    // a kép csak az npc.image.set művelettel változhat, a sablon jelölő csak létrehozáskor
     const regiKep = njkKep_(n);
+    const sablon = njkSablon_(n);
     const adat = a.adat;
     adat.szerep = adat.szerep && typeof adat.szerep === 'object' ? adat.szerep : {};
     adat.szerep.kep = regiKep;
+    if (sablon) adat.sablon = true; else delete adat.sablon;
     n.adat = adat;
   }
+  if (a.vilag_id !== undefined) {
+    const w = String(a.vilag_id || '');
+    if (w && njkSablon_(n)) throw hiba_('hibas_adat', 'A sablon nem tartozik világhoz.');
+    if (w && !epitoSorok_('Világok').some(function (x) { return x.id === w; })) throw hiba_('nem_talalhato', 'Nincs ilyen világ.');
+    n.vilag_id = w;
+  }
+  if (a.alap_id !== undefined) n.alap_id = String(a.alap_id || '');
+}
+
+// Az öröklés rendezése mentés előtt: az alap ellenőrzése, a felülírások kiszámolása, a sablon korlátai.
+function njkOroklesRendezese_(n, sorok) {
+  n.adat = njkAdat_(n);
+  if (njkSablon_(n) && (njkKampanyai_(n).length || n.kotodes)) throw hiba_('hibas_adat', 'A sablon nem rendelhető kampányhoz, és nincs gazdája.');
+  if (!n.alap_id) { n.adat.felulirt = []; return; }
+  const alap = sorok.find(function (x) { return x.id === n.alap_id; });
+  njkAlapEllenorzes_(n, alap, sorok);
+  njkFeloldas_(n, alap, njkFelulirasok_(n, alap));
 }
 
 // action: npc.save (DM)
@@ -3266,8 +3378,10 @@ function njkMentese_(a, felh) {
     const sorok = njkSorok_();
     if (!a.id) {
       const n = { id: ujId_('n'), nev: '', fajta: 'statblokk', alap_szorny: '', fenyegetes: '', kampanyok: [], kotodes: '',
-        iranyito: '', adat: {}, verzio: 1, modositva: most_(), modositotta: felh.n, aktiv: true };
+        iranyito: '', adat: a.sablon ? { sablon: true } : {}, verzio: 1, modositva: most_(), modositotta: felh.n, aktiv: true,
+        vilag_id: '', alap_id: '' };
       njkMezok_(n, Object.assign({ nev: a.nev || '' }, a), k);
+      njkOroklesRendezese_(n, sorok);
       sorHozzaadasa_('jatek', 'NJK-k', n);
       const kv = kampanyVerziokNovelese_(njkKampanyai_(n), k.kampanyok);
       valtozasNaplozasa_(felh, 'njk.letrehoz', n.id, '', 1);
@@ -3280,11 +3394,13 @@ function njkMentese_(a, felh) {
     }
     const regiKampanyok = njkKampanyai_(n).slice();
     njkMezok_(n, a, k);
+    njkOroklesRendezese_(n, sorok);
     n.verzio = regi + 1;
     n.modositva = most_();
     n.modositotta = felh.n;
     sorFrissitese_('jatek', 'NJK-k', n);
-    const erintett = regiKampanyok.concat(njkKampanyai_(n)).filter(function (x, i, t) { return t.indexOf(x) === i; });
+    const peldanyKampanyok = njkPeldanyokFrissitese_(n, sorok, felh, 0);
+    const erintett = regiKampanyok.concat(njkKampanyai_(n), peldanyKampanyok).filter(function (x, i, t) { return t.indexOf(x) === i; });
     const kv = kampanyVerziokNovelese_(erintett, k.kampanyok);
     valtozasNaplozasa_(felh, 'njk.ment', n.id, regi, n.verzio);
     return { njk: njkNezet_(n, 'teljes'), verzio: n.verzio, modositva: n.modositva, kampany_verziok: kv };
@@ -3309,12 +3425,35 @@ function njkArchivalasa_(a, felh) {
 // action: npc.delete (DM)   adat: { id }   Csak archivált NJK törölhető; a képe a kukába kerül, a napló marad.
 function njkTorlese_(a, felh) {
   return zarolva_(function () {
-    const n = njkKeresese_(a.id);
+    const sorok = njkSorok_();
+    const n = njkKeresese_(a.id, sorok);
     if (igaz_(n.aktiv)) throw hiba_('hibas_adat', 'Csak archivált NJK törölhető. Előbb archiváld.');
+    if (sorok.some(function (x) { return x.alap_id === n.id; })) throw hiba_('hibas_adat', 'Más NJK-k erre épülnek (alapjuk). Előbb válaszd le őket.');
     sorTorlese_('jatek', 'NJK-k', n._sor);
     kepekKukaba_(njkKep_(n));
     valtozasNaplozasa_(felh, 'njk.torol', n.id, n.verzio, '');
     return { torolve: n.id };
+  });
+}
+
+// action: npc.detach (DM)   adat: { id, verzio? }   Leválasztás az alapjáról: a jelenlegi (teljes) adat megmarad.
+function njkLevalasztasa_(a, felh) {
+  return zarolva_(function () {
+    const n = njkKeresese_(a.id);
+    const regi = Number(n.verzio) || 0;
+    if (a.verzio !== undefined && Number(a.verzio) !== regi) {
+      throw hiba_('utkozes', 'Az NJK-t közben más is módosította.', { aktualis: njkNezet_(n, 'teljes') });
+    }
+    if (!n.alap_id) return { njk: njkNezet_(n, 'teljes'), verzio: regi };
+    n.alap_id = '';
+    n.adat = njkAdat_(n);
+    n.adat.felulirt = [];
+    n.verzio = regi + 1;
+    n.modositva = most_();
+    n.modositotta = felh.n;
+    sorFrissitese_('jatek', 'NJK-k', n);
+    valtozasNaplozasa_(felh, 'njk.levalaszt', n.id, regi, n.verzio);
+    return { njk: njkNezet_(n, 'teljes'), verzio: n.verzio };
   });
 }
 

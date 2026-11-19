@@ -100,9 +100,9 @@ export function DmFelulet({ ut }) {
   else if (oldal === 'kampany' && azon && ut[2] === 'csata' && ut[3]) tartalom = html`<${CsataOldal} key=${ut[3]} kampanyId=${azon} id=${ut[3]} Oldalfej=${Oldalfej}/>`;
   else if (oldal === 'kampany' && azon && ut[2] === 'epito') tartalom = html`<${KampanyEpitoOldal} key=${'epito' + azon} kampanyId=${azon} ut=${ut.slice(3)} Oldalfej=${Oldalfej} dm=${dm}/>`;
   else if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon}/>`;
-  else if (oldal === 'vilag' && azon) tartalom = html`<${VilagOldal} key=${'vilag' + azon} id=${azon} ut=${ut.slice(2)} Oldalfej=${Oldalfej}/>`;
+  else if (oldal === 'vilag' && azon) tartalom = html`<${VilagOldal} key=${'vilag' + azon} id=${azon} ut=${ut.slice(2)} Oldalfej=${Oldalfej} dm=${dm}/>`;
   else if (oldal === 'vilag') tartalom = html`<${VilagokOldal} Oldalfej=${Oldalfej}/>`;
-  else if (oldal === 'sablonok') tartalom = html`<${SablonokOldal} key="sablonok" azon=${azon} Oldalfej=${Oldalfej}/>`;
+  else if (oldal === 'sablonok') tartalom = html`<${SablonokOldal} key="sablonok" azon=${azon} Oldalfej=${Oldalfej} dm=${dm}/>`;
   else if (oldal === 'dobotablak') tartalom = html`<${DobotablakOldal} Oldalfej=${Oldalfej} lapok=${(szabalyok && szabalyok.adat && szabalyok.adat.lapok) || {}}/>`;
   else if (oldal === 'karakterek') tartalom = html`<${KarakterekOldal}/>`;
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;

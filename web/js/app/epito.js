@@ -23,6 +23,8 @@ export const SAJAT_LEPESEK = {};
 // További panelek a világ oldalán (a későbbi alépések moduljai töltik fel, például a földrajz: epito_helyszin.js).
 // Függvény: ({ prep, cel, vazlat, setVazlat }) => tartalom.
 export const VILAG_PANELEK = [];
+// További panelek a Sablontár oldalán (például az NJK-sablonok: epito_szereplo.js). Függvény: ({ dm }) => tartalom.
+export const SABLON_PANELEK = [];
 // A szerkezeti típusok, amelyek a kiinduló alapjukból a részfájukkal együtt példányosíthatók.
 const FAVAL_PELDANYOSITHATO = ['kaland', 'resz'];
 
@@ -290,7 +292,7 @@ export function UjElemParbeszed({ prep, cel, szulo, tipusok, onBezar, maradj, el
 // ================= Kapcsolatok =================
 
 // A kapcsolat másik végének neve: elem, NJK, karakter vagy szörny.
-function useNevFeloldo(prep) {
+export function useNevFeloldo(prep) {
   const { api, szabalyok } = useApp();
   const njkk = useLekeres(async () => (await api.hivas('npc.list', {})).njkk, [], 'njkk');
   const init = useLekeres(async () => api.hivas('init'), [], 'init');
@@ -603,17 +605,17 @@ export function VilagokOldal({ Oldalfej }) {
   </div>`;
 }
 
-export function VilagOldal({ id, ut, Oldalfej }) {
+export function VilagOldal({ id, ut, Oldalfej, dm }) {
   const cel = useMemo(() => ({ szint: 'vilag', vilag_id: id }), [id]);
   const prep = usePrep(cel);
   if (ut[0] === 'elem' && ut[1]) {
     return html`<${ElemSzerkeszto} key=${ut[1]} id=${ut[1]} prep=${prep} cel=${cel} Oldalfej=${Oldalfej}
       vissza=${['#/dm/vilag/' + id, (prep.adat && (prep.adat.vilagok || []).find((w) => w.id === id) || {}).nev || 'Világ']}/>`;
   }
-  return html`<${VilagAttekintes} id=${id} prep=${prep} cel=${cel} Oldalfej=${Oldalfej}/>`;
+  return html`<${VilagAttekintes} id=${id} prep=${prep} cel=${cel} Oldalfej=${Oldalfej} dm=${dm}/>`;
 }
 
-function VilagAttekintes({ id, prep, cel, Oldalfej }) {
+function VilagAttekintes({ id, prep, cel, Oldalfej, dm }) {
   const [uj, setUj] = useState(false);
   const [szoveg, setSzoveg] = useState('');
   const [archivalt, setArchivalt] = useState(false);
@@ -656,7 +658,7 @@ function VilagAttekintes({ id, prep, cel, Oldalfej }) {
         <//>
       </div>
       <div className="verem">
-        ${VILAG_PANELEK.map((P, i) => html`<${P} key=${i} prep=${prep} cel=${cel} vazlat=${vazlat} setVazlat=${setVazlat}/>`)}
+        ${VILAG_PANELEK.map((P, i) => html`<${P} key=${i} prep=${prep} cel=${cel} vazlat=${vazlat} setVazlat=${setVazlat} dm=${dm}/>`)}
         <${K.Panel} title="Világelemek">
           <div className="verem">
             <${K.TextField} label="Keresés" value=${szoveg} onChange=${(e) => setSzoveg(e.target.value)}/>
@@ -672,7 +674,7 @@ function VilagAttekintes({ id, prep, cel, Oldalfej }) {
 
 // ================= Sablontár =================
 
-export function SablonokOldal({ azon, Oldalfej }) {
+export function SablonokOldal({ azon, Oldalfej, dm }) {
   const cel = useMemo(() => ({ szint: 'sablon' }), []);
   const prep = usePrep(cel);
   const [uj, setUj] = useState(false);
@@ -703,6 +705,7 @@ export function SablonokOldal({ azon, Oldalfej }) {
           alapja minden mezőjét örökli, és csak az eltéréseit tárolja. Bármely elemből készíthető sablon, a kampánykeretből is (a keret oldalán).</p>
       <//>
     </div>
+    ${SABLON_PANELEK.map((P, i) => html`<${P} key=${i} dm=${dm}/>`)}
     ${uj ? html`<${UjElemParbeszed} prep=${prep} cel=${cel} tipusok=${Object.keys(E.ELEMTIPUSOK).filter((t) => t !== 'keret')} onBezar=${() => setUj(false)}/>` : null}
   </div>`;
 }

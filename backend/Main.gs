@@ -41,6 +41,7 @@ function muveletek_() {
     'npc.archive':             { fn: njkArchivalasa_, szerep: 'dm' },
     'npc.delete':              { fn: njkTorlese_, szerep: 'dm' },
     'npc.image.set':           { fn: njkKepBeallitasa_, szerep: 'dm' },
+    'npc.detach':              { fn: njkLevalasztasa_, szerep: 'dm' },
     'encounter.list':          { fn: osszecsapasLista_, szerep: 'dm' },
     'encounter.save':          { fn: osszecsapasMentese_, szerep: 'dm' },
     'encounter.archive':       { fn: osszecsapasArchivalasa_, szerep: 'dm' },

@@ -584,6 +584,54 @@ hivas('element.save', { id: 'el_kamp0002', verzio: 2, adat: {} }, dm2);
 v = hivas('element.image.trash', { kep: ekep }, dm2);
 ellenoriz(v.torolve.length === 2 && fajlok[ekep.kep].kuka && fajlok[ekep.belyeg].kuka, 'a már nem használt elemkép a kukába kerül');
 
+// ---------- 5.5: NJK szintek és öröklés ----------
+{
+  const OR = require('vm').runInContext('NJK_OROKOLHETO', kornyezet);
+  const vs = hivas('npc.save', { nev: 'Kalmár (sablon)', sablon: true, fajta: 'rovid', adat: { statblokk: { tulajdonsagok: { tul_communication: 2 } }, szerep: { koncepcio: 'Kalmár' }, szereplo: { szerepek: ['szemlelo'], cel: 'haszon' } } }, dm2);
+  ellenoriz(vs.ok && vs.njk.adat.sablon === true && hivas('npc.list', {}, dm2).njkk.some((n) => n.id === vs.njk.id && n.sablon && n.szerepek[0] === 'szemlelo'), 'sablon NJK létrejön, a lista mutatja a szintet és a szerepet', vs);
+  const sablon = vs.njk;
+  ellenoriz(hivas('npc.save', { id: sablon.id, kampanyok: [kampany.id] }, dm2).hiba === 'hibas_adat', 'sablon nem rendelhető kampányhoz');
+  ellenoriz(hivas('npc.save', { id: sablon.id, vilag_id: 'w_alfold01' }, dm2).hiba === 'hibas_adat', 'sablon nem kerül világba');
+  const sablonMost = hivas('npc.get', { id: sablon.id }, dm2).njk;
+  // világ-NJK a sablonra építve, saját névvel
+  let w = hivas('npc.save', { nev: 'Bodor kalmár', fajta: 'rovid', vilag_id: 'w_alfold01', alap_id: sablon.id, adat: JSON.parse(JSON.stringify(sablonMost.adat)) }, dm2);
+  ellenoriz(w.ok && w.njk.adat.felulirt.length === 1 && w.njk.adat.felulirt[0] === 'nev' && !w.njk.adat.sablon, 'a világ-NJK csak a nevét írja felül', w.njk && w.njk.adat.felulirt);
+  const vilagNjk = w.njk;
+  ellenoriz(hivas('npc.save', { nev: 'Rossz', vilag_id: 'w_nincs' }, dm2).hiba === 'nem_talalhato', 'nem létező világ');
+  // szabad NJK a világ-NJK-ra, felülírt céllal
+  const ad = JSON.parse(JSON.stringify(vilagNjk.adat)); ad.szereplo.cel = 'bosszú'; delete ad.felulirt;
+  w = hivas('npc.save', { nev: 'Bodor kalmár', fajta: 'rovid', alap_id: vilagNjk.id, kampanyok: [kampany.id], adat: ad }, dm2);
+  ellenoriz(w.ok && JSON.stringify(w.njk.adat.felulirt) === JSON.stringify(['adat.szereplo.cel']), 'a kampány-NJK a célt írja felül', w.njk && w.njk.adat.felulirt);
+  const kampNjk = w.njk;
+  // a sablon módosítása végiggyűrűzik a láncon, a felülírt mező marad
+  const sa = JSON.parse(JSON.stringify(sablonMost.adat)); sa.szerep.koncepcio = 'Utazó kalmár'; sa.szereplo.cel = 'gazdagság';
+  w = hivas('npc.save', { id: sablon.id, verzio: sablonMost.verzio, adat: sa }, dm2);
+  const v1 = hivas('npc.get', { id: vilagNjk.id }, dm2).njk;
+  const k1 = hivas('npc.get', { id: kampNjk.id }, dm2).njk;
+  ellenoriz(w.ok && v1.adat.szerep.koncepcio === 'Utazó kalmár' && v1.adat.szereplo.cel === 'gazdagság' && v1.nev === 'Bodor kalmár' && v1.verzio === vilagNjk.verzio + 1,
+    'a sablon változása a világ-NJK-ba is beíródik (a saját neve marad)', v1);
+  ellenoriz(k1.adat.szerep.koncepcio === 'Utazó kalmár' && k1.adat.szereplo.cel === 'bosszú', 'a lánc végén is: az örökölt mező frissül, a felülírt marad', k1.adat);
+  ellenoriz(w.kampany_verziok && Object.keys(w.kampany_verziok).includes(kampany.id), 'az érintett kampány verziója nő');
+  // szintszabályok és kör
+  ellenoriz(hivas('npc.save', { id: vilagNjk.id, alap_id: kampNjk.id }, dm2).hiba === 'hibas_adat', 'világ-NJK nem épülhet kampány-NJK-ra (és kör sem lehet)');
+  ellenoriz(hivas('npc.save', { id: sablon.id, alap_id: vilagNjk.id }, dm2).hiba === 'hibas_adat', 'sablon csak sablonra épülhet');
+  ellenoriz(hivas('npc.save', { id: kampNjk.id, vilag_id: 'w_alfold01' }, dm2).ok, 'kampány-NJK világ-NJK-vá emelhető, ha az alapja azonos világé');
+  // játékos nézet: a tervezés nem látszik
+  hivas('npc.save', { id: kampNjk.id, vilag_id: '' }, dm2);
+  const kov = hivas('npc.save', { nev: 'Apród', fajta: 'koveto', kotodes: 'csapat', kampanyok: [kampany.id], adat: { szereplo: { cel: 'lovag lenni' }, szerep: {} } }, dm2).njk;
+  const allas = hivas('state.get', { kampany_id: kampany.id }, annaT);
+  const kovNezet = allas.ok && (allas.njkk || []).find((n) => n.id === kov.id);
+  ellenoriz(!!kovNezet && !kovNezet.adat.szereplo && kovNezet.alap_id === undefined, 'a követő nézetében nincs szereplőterv és öröklési adat', kovNezet);
+  // törlés és leválasztás
+  hivas('npc.archive', { id: vilagNjk.id, aktiv: false }, dm2);
+  ellenoriz(hivas('npc.delete', { id: vilagNjk.id }, dm2).hiba === 'hibas_adat', 'akire más épül, nem törölhető');
+  const kmost = hivas('npc.get', { id: kampNjk.id }, dm2).njk;
+  w = hivas('npc.detach', { id: kampNjk.id, verzio: kmost.verzio }, dm2);
+  ellenoriz(w.ok && !w.njk.alap_id && !w.njk.adat.felulirt.length && w.njk.adat.szerep.koncepcio === 'Utazó kalmár', 'leválasztás: az adat megmarad, az alap megszűnik');
+  ellenoriz(hivas('npc.delete', { id: vilagNjk.id }, dm2).ok, 'leválasztás után törölhető');
+  ellenoriz(Array.isArray(OR) && OR.length > 30, 'a háttér örökölhető mezőlistája megvan');
+}
+
 ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).hiba === 'hibas_adat', 'nem archivált kampány nem törölhető');
 hivas('campaign.update', { id: kampany.id, allapot: 'archivált' }, dm2);
 ellenoriz(hivas('campaigns.list', {}, annaT).kampanyok.length === 0, 'archivált kampányt a mesterjátékos nem látja');

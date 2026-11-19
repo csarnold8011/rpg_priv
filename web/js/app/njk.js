@@ -11,6 +11,12 @@ import { KarakterKep, KepFeltolto } from './kepek.js';
 import { ProbaLap } from './proba.js';
 import * as LN from '../jatek/leny.js';
 import * as N from '../jatek/njk.js';
+import * as SZ from '../kampany/szereplo.js';
+import { usePrep } from './epito.js';
+import {
+  NjkMezo, OroklesJel, SzerepLepes, EpitesiModPanel, SzemelyisegLepes, HatterLepes, KapcsolatokLepes, RejtettLepes, ParbeszedLepes,
+  FejlodesLepes, OroklesPanel, HolSzerepel
+} from './njk_lepesek.js';
 import { TUL_NEV } from '../jatek/proba.js';
 import { megjelenitettNev } from '../szabalyok.js';
 import { karakterSzamol } from '../karakter/szamol.js';
@@ -62,30 +68,49 @@ export function NjkTarOldal({ azon, Oldalfej, dm }) {
   const [szoveg, setSzoveg] = useState('');
   const [fajta, setFajta] = useState('');
   const [kampany, setKampany] = useState('');
+  const [szint, setSzint] = useState('');
+  const [szerep, setSzerep] = useState('');
   const [archivalt, setArchivalt] = useState(false);
   const [uj, setUj] = useState(false);
   const osszes = lista.adat || [];
-  const szurt = useMemo(() => N.njkSzures(osszes, { szoveg, fajta, kampany, archivalt }), [osszes, szoveg, fajta, kampany, archivalt]);
+  const szurt = useMemo(() => N.njkSzures(osszes, { szoveg, fajta, kampany, archivalt, szint, szerep }), [osszes, szoveg, fajta, kampany, archivalt, szint, szerep]);
   const karakterNev = (id) => { const c = dm.karakterek.find((x) => x.id === id); return c ? c.nev : ''; };
   const kampanyCim = (id) => { const k = dm.kampanyok.find((x) => x.id === id); return k ? k.cim : ''; };
+  const nevSzerint = (id) => { const x = osszes.find((y) => y.id === id); return x ? x.nev : ''; };
   const frissit = (n) => lista.beallit((l) => {
     const regi = l || [];
     const o = { ...n }; delete o.adat;
+    if (n.adat) { o.szerepek = SZ.szereploNorm(n.adat.szereplo).szerepek; o.sablon = !!n.adat.sablon; }
     return regi.some((x) => x.id === n.id) ? regi.map((x) => (x.id === n.id ? { ...x, ...o } : x)) : regi.concat([o]);
   });
   const torol = (id) => lista.beallit((l) => (l || []).filter((x) => x.id !== id));
   const archivDb = osszes.filter((n) => n.aktiv === false).length;
 
-  const fej = html`<${Oldalfej} cim="NJK-tár" vissza=${azon ? ['#/dm/njk', 'NJK-tár'] : undefined}>
-    <${K.Button} variant="primary" onClick=${() => setUj(true)} icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Új NJK<//>
+  const fej = html`<${Oldalfej} cim=${azon ? 'NJK' : 'NJK-tár'} vissza=${azon ? ['#/dm/njk', 'NJK-tár'] : undefined}>
+    <${K.Button} variant=${azon ? 'secondary' : 'primary'} onClick=${() => setUj(true)} icon=${html`<${Ikon} nev="plusz" meret=${20}/>`}>Új NJK<//>
   <//>`;
+  if (azon) {
+    return html`<div>
+      ${fej}
+      <${NjkSzerkeszto} key=${azon} id=${azon} dm=${dm} lapok=${lapokBol(szabalyok)}
+        onValtozott=${frissit} onTorolve=${(id) => { torol(id); navigal('/dm/njk'); }}/>
+      ${uj ? html`<${UjNjkParbeszed} dm=${dm} onBezar=${() => setUj(false)}
+        onLetrejott=${(n) => { setUj(false); frissit(n); navigal('/dm/njk/' + n.id); }}/>` : null}
+    </div>`;
+  }
   return html`<div>
     ${fej}
     <div className="ket-hasab njktar">
-      <div className=${'verem' + (azon ? ' bestiarium__lista--rejtheto' : '')}>
+      <div className="verem">
         <${K.Panel} title="Keresés">
           <div className="verem">
             <${K.TextField} label="Név vagy koncepció" value=${szoveg} onChange=${(e) => setSzoveg(e.target.value)}/>
+            <div className="sorban">
+              <${Valaszto} label="Szint" value=${szint} onChange=${setSzint} ures="mind"
+                opciok=${Object.entries(SZ.SZINTEK).map(([k, x]) => ({ value: k, label: k === 'szabad' ? 'kampány (szabad)' : x.toLowerCase() }))}/>
+              <${Valaszto} label="Szerep" value=${szerep} onChange=${setSzerep} ures="mind"
+                opciok=${[{ value: '_nincs', label: 'szerep nélkül' }].concat(Object.entries(SZ.SZEREPEK).map(([k, x]) => ({ value: k, label: x.nev })))}/>
+            </div>
             <div className="sorban">
               <${Valaszto} label="Fajta" value=${fajta} onChange=${setFajta} ures="mind"
                 opciok=${Object.entries(N.NJK_FAJTAK).map(([k, f]) => ({ value: k, label: f.nev }))}/>
@@ -96,23 +121,21 @@ export function NjkTarOldal({ azon, Oldalfej, dm }) {
             <p className="halvany kicsi">${szurt.length} / ${osszes.filter((n) => archivalt || n.aktiv !== false).length} NJK</p>
           </div>
         <//>
+      </div>
+      <div>
         ${lista.hiba && !lista.adat ? html`<${Uzenet}>${lista.hiba.message}<//>` : !lista.adat ? html`<${Betoltes}/>` : html`
         <ul className="sorlista bestiarium__talalatok" aria-label="NJK-k">
-          ${szurt.map((n) => html`<li key=${n.id} className=${'sorlista__sor' + (n.id === azon ? ' bestiarium__sor--aktiv' : '') + (n.aktiv === false ? ' tablazat__sor--halvany' : '')}>
-            <a className="sorgomb-teljes" href=${'#/dm/njk/' + n.id} aria-current=${n.id === azon ? 'true' : undefined}>
+          ${szurt.map((n) => html`<li key=${n.id} className=${'sorlista__sor' + (n.aktiv === false ? ' tablazat__sor--halvany' : '')}>
+            <a className="sorgomb-teljes" href=${'#/dm/njk/' + n.id}>
               <span className="nevsor"><${KarakterKep} kep=${n.kep} nev=${n.nev}/>
-                <span><strong>${n.nev}</strong>${n.aktiv === false ? html` <${K.Badge}>Archivált<//>` : null}<br/>
-                <span className="halvany kicsi">${[fajtaNev(n.fajta), n.fenyegetes, N.kotodesSzoveg(n, karakterNev), (n.kampanyok || []).map(kampanyCim).filter(Boolean).join(', ')].filter(Boolean).join(' · ')}</span></span></span>
+                <span><strong>${n.nev}</strong> ${N.njkSzintje(n) !== 'szabad' ? html`<${K.Badge} tone=${N.njkSzintje(n) === 'vilag' ? 'accent' : 'neutral'}>${SZ.SZINTEK[N.njkSzintje(n)]}<//>` : null}
+                  ${n.aktiv === false ? html` <${K.Badge}>Archivált<//>` : null}<br/>
+                <span className="halvany kicsi">${[(n.szerepek || []).map((r) => (SZ.SZEREPEK[r] || {}).nev).filter(Boolean).join(', '), fajtaNev(n.fajta), n.fenyegetes, N.kotodesSzoveg(n, karakterNev),
+                  (n.kampanyok || []).map(kampanyCim).filter(Boolean).join(', '), n.alap_id ? '↳ ' + (nevSzerint(n.alap_id) || 'alap') : ''].filter(Boolean).join(' · ')}</span></span></span>
             </a>
           </li>`)}
           ${!szurt.length ? html`<li className="sorlista__sor halvany">${osszes.length ? 'Nincs találat.' : 'Még nincs NJK. Hozz létre egyet, vagy másold a Bestiáriumból.'}</li>` : null}
         </ul>`}
-      </div>
-      <div>
-        ${azon ? html`<${NjkSzerkeszto} key=${azon} id=${azon} dm=${dm} lapok=${lapokBol(szabalyok)}
-            onValtozott=${frissit} onTorolve=${(id) => { torol(id); navigal('/dm/njk'); }}/>`
-          : html`<${K.Panel} title="NJK"><p className="szoveg halvany">Válassz egy NJK-t a listából, vagy hozz létre újat. Az NJK önálló elem:
-            bármennyi kampányhoz rendelhető, bármikor szerkeszthető, és minden mentés új verzió.</p><//>`}
       </div>
     </div>
     ${uj ? html`<${UjNjkParbeszed} dm=${dm} onBezar=${() => setUj(false)}
@@ -128,7 +151,8 @@ const MODOK = [
   { value: 'szorny', label: 'A Bestiáriumból' },
   { value: 'sablon', label: 'Fenyegetési sablonból' },
   { value: 'koveto', label: 'Követő, társ' },
-  { value: 'karakter', label: 'Karakterkészítővel' }
+  { value: 'karakter', label: 'Karakterkészítővel' },
+  { value: 'alap', label: 'Változat egy meglévő NJK-ra építve' }
 ];
 
 // A követő ajánlott Egészsége: a gazda karakter felének, csapatnál a második legkisebb Egészségű karakter fele.
@@ -147,10 +171,22 @@ async function kovetoEgeszsegSzamol(api, lapok, kotodes, kampanyId) {
 }
 
 // kampanyId: előre kiválasztott kampány; szorny: a Bestiárium „Másolat az NJK-tárba” gombjából érkező szörny sora.
-export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorny = null }) {
+// szint: 'szabad' | 'vilag' | 'sablon' (5.5), vilagId: a világ-NJK világa, szerep: előre kijelölt szerep (a Szereplők nézetből).
+export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorny = null, szint: kezdoSzint = 'szabad', vilagId = '', szerep = '' }) {
   const { api, szabalyok, uzen } = useApp();
   const lapok = lapokBol(szabalyok);
   const [mod, setMod] = useState(szorny ? 'szorny' : 'ures');
+  const [szint, setSzint] = useState(kezdoSzint);
+  const [vilag, setVilag] = useState(vilagId);
+  const [alapId, setAlapId] = useState('');
+  const [minta, setMinta] = useState('');
+  const njkk = useLekeres(async () => (await api.hivas('npc.list', { archivaltak: true })).njkk, [], 'njkk');
+  const prepS = useLekeres(() => api.hivas('prep.get', {}), [], 'prep.sablon');
+  const vilagok = ((prepS.adat && prepS.adat.vilagok) || []).filter((w) => w.aktiv !== false);
+  const mintaTabla = ((lapok && lapok['Dobótáblák']) || []).find((t) => t.id === 'dt_koveto_minta');
+  const mintak = mintaTabla && mintaTabla.reszletek && mintaTabla.reszletek.sorok ? mintaTabla.reszletek.sorok : [];
+  const celNjk = { id: '', vilag_id: szint === 'vilag' ? vilag : '', adat: szint === 'sablon' ? { sablon: true } : {} };
+  const alapJeloltek = SZ.alapJeloltek(celNjk, njkk.adat || [], new Map((njkk.adat || []).map((x) => [x.id, x])));
   const [nev, setNev] = useState(szorny ? szorny.nev_hu : '');
   const [kampany, setKampany] = useState(kampanyId);
   const [szornyId, setSzornyId] = useState(szorny ? szorny.id : '');
@@ -177,15 +213,24 @@ export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorn
       return;
     }
     let n;
-    if (mod === 'rovid') n = N.uresNjk({ nev: neve, fajta: 'rovid' });
+    if (mod === 'alap') {
+      if (!alapId) throw new Error('Válaszd ki, melyik NJK-ra épüljön.');
+      const a = (await api.hivas('npc.get', { id: alapId })).njk;
+      n = SZ.peldany(a, { nev: neve });
+    } else if (mod === 'rovid') n = N.uresNjk({ nev: neve, fajta: 'rovid' });
     else if (mod === 'szorny') {
       if (!valasztottSzorny) throw new Error('Válassz lényt a Bestiáriumból.');
       n = N.njkSzornybol(valasztottSzorny, { nev: neve, fajta: tarsallat ? 'koveto' : 'statblokk' });
       if (tarsallat) n.kotodes = kotodes;
     } else if (mod === 'sablon') n = N.njkSablonbol(fenyegetes, neve);
-    else if (mod === 'koveto') { n = N.njkKovetoSablon(neve, { egeszseg }); n.kotodes = kotodes; }
-    else n = N.uresNjk({ nev: neve, fajta: 'statblokk' });
-    n.kampanyok = kampany ? [kampany] : [];
+    else if (mod === 'koveto') {
+      n = N.njkKovetoSablon(neve, { egeszseg }); n.kotodes = kotodes;
+      if (minta !== '' && mintak[Number(minta)]) n = SZ.kovetoMintabol(n, mintak[Number(minta)].ertek);
+    } else n = N.uresNjk({ nev: neve, fajta: 'statblokk' });
+    n.kampanyok = kampany && szint !== 'sablon' ? [kampany] : [];
+    if (szint === 'sablon') { n.sablon = true; n.kotodes = ''; n.vilag_id = ''; }
+    else if (szint === 'vilag') { if (!vilag) throw new Error('Válassz világot.'); n.vilag_id = vilag; }
+    if (szerep && SZ.SZEREPEK[szerep]) n.adat = { ...n.adat, szereplo: { ...((n.adat || {}).szereplo || {}), szerepek: [szerep] } };
     const v = await api.hivas('npc.save', n);
     onLetrejott(v.njk);
   }, mod === 'karakter' ? 'Létrejött a karakter-szintű NJK, jöhet a karakterkészítés.' : 'Létrejött az NJK.');
@@ -200,18 +245,26 @@ export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorn
     <${K.Button} variant="quiet" onClick=${onBezar}>Mégse<//>
     <${K.Button} variant="primary" disabled=${fut} onClick=${letrehoz}>${mod === 'karakter' ? 'Tovább a karakterkészítőre' : 'Létrehozás'}<//>`}>
     <div className="verem">
-      <${Valaszto} label="Hogyan készüljön" value=${mod} onChange=${setMod} opciok=${MODOK}/>
+      <div className="sorban">
+        <${Valaszto} label="Szint" value=${szint} onChange=${(x) => { setSzint(x); setAlapId(''); if (mod === 'karakter' && x !== 'szabad') setMod('ures'); }}
+          opciok=${[{ value: 'szabad', label: 'Kampány-NJK' }, { value: 'vilag', label: 'Világ-NJK (több kampányban visszatér)' }, { value: 'sablon', label: 'Sablon (világtól független minta)' }]}/>
+        ${szint === 'vilag' ? html`<${Valaszto} label="Világ" value=${vilag} onChange=${setVilag} ures="válassz…" opciok=${vilagok.map((w) => ({ value: w.id, label: w.nev }))}/>` : null}
+      </div>
+      <${Valaszto} label="Hogyan készüljön" value=${mod} onChange=${setMod} opciok=${MODOK.filter((m) => m.value !== 'karakter' || szint === 'szabad')}/>
       <p className="sugo">${{
         ures: 'Teljes statblokk üresen: a tulajdonságokat, támadásokat és képességeket te adod meg.',
         rovid: 'Nem harcoló szereplő: csak tulajdonságok és fókuszok (Alapkönyv 105.).',
         szorny: 'A bestiáriumi lény másolata; utána szabadon módosítható és erősíthető (elit, hősi, epikus).',
         sablon: 'A Companion 104. táblázata: a felület kiírja a pontkeretet, az ajánlott Egészséget és Mágiapontot; eltérésnél csak figyelmeztet.',
         koveto: 'Két-három tulajdonság 2-es, néhány 1-es, 2–3 fókusz és feladatok; Egészség a gazda felének (Companion 98–99., Kampányépítő 75–76.).',
-        karakter: 'Kiemelt NJK a karakterkészítővel, játékos nélkül; a csapattal együtt léphet szintet (Companion 103.).'
+        karakter: 'Kiemelt NJK a karakterkészítővel, játékos nélkül; a csapattal együtt léphet szintet (Companion 103.). A könyv így javasolja a csapattagot építeni.',
+        alap: 'Az új NJK az alapjára épül: csak az eltéréseit írod át, a többit örökli, és követi az alapja változásait (például a világ öreg kalmárjának kampánybeli, sebesült változata).'
       }[mod]}</p>
+      ${mod === 'alap' ? html`<${Valaszto} label="Erre épül" value=${alapId} onChange=${(id) => { setAlapId(id); const a = (njkk.adat || []).find((x) => x.id === id); if (a && !nev.trim()) setNev(a.nev); }} ures="Válassz…"
+        opciok=${alapJeloltek.map((x) => ({ value: x.id, label: x.nev + ' (' + SZ.SZINTEK[SZ.njkSzint(x)].toLowerCase() + ')' }))}/>` : null}
       <${K.TextField} label="Név" value=${nev} onChange=${(e) => setNev(e.target.value)} placeholder=${mod === 'szorny' && valasztottSzorny ? valasztottSzorny.nev_hu : ''}/>
-      <${Valaszto} label="Kampány" value=${kampany} onChange=${setKampany} ures="egyelőre egyik sem"
-        hint="Az NJK később bármennyi kampányhoz rendelhető." opciok=${dm.kampanyok.map((k) => ({ value: k.id, label: k.cim }))}/>
+      ${szint !== 'sablon' ? html`<${Valaszto} label="Kampány" value=${kampany} onChange=${setKampany} ures="egyelőre egyik sem"
+        hint="Az NJK később bármennyi kampányhoz rendelhető." opciok=${dm.kampanyok.map((k) => ({ value: k.id, label: k.cim }))}/>` : null}
       ${mod === 'szorny' ? html`<div className="verem">
         <${K.TextField} label="Keresés a Bestiáriumban" value=${szornyKeres} onChange=${(e) => setSzornyKeres(e.target.value)} placeholder="például farkas, Wolf"/>
         <${Valaszto} label="Lény" value=${szornyId} onChange=${(id) => { setSzornyId(id); const s = szornyek.find((x) => x.id === id); if (s && !nev.trim()) setNev(s.nev_hu); }} ures="Válassz…"
@@ -220,8 +273,10 @@ export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorn
       </div>` : null}
       ${mod === 'sablon' ? html`<${Valaszto} label="Fenyegetés" value=${fenyegetes} onChange=${setFenyegetes}
         opciok=${N.FENYEGETESI_SABLONOK.map((s) => ({ value: s.nev, label: `${s.nev}: ${s.pont} pont (legfeljebb ${s.max}), ${s.fokusz} fókusz, ${s.talentum} talentumfok` }))}/>` : null}
-      ${mod === 'koveto' || (mod === 'szorny' && tarsallat) ? html`<${Valaszto} label="Kötődés" value=${kotodes} onChange=${setKotodes}
+      ${(mod === 'koveto' || (mod === 'szorny' && tarsallat)) && szint !== 'sablon' ? html`<${Valaszto} label="Kötődés" value=${kotodes} onChange=${setKotodes}
         opciok=${[{ value: 'csapat', label: 'a csapat' }].concat(karakterek.map((c) => ({ value: c.id, label: c.nev + ' (karakter)' })))}/>` : null}
+      ${mod === 'koveto' && mintak.length ? html`<${Valaszto} label="Minta (Companion 99.)" value=${minta} onChange=${(x) => { setMinta(x); const m = mintak[Number(x)]; if (m && !nev.trim()) setNev(m.e); }} ures="üres követő"
+        opciok=${mintak.map((m, i) => ({ value: String(i), label: m.e + (m.ertek && m.ertek.feladatok ? ': ' + m.ertek.feladatok.slice(0, 2).join(', ') : '') }))}/>` : null}
       ${mod === 'koveto' ? html`<div className="sorban">
         <${SzamMezo} label="Egészség" value=${egeszseg} onChange=${setEgeszseg}/>
         <${K.Button} variant="secondary" disabled=${fut} onClick=${ajanlott}>Ajánlott érték<//>
@@ -237,12 +292,15 @@ export function UjNjkParbeszed({ dm, onBezar, onLetrejott, kampanyId = '', szorn
 export function NjkSzerkeszto({ id, dm, lapok, onValtozott, onTorolve }) {
   const { api, sync, uzen } = useApp();
   const lekeres = useLekeres(async () => (await api.hivas('npc.get', { id })).njk, [id], 'njk.' + id);
+  const lista = useLekeres(async () => (await api.hivas('npc.list', { archivaltak: true })).njkk, [], 'njkk');
   const [vazlat, setVazlat] = useState(null);
   const [alap, setAlap] = useState(null);
   const [kerdes, setKerdes] = useState(null);
   const [fut, indit] = useMuvelet();
   const [naploKampany, setNaploKampany] = useState('');
   const [osszecsapasba, setOsszecsapasba] = useState(false);
+  const [lepes, setLepes] = useState('alap');
+  const [nezetKampany, setNezetKampany] = useState('');
   const n = lekeres.adat;
   // a betöltött (vagy máshol mentett) változat; a még nem szerkesztett vázlat követi
   useEffect(() => {
@@ -252,6 +310,17 @@ export function NjkSzerkeszto({ id, dm, lapok, onValtozott, onTorolve }) {
     setAlap(friss);
     setNaploKampany((k) => k || (friss.kampanyok || [])[0] || '');
   }, [n && n.id, n && n.verzio]);
+  // az öröklés alapja (teljes adattal)
+  const alapId = vazlat && vazlat.alap_id;
+  const alapLek = useLekeres(async () => (alapId ? (await api.hivas('npc.get', { id: alapId })).njk : null), [alapId], alapId ? 'njk.' + alapId : null);
+  const alapNjk = alapId ? alapLek.adat : null;
+  // a nézet (kapcsolatok, hivatkozások): világ-NJK-nál a világ, különben a választott kampány, sablonnál a sablonok
+  const szint = vazlat ? SZ.njkSzint(vazlat) : 'szabad';
+  const kampanyai = vazlat ? (vazlat.kampanyok || []) : [];
+  const nezetK = kampanyai.includes(nezetKampany) ? nezetKampany : kampanyai[0] || '';
+  const cel = useMemo(() => (szint === 'vilag' ? { szint: 'vilag', vilag_id: vazlat.vilag_id }
+    : nezetK ? { szint: 'kampany', kampany_id: nezetK } : { szint: 'sablon' }), [szint, vazlat && vazlat.vilag_id, nezetK]);
+  const prep = usePrep(cel);
   if (lekeres.hiba && !n) return html`<${Uzenet}>${lekeres.hiba.message}<//>`;
   if (!vazlat || !lapok) return html`<${Betoltes}/>`;
   const valtozott = JSON.stringify(vazlat) !== JSON.stringify(alap);
@@ -260,18 +329,23 @@ export function NjkSzerkeszto({ id, dm, lapok, onValtozott, onTorolve }) {
   const set = (valt) => setVazlat((v) => ({ ...v, ...valt }));
   const setAdat = (fn) => setVazlat((v) => ({ ...v, adat: fn(masol(v.adat || {})) }));
   const setSb = (fn) => setAdat((a) => { a.statblokk = fn(a.statblokk || N.uresStatblokk()); return a; });
+  const p = { v: vazlat, alap: alapNjk, setUt: (ut, x) => setVazlat((v) => SZ.utBeallit(v, ut, x)), visszaallit: (ut) => setVazlat((v) => SZ.visszaallit(v, ut, alapNjk)) };
   const nezet = nezetBol(vazlat, lapok);
   const karakterNev = (kid) => { const c = dm.karakterek.find((x) => x.id === kid); return c ? c.nev : ''; };
+  const osszes = lista.adat || [];
+  const vilagok = (prep.adat && prep.adat.vilagok) || [];
 
   const ment = () => indit(async () => {
     try {
       const v = await api.hivas('npc.save', {
         id: vazlat.id, verzio: alap.verzio, nev: vazlat.nev, fajta: vazlat.fajta, alap_szorny: vazlat.alap_szorny || '',
-        fenyegetes: vazlat.fenyegetes || '', kampanyok: vazlat.kampanyok || [], kotodes: vazlat.kotodes || '', iranyito: vazlat.iranyito || '', adat: vazlat.adat
+        fenyegetes: vazlat.fenyegetes || '', kampanyok: vazlat.kampanyok || [], kotodes: vazlat.kotodes || '', iranyito: vazlat.iranyito || '',
+        vilag_id: vazlat.vilag_id || '', alap_id: vazlat.alap_id || '', adat: vazlat.adat
       });
       setAlap(masol(v.njk)); setVazlat(masol(v.njk));
       lekeres.beallit(v.njk);
       onValtozott(v.njk);
+      if (SZ.peldanyai(v.njk.id, osszes).length) lista.ujra();
     } catch (e) {
       if (e.kod === 'utkozes') { await lekeres.ujra(); throw new Error('Közben máshol is módosították ezt az NJK-t. Betöltöttem a frisset; a módosításaidat írd át újra.'); }
       throw e;
@@ -288,79 +362,139 @@ export function NjkSzerkeszto({ id, dm, lapok, onValtozott, onTorolve }) {
     await api.hivas('npc.delete', { id: vazlat.id });
     onTorolve(vazlat.id);
   }, vazlat.nev + ' véglegesen törölve.');
-  const masolat = () => indit(async () => {
-    const v = await api.hivas('npc.save', N.njkMasolat(vazlat, `${vazlat.nev} (másolat)`));
+  const ujNjk = async (uj, uzenet) => {
+    const v = await api.hivas('npc.save', uj);
     onValtozott(v.njk);
+    lista.ujra();
     navigal('/dm/njk/' + v.njk.id);
-  }, 'Elkészült a másolat.');
+    uzen(uzenet);
+  };
+  const masolat = () => indit(() => ujNjk({ ...N.njkMasolat(vazlat, `${vazlat.nev} (másolat)`), vilag_id: vazlat.vilag_id || '' }, 'Elkészült a másolat.'));
+  const muveletek = {
+    alapValt: (aid) => setVazlat((v) => ({ ...v, alap_id: aid || '' })),
+    levalaszt: () => setKerdes('levalaszt'),
+    sablonKeszit: () => indit(() => ujNjk(SZ.sablonbol(vazlat), 'Sablon készült (Sablontár, NJK-sablonok).')),
+    valtozat: (c) => indit(() => {
+      const [t, x] = c.split(':');
+      return ujNjk(SZ.peldany(vazlat, t === 'w' ? { vilag_id: x } : { kampanyok: x ? [x] : [] }),
+        'Változat készült: csak az eltéréseket kell átírni, a többit az alapjától örökli.');
+    }),
+    emel: () => setKerdes('emel')
+  };
 
   const naploKampanyObj = dm.kampanyok.find((k) => k.id === naploKampany) || null;
   const naploz = (dobas) => sync.push({ action: 'roll.log', adat: dobas }).catch((e) => uzen('A dobás nem került a naplóba: ' + e.message, 'danger'));
   const harcolo = vazlat.fajta !== 'rovid';
+  const allapotok = SZ.lepesAllapot(vazlat);
+  if (vazlat.id && ((prep.adat && prep.adat.kapcsolatok) || []).some((k) => k.aktiv !== false && (k.honnan === vazlat.id || k.hova === vazlat.id))) allapotok.kapcsolatok = 'kesz';
+  const figy = SZ.figyelmeztetesek(vazlat);
+  const aktiv = SZ.LEPESEK.some((l) => l.kulcs === lepes) ? lepes : 'alap';
+  const ix = SZ.LEPESEK.findIndex((l) => l.kulcs === aktiv);
+  const lepj = (k) => { setLepes(k); window.scrollTo(0, 0); };
+  const statJel = (ut) => html`<${OroklesJel} v=${vazlat} alap=${alapNjk} ut=${ut} onVissza=${() => p.visszaallit(ut)}/>`;
+
+  const tartalom = {
+    alap: html`<div className="verem">
+      <${K.Panel} title="Alapadatok">
+        <div className="verem">
+          ${vazlat.aktiv === false ? html`<${Uzenet} tonus="warning">Archivált NJK: a kampányok és a játékosok nem látják.<//>` : null}
+          <${AlapadatSzerk} v=${vazlat} set=${set} dm=${dm} jel=${statJel} sablon=${szint === 'sablon'}/>
+          ${vazlat.id ? html`<${KepFeltolto} karakterId=${vazlat.id} kep=${(adat.szerep || {}).kep || null} nev=${vazlat.nev} muvelet="npc.image.set"
+            onKesz=${(v) => {
+              const kepes = (x) => ({ ...x, verzio: v.verzio, modositva: v.modositva, adat: { ...x.adat, szerep: { ...(x.adat.szerep || {}), kep: v.kep } } });
+              setVazlat(kepes); setAlap(kepes); lekeres.beallit(kepes);
+              onValtozott({ id: vazlat.id, verzio: v.verzio, kep: v.kep ? v.kep.belyeg : '' });
+            }}/>` : null}
+          <${NjkMezo} p=${p} ut="adat.szerep.dm_jegyzet" label="DM-jegyzet" multiline=${true} rows=${2} hint="Csak te látod."/>
+        </div>
+      <//>
+      <${OroklesPanel} v=${vazlat} alap=${alapNjk} osszes=${osszes} vilagok=${vilagok} kampanyok=${dm.kampanyok} muveletek=${muveletek}
+        valtozott=${valtozott} visszaallit=${p.visszaallit}/>
+      ${figy.length ? html`<${K.Panel} title="Figyelmeztetések">
+        <ul className="egyszeru-lista">${figy.map((f, i) => html`<li key=${i}><button type="button" className="szoveggomb" onClick=${() => lepj(f.lepes)}>${(SZ.LEPESEK.find((l) => l.kulcs === f.lepes) || {}).nev}</button>: ${f.szoveg}</li>`)}</ul>
+      <//>` : null}
+      <${HolSzerepel} v=${vazlat} prep=${prep} cel=${cel}/>
+    </div>`,
+    szerep: html`<${SzerepLepes} p=${p} dm=${dm}/>`,
+    kepessegek: html`<div className="verem">
+      <${EpitesiModPanel} p=${p} fenyegetesek=${LN.FENYEGETESEK}/>
+      <${K.Panel} title=${html`Statblokk ${statJel('adat.statblokk')}`}>
+        <${StatblokkSzerk} sb=${sb} setSb=${setSb} lapok=${lapok} rovid=${!harcolo}/>
+      <//>
+      ${harcolo ? html`<${K.Panel} title=${html`Erősítés és fejlesztés ${statJel('adat.erosites')}`}>
+        <${ErositesSzerk} adat=${adat} setAdat=${setAdat} lapok=${lapok} nezet=${nezet}/>
+      <//>` : null}
+      ${harcolo ? html`<${K.Panel} title="Különleges képességek">
+        <${KepessegSzerk} adat=${adat} setAdat=${setAdat} lapok=${lapok}/>
+      <//>` : null}
+      ${vazlat.fajta === 'statblokk' && vazlat.fenyegetes ? html`<${SablonPanel} sb=${sb} fenyegetes=${vazlat.fenyegetes} setSb=${setSb}/>` : null}
+      ${vazlat.fajta === 'koveto' ? html`<${KovetoPanel} v=${vazlat} setAdat=${setAdat} setSb=${setSb} lapok=${lapok} karakterNev=${karakterNev}/>` : null}
+    </div>`,
+    szemelyiseg: html`<${SzemelyisegLepes} p=${p}/>`,
+    hatter: html`<${HatterLepes} p=${p}/>`,
+    kapcsolatok: html`<${KapcsolatokLepes} p=${p} prep=${prep} cel=${cel}/>`,
+    rejtett: html`<${RejtettLepes} p=${p} lapok=${lapok} setSb=${setSb}/>`,
+    parbeszed: html`<${ParbeszedLepes} p=${p}/>`,
+    fejlodes: html`<${FejlodesLepes} p=${p}/>`,
+    allapot: html`<div className="verem">
+      ${harcolo ? html`<${K.Panel} title="Állapot (a csatán túl)">
+        <${AllapotSzerk} allapot=${adat.allapot || {}} nezet=${nezet} setAllapot=${(fn) => setAdat((a) => { a.allapot = fn(a.allapot || {}); return a; })}/>
+      <//>` : null}
+      ${(adat.szereplesek || []).length ? html`<${K.Panel} title="Szereplések">
+        <ul className="egyszeru-lista">${adat.szereplesek.slice().reverse().map((s, i) => html`<li key=${i}>${[s.cim || s.csata, dm.kampanyok.find((k) => k.id === s.kampany_id) ? dm.kampanyok.find((k) => k.id === s.kampany_id).cim : '', s.idopont ? idopont(s.idopont) : ''].filter(Boolean).join(' · ')}</li>`)}</ul>
+      <//>` : null}
+      <div>
+        <${Valaszto} label="A próba naplója" value=${naploKampany} onChange=${setNaploKampany} ures="kampány nélkül (az NJK dobásai)"
+          opciok=${dm.kampanyok.filter((k) => (vazlat.kampanyok || []).includes(k.id)).map((k) => ({ value: k.id, label: k.cim }))}/>
+      </div>
+      ${nezet ? html`<${Statblokk} nezet=${nezet} r=${sb} lapok=${lapok} leiras=${(adat.szerep || {}).nyilvanos}
+        naplo=${{ kampany: kampanyProbahoz(naploKampanyObj), njk: { id: vazlat.id, nev: vazlat.nev }, naploz, rejtettLehet: !!naploKampanyObj }}/>` : null}
+      <${K.Panel} title="Másolat, összecsapás, archiválás">
+        <div className="gombsor">
+          <${K.Button} disabled=${fut} onClick=${masolat}>Másolat készítése<//>
+          ${vazlat.aktiv !== false && szint !== 'sablon' ? html`<${K.Button} disabled=${fut} onClick=${() => setOsszecsapasba(true)}>Összecsapásba<//>` : null}
+          ${vazlat.aktiv === false
+            ? html`<${K.Button} disabled=${fut} onClick=${() => archival(true)}>Visszaállítás<//><${K.Button} variant="danger" disabled=${fut} onClick=${() => setKerdes('torol')}>Végleges törlés<//>`
+            : html`<${K.Button} disabled=${fut} onClick=${() => setKerdes('archival')}>Archiválás<//>`}
+        </div>
+        <p className="halvany kicsi">A másolat önálló, a jelenlegi mentett állapotból készül (például „a farkasfalka vezére” a farkasból), kép és szereplések nélkül. Ha az eredetit követnie kell, válassz inkább „Változat”-ot az Alapadatoknál.</p>
+      <//>
+    </div>`
+  };
 
   return html`<div className="verem njk-szerk">
-    <${K.Panel} title=${vazlat.nev || 'Névtelen NJK'} actions=${html`<div className="gombsor gombsor--szoros">
-      <${K.Button} size="sm" variant="primary" disabled=${fut || !valtozott} onClick=${ment}>Mentés<//>
+    <div className="njk-szerk__fej">
+      <${KarakterKep} kep=${(adat.szerep || {}).kep ? ((adat.szerep || {}).kep.belyeg || '') : ''} nev=${vazlat.nev}/>
+      <h2>${vazlat.nev || 'Névtelen NJK'}</h2>
+      <${K.Badge} tone=${szint === 'sablon' ? 'neutral' : szint === 'vilag' ? 'accent' : 'success'}>${SZ.SZINTEK[szint]}<//>
+      ${sz0(adat).szerepek.map((r) => html`<${K.Badge} key=${r}>${SZ.SZEREPEK[r].nev}<//>`)}
+      <span style=${{ flex: 1 }}></span>
+      ${valtozott ? html`<span className="halvany kicsi">Mentetlen módosítások (most ${alap.verzio}. verzió)</span>`
+        : html`<span className="halvany kicsi">${alap.verzio}. verzió · ${idopont(alap.modositva)}${vazlat.alap_szorny ? ' · lény: ' + (megjelenitettNev((lapok['Szörnyek'] || []).find((s) => s.id === vazlat.alap_szorny)) || vazlat.alap_szorny) : ''}</span>`}
       ${valtozott ? html`<${K.Button} size="sm" variant="quiet" onClick=${() => setVazlat(masol(alap))}>Elvetés<//>` : null}
-    </div>`}>
-      <div className="verem">
-        ${vazlat.aktiv === false ? html`<${Uzenet} tonus="warning">Archivált NJK: a kampányok és a játékosok nem látják.<//>` : null}
-        ${valtozott ? html`<p className="halvany kicsi">Mentetlen módosítások. A mentés új verziót hoz létre (most ${alap.verzio}. verzió).</p>`
-          : html`<p className="halvany kicsi">${alap.verzio}. verzió · ${idopont(alap.modositva)}${vazlat.alap_szorny ? ' · alapja: ' + (megjelenitettNev((lapok['Szörnyek'] || []).find((s) => s.id === vazlat.alap_szorny)) || vazlat.alap_szorny) : ''}</p>`}
-        <${AlapadatSzerk} v=${vazlat} set=${set} dm=${dm}/>
-        <${KepFeltolto} karakterId=${vazlat.id} kep=${(adat.szerep || {}).kep || null} nev=${vazlat.nev} muvelet="npc.image.set"
-          onKesz=${(v) => {
-            const kepes = (x) => ({ ...x, verzio: v.verzio, modositva: v.modositva, adat: { ...x.adat, szerep: { ...(x.adat.szerep || {}), kep: v.kep } } });
-            setVazlat(kepes); setAlap(kepes); lekeres.beallit(kepes);
-            onValtozott({ id: vazlat.id, verzio: v.verzio, kep: v.kep ? v.kep.belyeg : '' });
-          }}/>
-      </div>
-    <//>
-
-    <${K.Panel} title="Statblokk">
-      <${StatblokkSzerk} sb=${sb} setSb=${setSb} lapok=${lapok} rovid=${!harcolo}/>
-    <//>
-
-    ${harcolo ? html`<${K.Panel} title="Erősítés és fejlesztés">
-      <${ErositesSzerk} adat=${adat} setAdat=${setAdat} lapok=${lapok} nezet=${nezet}/>
-    <//>` : null}
-
-    ${harcolo ? html`<${K.Panel} title="Különleges képességek">
-      <${KepessegSzerk} adat=${adat} setAdat=${setAdat} lapok=${lapok}/>
-    <//>` : null}
-
-    ${vazlat.fajta === 'statblokk' && vazlat.fenyegetes ? html`<${SablonPanel} sb=${sb} fenyegetes=${vazlat.fenyegetes} setSb=${setSb}/>` : null}
-    ${vazlat.fajta === 'koveto' ? html`<${KovetoPanel} v=${vazlat} setAdat=${setAdat} setSb=${setSb} lapok=${lapok} karakterNev=${karakterNev}/>` : null}
-
-    <${K.Panel} title="Szerep">
-      <${SzerepSzerk} szerep=${adat.szerep || {}} setSzerep=${(fn) => setAdat((a) => { a.szerep = fn(a.szerep || {}); return a; })}/>
-    <//>
-
-    ${harcolo ? html`<${K.Panel} title="Állapot (a csatán túl)">
-      <${AllapotSzerk} allapot=${adat.allapot || {}} nezet=${nezet} setAllapot=${(fn) => setAdat((a) => { a.allapot = fn(a.allapot || {}); return a; })}/>
-    <//>` : null}
-
-    ${(adat.szereplesek || []).length ? html`<${K.Panel} title="Szereplések">
-      <ul className="egyszeru-lista">${adat.szereplesek.slice().reverse().map((s, i) => html`<li key=${i}>${[s.cim || s.csata, dm.kampanyok.find((k) => k.id === s.kampany_id) ? dm.kampanyok.find((k) => k.id === s.kampany_id).cim : '', s.idopont ? idopont(s.idopont) : ''].filter(Boolean).join(' · ')}</li>`)}</ul>
-    <//>` : null}
-
-    <div>
-      <${Valaszto} label="A próba naplója" value=${naploKampany} onChange=${setNaploKampany} ures="kampány nélkül (az NJK dobásai)"
-        opciok=${dm.kampanyok.filter((k) => (vazlat.kampanyok || []).includes(k.id)).map((k) => ({ value: k.id, label: k.cim }))}/>
+      <${K.Button} size="sm" variant="primary" disabled=${fut || !valtozott} onClick=${ment}>Mentés<//>
     </div>
-    ${nezet ? html`<${Statblokk} nezet=${nezet} r=${sb} lapok=${lapok} leiras=${(adat.szerep || {}).nyilvanos}
-      naplo=${{ kampany: kampanyProbahoz(naploKampanyObj), njk: { id: vazlat.id, nev: vazlat.nev }, naploz, rejtettLehet: !!naploKampanyObj }}/>` : null}
-
-    <${K.Panel} title="Másolat, összecsapás, archiválás">
-      <div className="gombsor">
-        <${K.Button} disabled=${fut} onClick=${masolat}>Másolat készítése<//>
-        ${vazlat.aktiv !== false ? html`<${K.Button} disabled=${fut} onClick=${() => setOsszecsapasba(true)}>Összecsapásba<//>` : null}
-        ${vazlat.aktiv === false
-          ? html`<${K.Button} disabled=${fut} onClick=${() => archival(true)}>Visszaállítás<//><${K.Button} variant="danger" disabled=${fut} onClick=${() => setKerdes('torol')}>Végleges törlés<//>`
-          : html`<${K.Button} disabled=${fut} onClick=${() => setKerdes('archival')}>Archiválás<//>`}
+    <div className="keret">
+      <nav className="keret__lepesek" aria-label="Az NJK lépései">
+        <p className="cimke">A könyv lépései</p>
+        <ul className="lepeslista">${SZ.LEPESEK.map((l, i) => {
+          const f = figy.filter((x) => x.lepes === l.kulcs).length;
+          return html`<li key=${l.kulcs}><button type="button" aria-current=${l.kulcs === aktiv ? 'step' : undefined} onClick=${() => lepj(l.kulcs)}>
+            <span className=${'lepeslista__pont' + (allapotok[l.kulcs] === 'kesz' ? ' lepeslista__pont--kesz' : allapotok[l.kulcs] === 'resz' ? ' lepeslista__pont--resz' : '')}>${allapotok[l.kulcs] === 'kesz' ? '✓' : i === 0 ? '•' : i}</span>${l.nev}
+            ${f ? html`<span className="lepeslista__figy" title="figyelmeztetés">⚠</span>` : null}</button></li>`;
+        })}</ul>
+        ${szint !== 'vilag' && kampanyai.length > 1 ? html`<${Valaszto} label="Kapcsolatok és hivatkozások nézete" value=${nezetK} onChange=${setNezetKampany}
+          opciok=${dm.kampanyok.filter((k) => kampanyai.includes(k.id)).map((k) => ({ value: k.id, label: k.cim }))}/>` : null}
+        <p className="halvany kicsi">Minden lépés kihagyható. A szerepjátékos tervezést (szerep, személyiség, háttér, rejtett vonások) a játékosok nem látják.</p>
+      </nav>
+      <div className="verem keret__tartalom">
+        ${tartalom[aktiv]}
+        <div className="gombsor elem__lepesgombok">
+          ${ix > 0 ? html`<${K.Button} variant="secondary" onClick=${() => lepj(SZ.LEPESEK[ix - 1].kulcs)}>← ${SZ.LEPESEK[ix - 1].nev}<//>` : null}
+          ${ix < SZ.LEPESEK.length - 1 ? html`<${K.Button} variant="secondary" onClick=${() => lepj(SZ.LEPESEK[ix + 1].kulcs)}>${SZ.LEPESEK[ix + 1].nev} →<//>` : null}
+        </div>
       </div>
-      <p className="halvany kicsi">A másolat a jelenlegi mentett állapotból készül (például „a farkasfalka vezére” a farkasból), kép és szereplések nélkül.</p>
-    <//>
+    </div>
     ${osszecsapasba ? html`<${OsszecsapasbaParbeszed} elem=${{ tipus: 'njk', id: vazlat.id, nev: alap.nev }} kampanyok=${dm.kampanyok}
       kampanyId=${(alap.kampanyok || [])[0] || ''} onBezar=${() => setOsszecsapasba(false)}/>` : null}
     ${kerdes === 'archival' ? html`<${Megerosites} cim="Archiválás" gomb="Archiválás" szoveg=${vazlat.nev + ' eltűnik a kampányokból és a játékosok elől. Később visszaállíthatod.'}
@@ -368,29 +502,51 @@ export function NjkSzerkeszto({ id, dm, lapok, onValtozott, onTorolve }) {
     ${kerdes === 'torol' ? html`<${Megerosites} cim="Végleges törlés" gomb="Végleges törlés" veszelyes=${true}
       szoveg=${vazlat.nev + ' véglegesen törlődik, a képe a kukába kerül. A dobásnapló bejegyzései megmaradnak. Ezt nem lehet visszavonni (csak a napi mentésből).'}
       onMegse=${() => setKerdes(null)} onIgen=${() => { setKerdes(null); torol(); }}/>` : null}
+    ${kerdes === 'levalaszt' ? html`<${Megerosites} cim="Leválasztás" gomb="Leválasztás"
+      szoveg=${'Az NJK megtartja a mostani értékeit, de többé nem követi az alapját (' + (alapNjk ? alapNjk.nev : '') + ').'}
+      onMegse=${() => setKerdes(null)} onIgen=${() => { setKerdes(null); indit(async () => {
+        const v = await api.hivas('npc.detach', { id: vazlat.id, verzio: alap.verzio });
+        setAlap(masol(v.njk)); setVazlat(masol(v.njk)); lekeres.beallit(v.njk); onValtozott(v.njk); lista.ujra();
+      }, 'Leválasztva.'); }}/>` : null}
+    ${kerdes === 'emel' ? html`<${VilagbaParbeszed} vilagok=${vilagok} onMegse=${() => setKerdes(null)}
+      onIgen=${(w) => { setKerdes(null); set({ vilag_id: w }); uzen('A világ kiválasztva; a mentéssel lesz világ-NJK.'); }}/>` : null}
   </div>`;
 }
 
-function AlapadatSzerk({ v, set, dm }) {
+const sz0 = (adat) => SZ.szereploNorm((adat || {}).szereplo);
+
+function VilagbaParbeszed({ vilagok, onMegse, onIgen }) {
+  const [w, setW] = useState(vilagok[0] ? vilagok[0].id : '');
+  return html`<${Parbeszed} cim="Világ-NJK-vá emelés" onBezar=${onMegse} lab=${html`
+    <${K.Button} variant="quiet" onClick=${onMegse}>Mégse<//>
+    <${K.Button} variant="primary" disabled=${!w} onClick=${() => onIgen(w)}>Emelés<//>`}>
+    <div className="verem">
+      <p className="szoveg">A világ-NJK több kampányban is visszatérhet; a kampányokhoz rendelése megmarad. Csak sablonra vagy ugyanannak a világnak az NJK-jára épülhet.</p>
+      <${Valaszto} label="Világ" value=${w} onChange=${setW} opciok=${vilagok.filter((x) => x.aktiv !== false).map((x) => ({ value: x.id, label: x.nev }))}/>
+    </div>
+  <//>`;
+}
+
+function AlapadatSzerk({ v, set, dm, jel = () => null, sablon }) {
   const kampanyok = v.kampanyok || [];
   const kampanyValt = (id) => set({ kampanyok: kampanyok.includes(id) ? kampanyok.filter((x) => x !== id) : kampanyok.concat([id]) });
   const karakterek = dm.karakterek.filter((c) => c.aktiv);
   return html`<div className="verem">
     <div className="urlap-racs urlap-racs--ketto">
-      <${K.TextField} label="Név" value=${v.nev} onChange=${(e) => set({ nev: e.target.value })}/>
-      <${Valaszto} label="Fajta" value=${v.fajta} onChange=${(f) => set({ fajta: f })}
+      <${K.TextField} label=${html`Név ${jel('nev')}`} value=${v.nev} onChange=${(e) => set({ nev: e.target.value })}/>
+      <${Valaszto} label=${html`Fajta ${jel('fajta')}`} value=${v.fajta} onChange=${(f) => set({ fajta: f })}
         opciok=${Object.entries(N.NJK_FAJTAK).map(([k, f]) => ({ value: k, label: f.nev }))} hint=${(N.NJK_FAJTAK[v.fajta] || {}).leiras}/>
-      ${v.fajta !== 'koveto' ? html`<${Valaszto} label="Fenyegetés" value=${v.fenyegetes || ''} onChange=${(f) => set({ fenyegetes: f })} ures="nincs megadva"
+      ${v.fajta !== 'koveto' ? html`<${Valaszto} label=${html`Fenyegetés ${jel('fenyegetes')}`} value=${v.fenyegetes || ''} onChange=${(f) => set({ fenyegetes: f })} ures="nincs megadva"
         opciok=${LN.FENYEGETESEK.map((f) => ({ value: f.nev, label: `${f.nev} (${f.szint[0]}–${f.szint[1]}. szint)` }))}/>` : null}
     </div>
-    <div>
+    ${sablon ? html`<p className="halvany kicsi">A sablon nem rendelhető kampányhoz; készíts belőle változatot.</p>` : html`<div>
       <div className="cimke">Kampányok <${Sugo} cim="Kampányok">Az NJK bármennyi kampányhoz rendelhető; a kampány NJK paneljén jelenik meg. A követő a gazdájával megy.<//></div>
       ${dm.kampanyok.length ? html`<div className="csipek" role="group" aria-label="Kampányok">
         ${dm.kampanyok.filter((k) => k.allapot !== 'archivált' || kampanyok.includes(k.id)).map((k) => html`<button key=${k.id} type="button" className="csip csip--kicsi"
           aria-pressed=${kampanyok.includes(k.id)} onClick=${() => kampanyValt(k.id)}>${k.cim}</button>`)}
       </div>` : html`<p className="halvany kicsi">Még nincs kampány.</p>`}
-    </div>
-    ${v.fajta === 'koveto' ? html`<div className="urlap-racs urlap-racs--ketto">
+    </div>`}
+    ${v.fajta === 'koveto' && !sablon ? html`<div className="urlap-racs urlap-racs--ketto">
       <${Valaszto} label="Kötődés" value=${v.kotodes || ''} onChange=${(x) => set({ kotodes: x })} ures="nincs gazdája"
         opciok=${[{ value: 'csapat', label: 'a csapat' }].concat(karakterek.map((c) => ({ value: c.id, label: c.nev })))}
         hint="A gazda karakter játékosa (csapatnál a kampány minden tagja) látja a statblokkot."/>
@@ -679,12 +835,6 @@ function KovetoPanel({ v, setAdat, setSb, lapok, karakterNev }) {
 }
 
 // ---- Szerep és állapot ----
-
-function SzerepSzerk({ szerep, setSzerep }) {
-  return html`<div className="verem">${N.SZEREP_MEZOK.map((m) => html`<${K.TextField} key=${m.kulcs} label=${m.nev} hint=${m.sugo}
-    multiline=${m.kulcs !== 'koncepcio'} value=${szerep[m.kulcs] || ''}
-    onChange=${(e) => { const x = e.target.value; setSzerep((s) => ({ ...s, [m.kulcs]: x })); }}/>`)}</div>`;
-}
 
 function AllapotSzerk({ allapot, nezet, setAllapot }) {
   return html`<div className="verem">

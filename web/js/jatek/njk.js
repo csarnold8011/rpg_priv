@@ -269,12 +269,18 @@ export function kotodesSzoveg(n, karakterNev) {
   return 'nincs gazdája';
 }
 
-// Szűrés az NJK-tár listájához. szuro: { szoveg, fajta, kampany, archivalt }
+// Az NJK szintje az összefoglalóból is (5.5): sablon, világ, szabad.
+export const njkSzintje = (n) => (n && (n.sablon === true || (n.adat && n.adat.sablon)) ? 'sablon' : n && n.vilag_id ? 'vilag' : 'szabad');
+
+// Szűrés az NJK-tár listájához. szuro: { szoveg, fajta, kampany, archivalt, szint, szerep }
 export function njkSzures(lista, szuro = {}) {
   const sz = String(szuro.szoveg || '').trim().toLowerCase();
   return (lista || []).filter((n) => {
     if (!szuro.archivalt && n.aktiv === false) return false;
     if (szuro.fajta && n.fajta !== szuro.fajta) return false;
+    if (szuro.szint && njkSzintje(n) !== szuro.szint) return false;
+    if (szuro.szerep === '_nincs' && (n.szerepek || []).length) return false;
+    if (szuro.szerep && szuro.szerep !== '_nincs' && !(n.szerepek || []).includes(szuro.szerep)) return false;
     if (szuro.kampany === '_nincs' && (n.kampanyok || []).length) return false;
     if (szuro.kampany && szuro.kampany !== '_nincs' && !(n.kampanyok || []).includes(szuro.kampany)) return false;
     if (!sz) return true;

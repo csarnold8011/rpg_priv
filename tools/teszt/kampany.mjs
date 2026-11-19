@@ -10,6 +10,8 @@ import * as KL from '../../web/js/kampany/kaland.js';
 import * as JL from '../../web/js/kampany/jelenet.js';
 import * as HS from '../../web/js/kampany/helyszin.js';
 import * as B from '../../web/js/kampany/bolt.js';
+import * as SZ from '../../web/js/kampany/szereplo.js';
+import fs from 'fs';
 
 let hibak = 0;
 let db = 0;
@@ -464,6 +466,79 @@ ellenoriz(la.hasznalat === 'resz' && la.tortenet === 'resz' && la.utemek === 'ke
   ellenoriz(G.general('t', { tablak: T2, rng: kockak(1, 1) }).eredmeny === 'x 0', 'szám mínusz eggyel (1d6−1)');
   const g6 = G.general('t', { tablak: T2, rng: kockak(6, 2, 1, 1, 1) });
   ellenoriz(g6.hivasok[0].gyerekek.length === 2 && /d3\+1 = 2×/.test(G.jegyzet(g6)), 'darab d3+1', G.jegyzet(g6));
+}
+
+// ---------- 5.5: szereplők ----------
+{
+  // a mezőlista azonos a háttérével
+  const gs = fs.readFileSync(new URL('../../backend/Njk.gs', import.meta.url), 'utf8');
+  const mezok = gs.match(/const NJK_SZEREPLO_MEZOK = \[([^\]]*)\]/)[1].match(/'([a-z_]+)'/g).map((x) => x.slice(1, -1));
+  ellenoriz(JSON.stringify(mezok) === JSON.stringify(SZ.SZEREPLO_MEZOK), 'a szereplő mezői a háttérben ugyanazok', mezok);
+  const elotag = gs.match(/const NJK_OROKOLHETO = \[([^\]]*)\]/)[1].match(/'([a-z_.]+)'/g).map((x) => x.slice(1, -1));
+  ellenoriz(JSON.stringify(elotag.concat(mezok.map((m) => 'adat.szereplo.' + m))) === JSON.stringify(SZ.OROKOLHETO), 'az örökölhető mezők a háttérben ugyanazok');
+
+  const s = { id: 'n_s', nev: 'Kalmár', fajta: 'rovid', adat: { sablon: true, statblokk: { tulajdonsagok: { tul_communication: 2 } }, szerep: { koncepcio: 'Kalmár', kep: { kep: 'k1' } }, szereplo: { szerepek: ['szemlelo'], cel: 'haszon' } } };
+  const v = { id: 'n_v', nev: 'Bodor', fajta: 'rovid', vilag_id: 'w1', alap_id: 'n_s', adat: { statblokk: { tulajdonsagok: { tul_communication: 2 } }, szerep: { koncepcio: 'Kalmár' }, szereplo: { szerepek: ['szemlelo'], cel: 'haszon' } } };
+  const k = { id: 'n_k', nev: 'Bodor', fajta: 'rovid', alap_id: 'n_v', kampanyok: ['c1'], adat: { szerep: {}, szereplo: {} } };
+  const ix = new Map([s, v, k].map((x) => [x.id, x]));
+  ellenoriz(SZ.njkSzint(s) === 'sablon' && SZ.njkSzint(v) === 'vilag' && SZ.njkSzint(k) === 'szabad', 'szintek: sablon, világ, szabad');
+  ellenoriz(JSON.stringify(SZ.felulirasok(v, s)) === JSON.stringify(['nev']), 'a világ-NJK csak a nevet írja felül');
+  const kf = SZ.feloldas(k, v, []);
+  ellenoriz(kf.nev === 'Bodor' && kf.adat.szereplo.cel === 'haszon' && kf.adat.statblokk.tulajdonsagok.tul_communication === 2 && kf.adat.felulirt.length === 0, 'feloldás: minden az alapból jön');
+  const k2 = SZ.utBeallit(kf, 'adat.szereplo.cel', 'bosszú');
+  ellenoriz(JSON.stringify(SZ.felulirasok(k2, v)) === JSON.stringify(['adat.szereplo.cel']), 'egy mező felülírása');
+  const info = SZ.mezoInfo(k2, 'adat.szereplo.cel', v);
+  ellenoriz(info.sajat && info.orokolt === 'haszon' && info.honnan === 'vilag', 'mezőinfo: saját, örökölt érték és forrás');
+  const k3 = SZ.visszaallit({ ...k2, adat: { ...k2.adat, felulirt: ['adat.szereplo.cel'] } }, 'adat.szereplo.cel', v);
+  ellenoriz(k3.adat.szereplo.cel === 'haszon' && !k3.adat.felulirt.length, 'visszaállítás az örököltre');
+  ellenoriz(SZ.azonos(undefined, '') && SZ.azonos([], undefined) && !SZ.azonos('a', ''), 'az üres értékek egyformák');
+  ellenoriz(SZ.lanc(k, ix).map((x) => x.id).join() === 'n_k,n_v,n_s', 'az alapok lánca');
+  ellenoriz(!!SZ.alapHiba(v, k, ix) && !!SZ.alapHiba(s, v, ix) && !SZ.alapHiba(k, s, ix), 'szintszabályok: világ nem épül kampányra, sablon csak sablonra');
+  ellenoriz(!!SZ.alapHiba({ ...s, alap_id: '' }, { id: 'n_x', alap_id: 'n_s', adat: { sablon: true } }, new Map([['n_s', s]])) , 'kör nem lehet');
+  ellenoriz(SZ.alapJeloltek(k, [s, v, k], ix).map((x) => x.id).join() === 'n_s,n_v', 'jelöltek: előbb a sablon, aztán a világ');
+  const p = SZ.peldany(v, { kampanyok: ['c1'], nev: 'Bodor, az öreg' });
+  ellenoriz(p.alap_id === 'n_v' && p.nev === 'Bodor, az öreg' && p.adat.felulirt.join() === 'nev' && p.adat.szerep.kep === null && !p.vilag_id, 'példány: saját névvel, kép nélkül');
+  const sb = SZ.sablonbol({ ...v, adat: { ...v.adat, allapot: { egeszseg: 3 } } });
+  ellenoriz(sb.sablon && !sb.alap_id && !sb.kampanyok.length && !Object.keys(sb.adat.allapot).length, 'sablon bármelyikből, állapot nélkül');
+  ellenoriz(SZ.peldanyai('n_s', [s, v, k]).map((x) => x.id).join() === 'n_v,n_k', 'a rá épülők (közvetve is)');
+  ellenoriz(!SZ.levalaszt(k2).alap_id && !SZ.levalaszt(k2).adat.felulirt.length, 'leválasztás');
+
+  // figyelmeztetések és lépések
+  const fg = { nev: 'Morgoth', adat: { szereplo: { szerepek: ['fogonosz'], cel: 'uralom' } } };
+  const f = SZ.figyelmeztetesek(fg);
+  ellenoriz(f.some((x) => /indítékot/.test(x.szoveg)) && f.some((x) => /eltúlzott/.test(x.szoveg)), 'főgonosz indíték és jellegzetes vonás nélkül figyelmeztet', f);
+  ellenoriz(SZ.figyelmeztetesek({ adat: {} }).some((x) => x.lepes === 'szerep'), 'szerep nélkül figyelmeztet');
+  ellenoriz(SZ.figyelmeztetesek({ adat: { szereplo: { szerepek: ['csapattag'], epitesi_mod: 'szabad' } } }).length >= 2, 'csapattag: rivaldafény és építési mód');
+  const la = SZ.lepesAllapot({ nev: 'X', adat: { szereplo: { szerepek: ['barat'], cel: 'a', indok: 'b', vonas: 'c', kulcspontok: [{ szoveg: 'x' }] } } });
+  ellenoriz(la.szerep === 'kesz' && la.szemelyiseg === 'kesz' && la.parbeszed === 'kesz' && la.hatter === 'ures', 'lépések állapota', la);
+  const n = SZ.szereploNorm({ szerepek: ['barat', 'nincs'], rejtett: [{ oszlop: 'x', nev: 'Kapzsiság' }], kulcspontok: [{ szoveg: 'a' }] });
+  ellenoriz(n.szerepek.join() === 'barat' && n.rejtett[0].oszlop === 'informacio' && n.rejtett[0].id === 'rv1' && n.kulcspontok[0].id === 'kp1', 'normalizálás');
+
+  // hivatkozások
+  const elemek = [
+    { elem: { id: 'h1', tipus: 'helyszin' }, adat: { nev: 'Vén Csuka', szereplok: [{ njk_id: 'n_k', szerep: 'kocsmáros' }] } },
+    { elem: { id: 'k1', tipus: 'kaland' }, adat: { nev: 'A tolvaj', ellenfel: { njk_id: 'n_k' }, njkk: [{ njk_id: 'n_k' }] } },
+    { elem: { id: 'j1', tipus: 'jelenet' }, adat: { nev: 'Lesben', lenyek: [{ forras: 'njk', ref_id: 'n_k' }] } },
+    { elem: { id: 'u1', tipus: 'helyszin' }, adat: { nev: 'Bolt' } }];
+  const hv = SZ.hivatkozasok('n_k', elemek, { veg: { ellenfel: { njk_id: 'n_k' } }, keptar: [{ njk_id: 'n_k' }] }, [{ honnan: 'n_k', hova: 'u1', tipus: 'tulajdonosa' }]);
+  ellenoriz(hv.length === 7 && hv.some((x) => x.szoveg === 'tulajdonosa' && x.hol === 'Bolt'), 'hol szerepel: helyszín, kaland, jelenet, keret, bolt', hv);
+  const cs = SZ.szerepSzerint([{ id: 'a', szerepek: ['barat', 'megbizo'] }, { id: 'b', szerepek: [] }]);
+  ellenoriz(cs.barat.length === 1 && cs.megbizo.length === 1 && cs._nincs.length === 1, 'csoportok szerep szerint');
+
+  // dobótáblák (kitalált minta táblák az Import 13 szerkezetével)
+  const tablak = [
+    { id: 'dt_rejtett_vonas', reszletek: { kocka: '1d6', sorok: [{ t: [1, 2], e: 'Fókusz', hivas: [{ tabla: 'dt_rv_fokusz' }] }, { t: [3, 4], e: 'Info', hivas: [{ tabla: 'dt_rv_informacio' }] }, { t: [5, 6], e: 'Jellem', hivas: [{ tabla: 'dt_rv_szerepjatek' }] }] } },
+    { id: 'dt_rv_fokusz', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'Erő fókusz', ertek: { tul: 'tul_strength', fokuszok: ['fok_a', 'fok_b'] } }] } },
+    { id: 'dt_rv_informacio', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'Rejtekhely: tud egy helyet', ertek: { jelek: 'arra néz' } }] } },
+    { id: 'dt_rv_szerepjatek', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'Kényszer: szerencsejátékos' }] } },
+    { id: 'dt_kapcsolat', reszletek: { kocka: '2d6', sorok: [{ t: [2, 6], e: 'Ellenség', ertek: { tipus: 'ellensege' } }, { t: [7, 12], e: 'Nincs', ertek: { tipus: null } }] } }];
+  const rv = SZ.rejtettFabol(G.general('dt_rejtett_vonas', { tablak, rng: kockak(1) }));
+  ellenoriz(rv.length === 1 && rv[0].oszlop === 'fokusz' && rv[0].fokusz_jeloltek.length === 2, 'rejtett vonás: új fókusz a jelöltekkel', rv);
+  const ri = SZ.rejtettFabol(G.general('dt_rejtett_vonas', { tablak, rng: kockak(3) }));
+  ellenoriz(ri[0].nev === 'Rejtekhely' && ri[0].leiras === 'tud egy helyet' && ri[0].jelek === 'arra néz', 'rejtett vonás: információ árulkodó jellel', ri);
+  ellenoriz(SZ.kapcsolatTipusFabol(G.general('dt_kapcsolat', { tablak, rng: kockak(1, 1) })) === 'ellensege' && SZ.kapcsolatTipusFabol(G.general('dt_kapcsolat', { tablak, rng: kockak(6, 6) })) === null, 'kapcsolattípus a tábla eredményéből');
+  const km = SZ.kovetoMintabol({ adat: { statblokk: { tulajdonsagok: { tul_strength: 0 } }, szerep: {} } }, { nev: 'Testőr', tulajdonsagok: { tul_strength: 2 }, fokuszok: ['fok_x'], feladatok: ['őrködik'] });
+  ellenoriz(km.adat.statblokk.tulajdonsagok.tul_strength === 2 && km.adat.statblokk.fokuszok[0] === 'fok_x' && km.adat.szerep.feladatok[0] === 'őrködik', 'követő mintából');
 }
 
 console.log(hibak ? `\n${hibak} HIBA (${db} ellenőrzésből)` : `\nMind a ${db} ellenőrzés sikeres.`);
