@@ -12,6 +12,7 @@ import * as HS from '../../web/js/kampany/helyszin.js';
 import * as B from '../../web/js/kampany/bolt.js';
 import * as SZ from '../../web/js/kampany/szereplo.js';
 import * as J from '../../web/js/kampany/jutalom.js';
+import * as IS from '../../web/js/kampany/isteni.js';
 import fs from 'fs';
 
 let hibak = 0;
@@ -641,6 +642,87 @@ ellenoriz(la.hasznalat === 'resz' && la.tortenet === 'resz' && la.utemek === 'ke
     const ujak = valodi.filter((t) => [J.MAGIKUS_TABLA, J.CIM_MINTAK, J.TARS_MINTAK, J.EREKLYE_MINTAK].includes(t.id));
     ellenoriz(ujak.length === 4 && ujak.every((t) => G.tablaHibak(t, valodi).length === 0), 'az Import 14 táblái hibátlanok', ujak.map((t) => [t.id, G.tablaHibak(t, valodi)]));
     for (let i = 0; i < 200; i++) { const x = J.magikusFabol(G.general(J.MAGIKUS_TABLA, { tablak: valodi })); if (!x.elonyok.length) { ellenoriz(false, 'mágikus tulajdonság mindig ad előnyt', x); break; } }
+  }
+}
+
+// ---------- Isteni (8. fejezet) ----------
+{
+  const tablak = [
+    { id: 'dt_vallas_szerkezet', nev_hu: 'Vallásszerkezet', reszletek: { kocka: '1d6', sorok: [
+      { t: 1, e: 'Egy', ertek: { szerkezet: 'egy' } }, { t: [2, 3], e: 'Kettő', ertek: { szerkezet: 'ketto' } },
+      { t: [4, 5], e: 'Panteon {szam}', szam: { alap: '3d6' }, ertek: { szerkezet: 'panteon' } }, { t: 6, e: 'Család {szam}', szam: { alap: '3d6' }, ertek: { szerkezet: 'csaladi' } }] } },
+    { id: 'dt_tartomany', nev_hu: 'Tartomány', reszletek: { kocka: 'd6d6d6', sorok: [
+      { t: [[1, 3], [1, 6], [1, 6]], e: 'Tűz', en: 'Fire' }, { t: [[4, 6], [1, 6], [1, 3]], e: 'Halál', en: 'Death' }, { t: [[4, 6], [1, 6], [4, 6]], e: 'Hold', en: 'The Moon' }] } },
+    { id: 'dt_kultusz_tevekenyseg', nev_hu: 'Kultusztevékenység', reszletek: { kocka: '3d6', sorok: [
+      { t: [3, 10], e: 'Ima: nyilvánosan', en: 'Public Prayer' }, { t: [11, 18], e: 'Tánc: furcsa', en: 'Dance' }] } },
+    { id: 'dt_unnep', nev_hu: 'Ünnep', reszletek: { kocka: '3d6', sorok: [{ t: [3, 18], e: 'Lakoma: közös', en: 'Feast' }], kovetkezo: [{ tabla: 'dt_tartomany', darab: 1 }] } },
+    { id: 'dt_isten', nev_hu: 'Isten', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'Isten', hivas: [{ tabla: 'dt_tartomany', darab: 'd3', egyedi: true }] }] } },
+    { id: 'dt_kultusz', nev_hu: 'Kultusz', reszletek: { kocka: '1d6', sorok: [{ t: [1, 6], e: 'Kultusz', hivas: [
+      { tabla: 'dt_kultusz_tevekenyseg', darab: 'd3', egyedi: true }, { tabla: 'dt_tartomany', darab: 'd3', egyedi: true }] }] } }
+  ];
+  tablak.forEach((t) => ellenoriz(G.tablaHibak(t, tablak).length === 0, 'isteni mintatábla hibátlan: ' + t.id, G.tablaHibak(t, tablak)));
+  ellenoriz(E.ELEMTIPUSOK.istenseg.szulok.includes('istenseg'), 'isteni elem isteni elem alá kerülhet');
+  ellenoriz(IS.fajtaOf({}) === 'isten' && IS.fajtaOf({ fajta: 'vallas' }) === 'vallas', 'fajta alapból isten');
+  // vallásszerkezet
+  const sz = IS.szerkezetFabol(G.general('dt_vallas_szerkezet', { tablak, rng: kockak(5, 3, 4, 5) }));
+  ellenoriz(sz && sz.szerkezet === 'panteon' && sz.istenek_szama === 12, 'panteon 3d6 istennel', sz);
+  ellenoriz(IS.szerkezetFabol(G.general('dt_vallas_szerkezet', { tablak, rng: kockak(2) })).istenek_szama === 2, 'kettős istenhit két isten');
+  // isten tartományai: d3 = 2 (kocka 3 → d3 2), egyedi
+  const fa = G.general('dt_isten', { tablak, rng: kockak(1, 3, 1, 1, 1, 4, 1, 5) });
+  const t = IS.tartomanyokFabol(fa);
+  ellenoriz(t.length === 2 && t[0].nev === 'Tűz' && t[1].nev !== 'Tűz', 'isten két különböző tartománnyal', t);
+  const jav = IS.arkanumJavaslat(t.concat([{ nev: 'Hold', en: 'The Moon' }]));
+  ellenoriz(jav.some((x) => x.id === 'ark_fire') && jav.some((x) => x.id === 'ark_water'), 'arkánumjavaslat a tartományokból', jav);
+  ellenoriz(IS.tartomanyokNorm(['Tűz', '', { nev: 'Hold', en: 'The Moon' }]).length === 2, 'tartomány normalizálás szövegből is');
+  // kultusz
+  const kf = G.general('dt_kultusz', { tablak, rng: kockak(1, 5, 1, 1, 1, 6, 6, 6, 1, 1, 1, 1) });
+  const tev = IS.tevekenysegekFabol(kf);
+  ellenoriz(tev.length >= 1 && tev[0].nev && tev[0].leiras, 'kultusztevékenység névvel és leírással', tev);
+  ellenoriz(IS.tartomanyokFabol(kf).length >= 1, 'kultusz tartományai');
+  // ünnep
+  const u = IS.unnepFabol(G.general('dt_unnep', { tablak, rng: kockak(3, 3, 3, 1, 1, 1) }));
+  ellenoriz(u && u.nev === 'Lakoma (tűz)' && u.tema === 'Tűz' && /^Lakoma: közös/.test(u.szokas), 'ünnep szokással és témával', u);
+  // fa és panteon
+  const ev = (id, fajta, szulo, extra = {}) => ({ id, tipus: 'istenseg', nev: id, vilag_id: 'w1', kampany_id: '', alap_id: '', szulo_id: szulo || '', sorrend: 0, adat: { nev: id, fajta, ...extra }, aktiv: true });
+  const elemek = [ev('v', 'vallas', '', { szerkezet: 'csaladi' }), ev('a', 'isten', 'v'), ev('b', 'isten', 'v'), ev('c', 'isten', 'v'), ev('k', 'kultusz', 'v'), ev('k2', 'kultusz', 'k'), ev('m', 'isten', '')];
+  const ixI = E.index(elemek);
+  const gy = IS.gyerekek('v', elemek);
+  ellenoriz(gy.istenek.length === 3 && gy.kultuszok.length === 1, 'a vallás istenei és kultuszai');
+  ellenoriz(IS.vallasa(ixI.get('k2'), ixI).id === 'v', 'a felekezet felekezetének vallása');
+  ellenoriz(IS.testverek(ixI.get('a'), elemek).length === 2, 'testvérek a panteonban');
+  const kap = [{ id: 'l1', honnan: 'a', hova: 'b', tipus: 'hazastarsa', aktiv: true }, { id: 'l2', honnan: 'c', hova: 'a', tipus: 'imadja', aktiv: true }];
+  const parok = IS.panteonParok(gy.istenek, kap);
+  ellenoriz(parok.length === 3 && parok.filter((p) => p.kapcsolatok.length).length === 1, 'panteon párjai, az imádás nem kötelék', parok.map((p) => p.kapcsolatok.length));
+  const isf = IS.isteniFa(elemek);
+  ellenoriz(isf.length === 2 && isf[0].elem.id === 'v' && isf[0].gyerekek.length === 4 && isf[0].gyerekek.find((x) => x.elem.id === 'k').gyerekek.length === 1, 'vallásfa', isf.map((x) => x.elem.id));
+  ellenoriz(IS.imadoi('a', kap).length === 1 && IS.imadja('c', kap).length === 1, 'imádók és imádott');
+  ellenoriz(JSON.stringify(IS.fajtaSzamok(elemek)) === JSON.stringify({ vallas: 1, isten: 4, kultusz: 2 }), 'fajtaszámok');
+  // lépések
+  ellenoriz(IS.lepesKulcsok({ fajta: 'vallas', szerkezet: 'egy' }).indexOf('panteon') < 0 && IS.lepesKulcsok({ fajta: 'vallas', szerkezet: 'panteon' }).includes('panteon'), 'a vallás panteon lépése a szerkezettől függ');
+  ellenoriz(IS.lepesKulcsok({ fajta: 'isten' }, { testverekSzama: 1 }).includes('panteon') && !IS.lepesKulcsok({ fajta: 'isten' }).includes('panteon'), 'az isten panteon lépése a testvérektől függ');
+  ellenoriz(IS.lepesKulcsok({ fajta: 'kultusz' })[1] === 'tevekenysegek', 'a kultusz lépései');
+  ellenoriz(IS.lepesKulcsok({ fajta: 'vallas' }).concat(IS.lepesKulcsok({ fajta: 'isten' }), IS.lepesKulcsok({ fajta: 'kultusz' })).every((k) => IS.ISTENI_LEPESEK[k]), 'minden lépésnek van leírása');
+  const all = IS.lepesAllapot({ fajta: 'vallas', szerkezet: 'csaladi', valosag: 'valodi', jelenlet: 'jelek', tudas: 'hit', jelkep: 'tölgylevél', tanok: 'vess és arass' }, { istenekSzama: 3, parokSzama: 3, kotottParok: 1 });
+  ellenoriz(all.fajta === 'kesz' && all.valosag === 'kesz' && all.panteon === 'resz' && all.kulsosegek === 'kesz' && all.unnepek === 'ures', 'lépésállapot', all);
+  // figyelmeztetések
+  const fv = IS.figyelmeztetesek({ fajta: 'vallas', szerkezet: 'csaladi', jelenlet: 'tavol', isteni_szabalyok: ['hitvalsag', 'jamborsag'], arkanumok: ['ark_fire'], tiltott_arkanumok: ['ark_fire'] },
+    { istenekSzama: 1, parokSzama: 0, kotottParok: 0 });
+  ['fajta', 'valosag', 'magia'].forEach((l) => ellenoriz(fv.some((x) => x.lepes === l), 'figyelmeztetés: ' + l, fv));
+  ellenoriz(fv.filter((x) => x.lepes === 'magia').length === 3, 'hitválság mutatványok nélkül, jámborság hit nélkül, ütköző arkánum');
+  ellenoriz(IS.figyelmeztetesek({ fajta: 'isten' }).some((x) => x.lepes === 'isten_fajta') && !IS.figyelmeztetesek({ fajta: 'isten', szerep: 'elo_isten' }).length, 'tartomány nélküli isten (az élő isten kivétel)');
+  const fk = IS.figyelmeztetesek({ fajta: 'kultusz' }, { szuloFajta: 'vallas' });
+  ellenoriz(fk.some((x) => x.lepes === 'tevekenysegek') && fk.some((x) => x.lepes === 'elteres') && !fk.some((x) => x.lepes === 'kultusz_fajta'), 'leágazó kultusz figyelmeztetései', fk);
+  ellenoriz(IS.figyelmeztetesek({ fajta: 'kultusz', tevekenysegek: [{ nev: 'x' }] }).some((x) => x.lepes === 'kultusz_fajta'), 'önálló kultusz imádott nélkül');
+  ellenoriz(IS.osszefoglalo({ fajta: 'isten', szerep: 'ellenhatalom', tartomanyok: [{ nev: 'Tűz' }] }, { imadokSzama: 2 }) === 'Isten, ellenhatalom, tűz, 2 imádó', 'összefoglaló');
+  if (process.env.FAGE_SZABALYOK) {
+    const valodi = JSON.parse(fs.readFileSync(process.env.FAGE_SZABALYOK, 'utf8'))['Dobótáblák'] || [];
+    const ujak = valodi.filter((t) => [IS.SZERKEZET_TABLA, IS.TARTOMANY_TABLA, IS.TEVEKENYSEG_TABLA, IS.UNNEP_TABLA, IS.ISTEN_TABLA, IS.KULTUSZ_TABLA].includes(t.id));
+    if (ujak.length) {
+      ellenoriz(ujak.length === 6 && ujak.every((t) => G.tablaHibak(t, valodi).length === 0), 'az Import 15 táblái hibátlanok', ujak.map((t) => [t.id, G.tablaHibak(t, valodi)]));
+      const tt = valodi.find((x) => x.id === IS.TARTOMANY_TABLA);
+      ellenoriz(G.reszletek(tt).sorok.length === 108, 'a tartománytábla 108 sora');
+      for (let i = 0; i < 100; i++) { const x = IS.unnepFabol(G.general(IS.UNNEP_TABLA, { tablak: valodi })); if (!x || !x.tema) { ellenoriz(false, 'az ünnepnek mindig van témája', x); break; } }
+    }
   }
 }
 

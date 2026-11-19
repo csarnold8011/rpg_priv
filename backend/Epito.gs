@@ -6,7 +6,7 @@
 
 const ELEM_SZULOK = {
   kaland: [], resz: ['kaland', 'resz'], jelenet: ['kaland', 'resz'], helyszin: ['helyszin'], csoport: ['csoport'],
-  jutalom: [], istenseg: [], keret: []
+  jutalom: [], istenseg: ['istenseg'], keret: []
 };
 const KAPCSOLAT_TIPUSOK = ['kovetkezik', 'feltetele', 'itt_tortenik', 'szerepel', 'jutalma', 'resze', 'tagja', 'vezeti',
   'tulajdonosa', 'imadja', 'szovetsegese', 'ellensege', 'baratja', 'szeretoje', 'hazastarsa', 'testvere', 'unokatestvere',

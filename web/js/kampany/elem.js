@@ -15,7 +15,7 @@ export const ELEMTIPUSOK = {
   helyszin: { nev: 'Helyszín', tobbes: 'Helyszínek', szulok: ['helyszin'], alepes: '5.4' },
   csoport: { nev: 'Csoport', tobbes: 'Csoportok', szulok: ['csoport'], alepes: '5.4' },
   jutalom: { nev: 'Jutalom', tobbes: 'Jutalmak', szulok: [], alepes: '5.6' },
-  istenseg: { nev: 'Istenség', tobbes: 'Istenségek', szulok: [], alepes: '5.8' },
+  istenseg: { nev: 'Vallás vagy istenség', tobbes: 'Vallások és istenségek', szulok: ['istenseg'], alepes: '5.8' },
   keret: { nev: 'Kampánykeret', tobbes: 'Kampánykeretek', szulok: [], csakSablon: true, alepes: '5.1' }
 };
 

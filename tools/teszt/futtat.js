@@ -516,6 +516,9 @@ v = hivas('element.save', { id: 'el_kamp0001', uj: true, tipus: 'helyszin', kamp
 ellenoriz(v.ok && v.elem.alap_id === 'el_sablon001' && v.elem.szulo_id === 'el_vilag001', 'kampányelem sablonra építve, világelem alatt');
 ellenoriz(hivas('state.poll', { kampany_id: kampany.id }, annaT).verzio === kVerzio, 'az előkészítés nem növeli a kampány verzióját');
 ellenoriz(hivas('element.save', { id: 'el_rossz001', uj: true, tipus: 'csoport', kampany_id: kampany.id, szulo_id: 'el_vilag001', adat: {} }, dm2).hiba === 'hibas_adat', 'csoport nem kerülhet helyszín alá');
+ellenoriz(hivas('element.save', { id: 'el_vallas01', uj: true, tipus: 'istenseg', kampany_id: kampany.id, nev: 'Mahre hite', adat: { fajta: 'vallas' } }, dm2).ok &&
+  hivas('element.save', { id: 'el_isten001', uj: true, tipus: 'istenseg', kampany_id: kampany.id, szulo_id: 'el_vallas01', nev: 'Mahre', adat: { fajta: 'isten' } }, dm2).ok, 'isten a vallás alatt (5.8)');
+ellenoriz(hivas('element.save', { id: 'el_rossz003', uj: true, tipus: 'istenseg', kampany_id: kampany.id, szulo_id: 'el_kamp0001', adat: {} }, dm2).hiba === 'hibas_adat', 'isteni elem nem kerülhet helyszín alá');
 ellenoriz(hivas('element.save', { id: 'el_rossz002', uj: true, tipus: 'helyszin', vilag_id: 'w_alfold01', szulo_id: 'el_kamp0001', adat: {} }, dm2).hiba === 'hibas_adat', 'világelem nem kerülhet kampányelem alá');
 ellenoriz(hivas('element.save', { id: 'el_rossz003', uj: true, tipus: 'csoport', vilag_id: 'w_alfold01', alap_id: 'el_sablon001', adat: {} }, dm2).hiba === 'hibas_adat', 'az alap csak azonos típusú lehet');
 ellenoriz(hivas('element.save', { id: 'el_rossz004', uj: true, tipus: 'keret', kampany_id: kampany.id, adat: {} }, dm2).hiba === 'hibas_adat', 'kampánykeret elem csak sablon lehet');
@@ -532,7 +535,7 @@ ellenoriz(hivas('link.save', { id: 'ln_kapcs0002', uj: true, honnan: 'a', hova: 
 ellenoriz(hivas('link.save', { id: 'ln_kapcs0002', uj: true, honnan: 'a', hova: 'b', tipus: 'barmi' }, dm2).hiba === 'hibas_adat', 'ismeretlen kapcsolattípus');
 hivas('link.save', { id: 'ln_kapcs0003', uj: true, honnan: 'el_vilag001', hova: 'el_sablon001', tipus: 'egyeb', vilag_id: 'w_alfold01' }, dm2);
 v = hivas('prep.get', { kampany_id: kampany.id }, dm2);
-ellenoriz(v.ok && v.elemek.length === 3 && v.kapcsolatok.length === 1 && v.keret && v.keret.verzio === 0, 'kampány előkészítése: a sablonok és a kampány elemei, a kampány kapcsolatai');
+ellenoriz(v.ok && v.elemek.length === 5 && v.kapcsolatok.length === 1 && v.keret && v.keret.verzio === 0, 'kampány előkészítése: a sablonok és a kampány elemei, a kampány kapcsolatai');
 ellenoriz(v.vilag_id === '' && v.elemek.some(e => e.id === 'el_vilag001'), 'világ nélküli keretnél is jön a világelem, amelyre a kampány eleme hivatkozik');
 v = hivas('campaign.frame.save', { id: kampany.id, verzio: 0, keret: { tema: 'Nyomozás', vilag_id: 'w_alfold01', veg: { tet: 'titok' } } }, dm2);
 ellenoriz(v.ok && v.verzio === 1 && !v.kampany, 'kampánykeret mentése, a DM titkai nem érintik a játékosokat');
