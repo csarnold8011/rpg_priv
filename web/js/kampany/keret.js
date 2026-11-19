@@ -29,8 +29,8 @@ export const LEPESEK = [
     utmutato: 'A munkalap második oldala: szintsávonként milyen címeket, tagságokat, társakat, mágikus tárgyakat és kincset terveznek a hősök elérni. Mérföldkövek ezek, és célt adnak a játékosoknak. Ne tervezz túl sokat: csak ami a karakterekhez és a céljaikhoz illik; a váratlanhoz később is alkothatsz jutalmat.' },
   { kulcs: 'kalandra_hivas', nev: 'Kalandra hívás', en: 'A Call to Adventure', oldal: '7',
     utmutato: 'Most indulj az elejéről: hol kapcsolódnak be a hősök? A karakterkészítéshez ajánlásokat adhatsz (biztatni jobb, mint tiltani). A bemutatást és az ajánlásokat a játékosok a karakterkészítőben látják.' },
-  { kulcs: 'szabalyok', nev: 'Választható szabályok és mutatványok', en: 'Optional Rules, Stunt Additions', oldal: '111–114, 124',
-    utmutato: 'A munkalap jelölőnégyzetei. Amit az app már ismer (isteni és nyomozási mutatványok), az itt be is kapcsolható; a többi emlékeztető jelölés.' }
+  { kulcs: 'szabalyok', nev: 'Választható szabályok és mutatványok', en: 'Optional Rules, Stunt Additions', oldal: '111–115, 124',
+    utmutato: 'A munkalap jelölőnégyzetei és a 9. fejezet választható szabályai. Új szabály csak akkor jó, ha illik az alműfajhoz, érdekes helyzetet teremt, és a játékosok is értik és élvezik. Amit az app már ismer (isteni és nyomozási mutatványok), az itt be is kapcsolható; a többi emlékeztető jelölés.' }
 ];
 
 // A könyv keret-példái (Campaign Framework Examples), rövid saját összefoglalóval.
@@ -101,15 +101,54 @@ export const KEPTAR_SZEREPEK = {
   ellenfel: 'Ellenfél', hadnagy: 'Hadnagy', csatlos: 'Csatlós', leny: 'Lény', egyeb: 'Egyéb'
 };
 
-// A munkalap választható szabályai. beallitas: ha az app már ismeri, a kampánybeállítás kulcsa.
+// A munkalap választható szabályai és a 9. fejezet többi választható szabálya (Optional Rules Examples,
+// 112–115. oldal), a könyv sorrendjében. beallitas: ha az app már ismeri, a kampánybeállítás kulcsa (a többi
+// emlékeztető jelölés, gépi hatás nélkül). almufajok: a könyv szerint melyik alműfajhoz illik (az ALMUFAJOK
+// azonosítói), ebből jön az „ajánlott” jel (csak tájékoztat). leiras: rövid saját összefoglaló.
 export const VALASZTHATO_SZABALYOK = [
-  { kulcs: 'filmszeru_akrobatika', nev: 'Filmbe illő akrobatika (javaslat)', en: 'Cinematic Acrobatics', oldal: 114 },
-  { kulcs: 'romlast_hozo_hatalom', nev: 'Romlást hozó hatalom (javaslat)', en: 'Corrupting Power', oldal: 112 },
-  { kulcs: 'sulyos_sebek', nev: 'Súlyos sebek (javaslat)', en: 'Grave Wounds', oldal: 111 },
-  { kulcs: 'egeszseg_minden', nev: 'Az Egészség minden (javaslat)', en: 'Health is Everything', oldal: 112 },
-  { kulcs: 'nyomozasi_mutatvanyok', nev: 'Nyomozási mutatványok', en: 'Investigation Stunts', oldal: 114, beallitas: 'mutatvanyok.nyomozas' },
-  { kulcs: 'ellatmanyszint', nev: 'Ellátmányszint (javaslat)', en: 'Supply Rating', oldal: 113 }
+  { kulcs: 'sulyos_sebek', nev: 'Súlyos sebek (javaslat)', en: 'Grave Wounds', oldal: '112–113',
+    almufajok: ['horror', 'tortenelmi', 'vilagvege_utan'],
+    almufaj_szoveg: 'horror, történelmi, világvége utáni, és minden nyers vagy sötét hangvételű',
+    leiras: 'A pihenés szokásos gyógyulása csak az első napon jár, utána naponta Szívósságnyi Egészség, rossz pihenésnél vagy ellátásnál a fele. Rossz körülmények vagy fertőzés napi 1d6, nagyon rossz körülmények napi 2d6 sebzést okoznak. A pihenésnél (6. lépés) érdemes visszanézni rá.' },
+  { kulcs: 'egeszseg_minden', nev: 'Az Egészség minden (javaslat)', en: 'Health is Everything', oldal: '113',
+    almufajok: ['horror', 'kulonos'], almufaj_szoveg: 'horror, különös',
+    leiras: 'Az Egészség a lelki teherbírás is: a 0 Egészség őrület vagy összeomlás is lehet, és a segítség a sebhez igazodik. A rémület és a megrázkódtatás sebez (1d3-tól 3d6-ig), Akaraterő-próbával elkerülhető (Hit, Bátorság, Önfegyelem). Az Egészség át is nevezhető (például Szerencse, Feszültség, Halandóság).' },
+  { kulcs: 'romlast_hozo_hatalom', nev: 'Romlottság (javaslat)', en: 'Corrupting Power', oldal: '113–114',
+    almufajok: ['horror', 'vilagvege_utan', 'kulonos'], almufaj_szoveg: 'horror, egyes világvége utáni és különös kampányok',
+    leiras: 'Ideiglenes Romlottság-pontért egy előny jár: 2d6 + Akaraterő Egészség vagy Mágiapont, 2 Mutatványpont az adott cselekvésre, egy további fő cselekvés, vagy varázslat Mágiapont nélkül +2 Varázserővel. Az alkalom végén d6: ha legfeljebb az ideiglenes és az állandó pontok összege, egy állandó pont jár (akinek már van, minden alkalom végén dob). Ha az állandó Romlottság meghaladja az Akaraterőt, a karakter elbukik. Egyalkalmas játékban összecsapásonként dobnak. Szűkíthető, például csak mágusokra.' },
+  { kulcs: 'atnevezes', nev: 'Tulajdonságok átnevezése (javaslat)', en: 'Renaming Character Traits', oldal: '114', mind: true,
+    almufajok: ['tortenelmi', 'harcmuveszet'], almufaj_szoveg: 'bármely, leginkább történelmi és harcművészeti',
+    leiras: 'Képességek, talentumok, fókuszok, osztályok kampánybeli neve, változatlan szabállyal (például a harcos szamuráj, a Nehéz pengék fókusz kendzsucu). Az app feliratai nem változnak, a névlista csak emlékeztető.' },
+  { kulcs: 'ellatmanyszint', nev: 'Ellátmányszint (javaslat)', en: 'Supply Rating', oldal: '114–115',
+    almufajok: ['vilagvege_utan', 'utvesztok', 'tortenelmi'], almufaj_szoveg: 'világvége utáni, felszerelésre építő útvesztős, hosszú hadjáratos történelmi',
+    leiras: 'Egy 0–5 közti érték mutatja, van-e elég élelem, víz és szerszám. Időnként és eseményekre csökken, településen pótolható. 0-nál −1 minden próbára, ahol a hiány számít, a fegyver sebzése és a páncél értéke is −1. Kétfelé is bontható (élelem és víz, felszerelés).' },
+  { kulcs: 'filmszeru_akrobatika', nev: 'Filmbe illő akrobatika (javaslat)', en: 'Cinematic Acrobatics', oldal: '115',
+    almufajok: ['harcmuveszet', 'kardforgato'], almufaj_szoveg: 'harcművészeti, néha a kardforgató',
+    leiras: 'A képzett harcos a Sebességével bármely felületen haladhat (falon fel, vízen át), és Sebességnyi yardot ugorhat próba nélkül. Más szereplőre vagy akadályra ható cselekvéshez továbbra is próba kell.' },
+  { kulcs: 'nyomozasi_mutatvanyok', nev: 'Nyomozási mutatványok', en: 'Investigation Stunts', oldal: '115', beallitas: 'mutatvanyok.nyomozas',
+    almufajok: ['varosi', 'tortenelmi', 'horror'], almufaj_szoveg: 'városi, és a nyomozásra épülő történelmi vagy horror',
+    leiras: 'A Modern AGE nyomozási mutatványai a nyomozó próbákhoz (tény felfedése, új nyom vagy forrás, megérzés, cáfolhatatlan bizonyíték). Az app ismeri: bekapcsolva a mutatványválasztóban megjelennek.' }
 ];
+
+// A keret alműfajai (és az Alapkönyv stílusából a megfelelő), az ajánláshoz.
+const STILUS_ALMUFAJ = { horror: 'horror', kardforgato: 'kardforgato' };
+export function keretAlmufajai(k0) {
+  const k = normalizal(k0);
+  const ki = k.almufajok.filter((a) => ALMUFAJOK.some((x) => x.id === a));
+  if (STILUS_ALMUFAJ[k.stilus] && !ki.includes(STILUS_ALMUFAJ[k.stilus])) ki.push(STILUS_ALMUFAJ[k.stilus]);
+  return ki;
+}
+
+// Ajánlott-e a választható szabály a keret alműfaja (keveréknél bármelyik eleme) szerint. Csak tájékoztat.
+export function szabalyAjanlott(k0, szabaly) {
+  const s = typeof szabaly === 'string' ? VALASZTHATO_SZABALYOK.find((x) => x.kulcs === szabaly) : szabaly;
+  if (!s) return false;
+  const af = keretAlmufajai(k0);
+  return (s.almufajok || []).some((a) => af.includes(a));
+}
+
+// Az ajánlott szabályok kulcsai a könyv sorrendjében.
+export const ajanlottSzabalyok = (k0) => VALASZTHATO_SZABALYOK.filter((s) => szabalyAjanlott(k0, s)).map((s) => s.kulcs);
 
 // A munkalap mutatványkiegészítései (Stunt Additions & Modifications).
 export const MUTATVANY_KIEGESZITESEK = [
@@ -194,6 +233,7 @@ export function normalizal(k0) {
     kalandra_hivas: { kezdes: szoveg(obj(k.kalandra_hivas).kezdes), jatekosoknak: szoveg(obj(k.kalandra_hivas).jatekosoknak) },
     ajanlasok,
     szabalyok,
+    atnevezesek: szoveg(k.atnevezesek),
     mutatvany_kiegeszitesek: kieg,
     generator_kikapcsolt: kikapcsolt,
     jutalomterkep: jutalomterkepNormalizal(k.jutalomterkep)
@@ -278,7 +318,7 @@ export function lepesAllapot(k0, karakterek) {
     ivek: allapot(ivDb.filter((iv) => van(k.ivek[iv.kulcs].cel)).length, ivDb.length || 1),
     jutalmak: allapot(ivDb.filter((iv) => JUTALOM_OSZLOPOK.some((c) => van(k.jutalomterkep[iv.kulcs][c.kulcs]))).length, ivDb.length || 1),
     kalandra_hivas: allapot([van(k.kalandra_hivas.kezdes), van(k.kalandra_hivas.jatekosoknak), ajDb > 0].filter(Boolean).length, 3),
-    szabalyok: Object.values(k.szabalyok).some(Boolean) || Object.values(k.mutatvany_kiegeszitesek).some(van) ? 'kesz' : 'ures'
+    szabalyok: Object.values(k.szabalyok).some(Boolean) || van(k.atnevezesek) || Object.values(k.mutatvany_kiegeszitesek).some(van) ? 'kesz' : 'ures'
   };
 }
 

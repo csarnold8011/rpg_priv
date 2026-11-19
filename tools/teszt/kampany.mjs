@@ -167,6 +167,26 @@ const alk = KR.sablonAlkalmaz(masik, { id: 'el_sab', adat: sa });
 ellenoriz(alk.tema === 'Saját téma.' && alk.vilag_id === 'w2' && alk.sablon_id === 'el_sab', 'sablon alkalmazása: a kampány világa marad');
 ellenoriz(KR.LEPESEK.length === 10 && KR.KERET_PELDAK.length === 9 && KR.ALMUFAJOK.length === 9, 'a könyv lépései, keret-példái és alműfajai');
 
+// ---------- Alműfajok (9. fejezet): választható szabályok, ajánlás ----------
+ellenoriz(KR.VALASZTHATO_SZABALYOK.length === 7 && KR.VALASZTHATO_SZABALYOK.every((s) => s.leiras && s.almufaj_szoveg && s.oldal && s.almufajok.every((a) => KR.ALMUFAJOK.some((x) => x.id === a))),
+  'a hét választható szabály leírással, oldallal, létező alműfajokkal');
+ellenoriz(KR.ajanlottSzabalyok({}).length === 0, 'alműfaj nélkül nincs ajánlás');
+ellenoriz(KR.ajanlottSzabalyok({ almufajok: ['horror'] }).join() === 'sulyos_sebek,egeszseg_minden,romlast_hozo_hatalom,nyomozasi_mutatvanyok', 'horror: a könyv szerinti szabályok');
+ellenoriz(KR.ajanlottSzabalyok({ almufajok: ['kard_magia'] }).length === 0, 'kard és mágia: nincs ajánlott szabály');
+const kev = KR.ajanlottSzabalyok({ almufajok: ['harcmuveszet', 'varosi'] });
+ellenoriz(kev.includes('filmszeru_akrobatika') && kev.includes('atnevezes') && kev.includes('nyomozasi_mutatvanyok') && !kev.includes('sulyos_sebek'), 'keverék: bármelyik elem alműfaja ajánl');
+ellenoriz(KR.szabalyAjanlott({ stilus: 'horror' }, 'egeszseg_minden') && !KR.szabalyAjanlott({ stilus: 'magas' }, 'egeszseg_minden'), 'az Alapkönyv horror stílusa is ajánl');
+ellenoriz(!KR.szabalyAjanlott({ almufajok: ['horror'] }, 'nincs_ilyen') && KR.keretAlmufajai({ almufajok: ['horror', 'ismeretlen'] }).join() === 'horror', 'ismeretlen szabály és alműfaj kiesik');
+let ka = KR.beallit(KR.uresKeret(), 'szabalyok.atnevezes', true);
+ka = KR.beallit(ka, 'atnevezes_hiba', 1);
+ka = KR.normalizal(KR.beallit(ka, 'atnevezesek', 'Harcos = szamuráj'));
+ellenoriz(ka.szabalyok.atnevezes === true && ka.atnevezesek === 'Harcos = szamuráj' && ka.atnevezes_hiba === undefined && ka.szabalyok.nyomozasi_mutatvanyok === undefined,
+  'tárolás: jelölés és névlista a keretben, a beállítással kezelt szabály nem');
+ellenoriz(KR.lepesAllapot({ atnevezesek: 'x' }, []).szabalyok === 'kesz' && KR.lepesAllapot({}, []).szabalyok === 'ures', 'a lépés állapota a névlistát is nézi');
+const kaS = KR.sablonAdat(ka, 'Szamurájos');
+const kaA = KR.sablonAlkalmaz(KR.uresKeret(), { id: 's9', adat: kaS });
+ellenoriz(kaA.szabalyok.atnevezes === true && kaA.atnevezesek === 'Harcos = szamuráj', 'sablonba átvitel: a szabályok és az átnevezések megmaradnak');
+
 // ---------- Generátor ----------
 const TABLAK = [
   { id: 't_bolt', nev_hu: 'Üzlettípus', reszletek: { kocka: '3d6', sorok: [

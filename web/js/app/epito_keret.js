@@ -448,13 +448,27 @@ function SzabalyokLepes({ k, allit, kampany, dm, api, uzen }) {
   };
   const ertek = (s) => (s.beallitas ? m[s.beallitas.slice(12)] === true : k.szabalyok[s.kulcs]);
   const valt = (s, x) => (s.beallitas ? beallit(s.beallitas, x) : allit('szabalyok.' + s.kulcs, x));
+  const af = KR.keretAlmufajai(k);
+  const afNev = af.map((a) => (KR.ALMUFAJOK.find((x) => x.id === a) || {}).nev_hu).filter(Boolean);
   return html`<${Lepes} lepes=${KR.LEPESEK[9]}>
-    <fieldset className="mezocsoport">
-      <legend className="ka-field__label">Választható szabályok</legend>
-      ${KR.VALASZTHATO_SZABALYOK.map((s) => html`<${Jelolo} key=${s.kulcs} checked=${!!ertek(s)} onChange=${(x) => valt(s, x)}>
-        ${s.nev} <span className="halvany">(${s.en}, ${s.oldal}. oldal)</span>${s.beallitas ? html` <${K.Badge} tone="accent">az app kezeli<//>` : null}<//>`)}
-      <p className="ka-field__msg">Az „az app kezeli” jelölésűek azonnal a kampány beállításaiba kerülnek (ugyanaz, mint a kampány Próbák és dobások beállításánál). A többi most emlékeztető.</p>
-    </fieldset>
+    <div className="verem">
+      <p className="cimke">Választható szabályok <${Sugo} cim="Választható szabályok">Koppints egy kártyára a jelöléshez. Az „ajánlott” jel a keret alműfaja szerint jön (a könyv 9. fejezete alapján), csak tájékoztat. Az „az app kezeli” jelölésűek azonnal a kampány beállításaiba kerülnek (ugyanaz, mint a kampány Próbák és dobások beállításánál), a többi emlékeztető, gépi hatás nélkül.<//></p>
+      <p className="halvany kicsi">${afNev.length ? 'A keret alműfaja: ' + afNev.join(', ') + '.' : 'A keretnek még nincs alműfaja (első lépés), ezért nincs ajánlás.'}</p>
+      <div className="valasztokartyak">${KR.VALASZTHATO_SZABALYOK.map((s) => {
+        const be = !!ertek(s);
+        const ajanlott = KR.szabalyAjanlott(k, s);
+        return html`<button key=${s.kulcs} type="button" className=${'valasztokartya' + (be ? ' valasztokartya--aktiv' : '')}
+          aria-pressed=${be} onClick=${() => valt(s, !be)}>
+          <strong>${s.nev}</strong> <span className="halvany kicsi">(${s.en}, ${s.oldal}. oldal)</span>
+          ${ajanlott || s.beallitas ? html`<br/>` : null}${ajanlott ? html`<${K.Badge} tone="success">ajánlott<//> ` : null}${s.beallitas ? html`<${K.Badge} tone="accent">az app kezeli<//>` : null}
+          <br/><span className="kicsi">${s.leiras}</span>
+          <br/><span className="halvany kicsi">Alműfaj: ${s.almufaj_szoveg}.</span>
+        </button>`;
+      })}</div>
+      ${k.szabalyok.atnevezes || k.atnevezesek ? html`<${K.TextField} label="Átnevezések ebben a kampányban" multiline=${true} rows=${3}
+        value=${k.atnevezesek} onChange=${(e) => allit('atnevezesek', e.target.value)}
+        hint="Soronként egy, például: Harcos = szamuráj; Nehéz pengék (fókusz) = kendzsucu. A szabály nem változik, az app feliratai sem."/>` : null}
+    </div>
     <div className="verem">
       ${KR.MUTATVANY_KIEGESZITESEK.map((x) => html`<div key=${x.kulcs}>
         ${x.beallitas ? html`<${Jelolo} checked=${m.isteni === true} onChange=${(v) => beallit(x.beallitas, v)}>Isteni mutatványok használata ebben a kampányban<//>` : null}
