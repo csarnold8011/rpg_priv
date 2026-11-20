@@ -18,6 +18,7 @@ import { useJegyzetfuzet, Jegyzetfuzet, KapcsolodoJegyzetek, useJegyzetJelveny }
 import { alanyCel } from '../kampany/anyag.js';
 import { JatekosKalandnaplo, useKalandnaploJelveny } from './kalandnaplo.js';
 import { KasszaPanel } from './kioszt.js';
+import { JatekosBoltok } from './vasarlas.js';
 
 export function JatekosFelulet({ ut }) {
   const { felhasznalo, kilepes } = useApp();
@@ -175,6 +176,7 @@ function KampanyFo({ allapot, fulek, reteg }) {
       <${KampanyCimkek} kampany=${k}/>
     </div>
     ${fulek}
+    <${JatekosBoltok} allapot=${allapot}/>
     <${JatekosCsatak} allapot=${allapot} naploz=${naploz}/>
     <${JatekosProbak} allapot=${allapot} naploz=${naploz}/>
     <${K.Panel} title="Csapat">

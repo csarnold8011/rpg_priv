@@ -1045,3 +1045,25 @@ a.kisgomb { text-decoration: none; }
 .ereklyelista__nyitva > span:first-child { color: var(--accent); }
 .ereklyelista__zarva { color: var(--ink-muted); }
 .magikusjel { color: var(--accent); }
+
+/* 6.6: vásárlás a boltokban */
+.boltsor { align-items: stretch; gap: var(--space-2); }
+.boltsor__fej { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
+.boltkartya { display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: left; cursor: pointer; font: inherit;
+  border: 1px solid var(--accent); border-left-width: 4px; }
+.boltkartya__jel { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent); font: 800 22px/1 var(--font-sans); }
+.boltkartya .kartya__test { flex: 1 1 auto; }
+.boltkartya__nyil { flex: none; font: 700 26px/1 var(--font-sans); color: var(--accent); }
+.arusor { align-items: center; }
+.arusor__nev { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.arusor__megj { line-height: 18px; }
+.arusor__ar { font-variant-numeric: tabular-nums lining-nums; }
+.arusor--elfogyott .arusor__nev { color: var(--ink-muted); }
+.lepteto--kicsi { flex: none; }
+.lepteto--kicsi button { width: 40px; height: 40px; }
+.lepteto--kicsi button:disabled { opacity: 0.4; cursor: default; }
+.lepteto--kicsi span { min-width: 26px; font-size: 18px; }
+.boltlab { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; flex-wrap: wrap; }
+.boltlab__osszeg { display: flex; flex-direction: column; min-width: 0; }
+.boltlab__keves { color: var(--danger); font-weight: 700; }

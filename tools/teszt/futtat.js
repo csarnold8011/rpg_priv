@@ -884,6 +884,96 @@ ellenoriz(v.torolve.length === 2 && fajlok[ekep.kep].kuka && fajlok[ekep.belyeg]
   ellenoriz(w.ok && w.kassza.egyenleg === -30 && w.kassza.naplo.slice(-1)[0].kassza_megjegyzes === 'Szállás', 'kassza kiadás (mínuszba is mehet)');
 }
 
+// ---------- 6.6: vásárlás a boltokban ----------
+{
+  szabaly.getSheetByName('Fegyverek').appendRow(['fgy_longsword', "'Hosszú kard", 'Long Sword', 'Alapkönyv', 48, '', '{"ar_rez":150}', '', 'fcs_heavy_blades', '2d6', 1, '', "'15 ezüst"]);
+  const vevo = hivas('character.create', { nev: 'Vevő Vilma', kampany_id: kampany.id }, dm2).karakter;
+  const masik = hivas('character.create', { nev: 'Idegen Ödön', kampany_id: kampany.id }, dm2).karakter;
+  const dora = hivas('users.admin', { muvelet: 'letrehoz', nev: 'Dóra', jelszo: 'dora1', szerep: 'jatekos' }, dm2).felhasznalo;
+  const doraT = hivas('login', { nev: 'Dóra', jelszo: 'dora1' }).token;
+  hivas('character.assign', { karakter_id: vevo.id, jatekos_id: dora.id }, dm2);
+  hivas('reward.give', { kampany_id: kampany.id, id: 'ko_bolttoke1', fajta: 'penz', karakterek: [{ karakter_id: vevo.id, penz: 1000 }] }, dm2);
+  const penzOf = (id) => Number(hivas('character.get', { id }, dm2).karakter.adat.felszereles.penz_rez) || 0;
+  const penz0 = penzOf(vevo.id);
+  const kinalat = [
+    { id: 'kt_kard', tetel: 'fgy_longsword', nev: 'Hosszú kard', csoport: 'Fegyverek', ar: 150, lista: 150, darab: 2 },
+    { id: 'kt_gyogy', tetel: '', nev: 'Gyógyír', csoport: 'Egyedi tételek', ar: 20, lista: 20, darab: null },
+    { id: 'kt_mag', tetel: '', nev: 'Lángoló buzogány', csoport: 'Egyedi tételek', ar: 500, darab: 1,
+      magikus: { alap_id: 'fgy_mace', bejegyzes: { fajta: 'targy', nev: 'Lángoló buzogány', alap_id: 'fgy_mace', elonyok: [{ tipus: 'sebzes', ertek: 1 }] } } }
+  ];
+  const bolt = { elem_id: 'el_bolt00001', nev: 'Vasmarok műhelye', hely: 'Kőhíd', tipus: 'Fegyverkovács', felvasarlas: 25, tetelek: kinalat };
+  ellenoriz(hivas('shop.open', { kampany_id: kampany.id, bolt }, doraT).hiba === 'nincs_jogosultsag', 'boltot csak a DM nyithat');
+  ellenoriz(hivas('shop.open', { kampany_id: kampany.id, bolt: { ...bolt, elem_id: 'rossz' } }, dm2).hiba === 'hibas_adat', 'hibás boltazonosító');
+  ellenoriz(hivas('shop.open', { kampany_id: kampany.id, bolt: { ...bolt, tetelek: [{ id: 'x', nev: 'Ár nélkül', ar: null }] } }, dm2).hiba === 'hibas_adat', 'ár nélküli tétel nem kerülhet a nyitott boltba');
+  let w = hivas('shop.open', { kampany_id: kampany.id, bolt }, dm2);
+  const boltId = w.ok && w.bolt.id;
+  ellenoriz(w.ok && w.bolt.nyitva && w.bolt.tetelek[0].keszlet === 2 && w.bolt.tetelek[1].keszlet === null, 'DM megnyitja a boltot (készlet: 2, korlátlan)', w);
+  let st = hivas('state.get', { kampany_id: kampany.id }, doraT);
+  ellenoriz(st.ok && st.boltok.length === 1 && st.boltok[0].nev === 'Vasmarok műhelye', 'a játékos látja a nyitott boltot', st.boltok);
+  // vétel
+  ellenoriz(hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'rossz', karakter_id: vevo.id, tetelek: [{ tetel_id: 'kt_kard', db: 1 }] }, doraT).hiba === 'hibas_adat', 'hibás vásárlásazonosító');
+  ellenoriz(hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_idegen001', karakter_id: masik.id, tetelek: [{ tetel_id: 'kt_gyogy', db: 1 }] }, doraT).hiba === 'nincs_jogosultsag', 'más karakteréért a játékos nem vásárolhat');
+  w = hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_elso00001', karakter_id: vevo.id, fajta: 'vetel', tetelek: [{ tetel_id: 'kt_kard', db: 1 }, { tetel_id: 'kt_gyogy', db: 3 }] }, doraT);
+  ellenoriz(w.ok && w.vasarlas.osszeg === -210 && w.karakter.adat.felszereles.penz_rez === penz0 - 210, 'vétel: kard és három gyógyír, 210 réz levonva', w);
+  const vk = w.ok ? w.karakter.adat.felszereles : { targyak: [], jatek: [] };
+  ellenoriz(vk.targyak.some((x) => x.id === 'fgy_longsword' && x.db === 1) && vk.targyak.some((x) => x.id === 'sajat:gyógyír' && x.db === 3 && x.nev === 'Gyógyír'),
+    'a leltárban a kard és a gyógyír (saját tárgyként, névvel)', vk.targyak);
+  ellenoriz(vk.jatek.filter((t) => t.vasarlas_id === 'vb_elso00001').every((t) => t.tipus === 'vetel' && /Vasmarok/.test(t.hol)), 'a tételek vételként, a bolt nevével', vk.jatek);
+  ellenoriz(w.ok && w.bolt.tetelek[0].keszlet === 1, 'a kard készlete fogyott');
+  ellenoriz(hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_elso00001', karakter_id: vevo.id, tetelek: [{ tetel_id: 'kt_kard', db: 1 }] }, doraT).ismetelt
+    && penzOf(vevo.id) === penz0 - 210, 'ismételt küldés nem duplikál');
+  w = hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_sok000001', karakter_id: vevo.id, tetelek: [{ tetel_id: 'kt_kard', db: 2 }] }, doraT);
+  ellenoriz(w.hiba === 'elfogyott' && /csak 1/.test(w.uzenet), 'a készletnél többet nem lehet venni', w);
+  hivas('shop.open', { kampany_id: kampany.id, bolt: { ...bolt, tetelek: kinalat.concat([{ id: 'kt_drag', tetel: '', nev: 'Aranyozott nyereg', ar: 5000, darab: null }]) } }, dm2);
+  w = hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_draga0001', karakter_id: vevo.id, tetelek: [{ tetel_id: 'kt_drag', db: 1 }] }, doraT);
+  ellenoriz(w.hiba === 'nincs_penz', 'nincs elég pénz: a vásárlás elmarad', w);
+  w = hivas('state.get', { kampany_id: kampany.id }, doraT);
+  ellenoriz(w.boltok[0].tetelek[0].keszlet === 1, 'újranyitás után is megmarad a fogyás');
+  // mágikus tárgy
+  w = hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_magikus01', karakter_id: vevo.id, tetelek: [{ tetel_id: 'kt_mag', db: 1 }] }, doraT);
+  const mk = w.ok ? w.karakter.adat : {};
+  ellenoriz(w.ok && mk.felszereles.targyak.some((x) => x.id === 'fgy_mace~vb_magikus01' && x.nev === 'Lángoló buzogány')
+    && (mk.jutalmak || []).some((j) => j.targy_id === 'fgy_mace~vb_magikus01' && j.vasarlas_id === 'vb_magikus01' && j.fajta === 'targy'),
+  'mágikus tárgy: egyedi azonosítóval a leltárba, bejegyzéssel', mk.jutalmak);
+  ellenoriz(w.ok && w.bolt.tetelek[2].keszlet === 0, 'a mágikus tárgy elfogyott');
+  // eladás
+  const penz1 = penzOf(vevo.id);
+  w = hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_elad00001', karakter_id: vevo.id, fajta: 'eladas', targyak: [{ targy: 'fgy_longsword', db: 1 }] }, doraT);
+  ellenoriz(w.ok && w.vasarlas.osszeg === 38 && w.karakter.adat.felszereles.penz_rez === penz1 + 38 && !w.karakter.adat.felszereles.targyak.some((x) => x.id === 'fgy_longsword'),
+    'eladás: a listaár negyede (150 → 38 réz), a kard lekerül', w);
+  ellenoriz(w.ok && w.vasarlas.tetelek[0].nev === 'Hosszú kard', 'az eladás naplójában a tárgy neve a szabályadatból', w.vasarlas);
+  ellenoriz(hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_elad00002', karakter_id: vevo.id, fajta: 'eladas', targyak: [{ targy: 'fgy_mace~vb_magikus01', db: 1 }] }, doraT).hiba === 'hibas_adat',
+    'mágikus tárgyat a bolt nem vásárol fel');
+  ellenoriz(hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_elad00003', karakter_id: vevo.id, fajta: 'eladas', targyak: [{ targy: 'fgy_longsword', db: 1 }] }, doraT).hiba === 'hibas_adat',
+    'nincs nála: nem adhatja el');
+  // visszavonás
+  ellenoriz(hivas('shop.undo', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_elso00001' }, doraT).hiba === 'nincs_jogosultsag', 'visszavonni csak a DM tud');
+  const penz2 = penzOf(vevo.id);
+  w = hivas('shop.undo', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_magikus01' }, dm2);
+  const vk2 = hivas('character.get', { id: vevo.id }, dm2).karakter.adat;
+  ellenoriz(w.ok && w.vasarlas.visszavonva && penzOf(vevo.id) === penz2 + 500 && !vk2.felszereles.targyak.some((x) => /fgy_mace/.test(x.id)) && !(vk2.jutalmak || []).length
+    && w.bolt.tetelek[2].keszlet === 1, 'a mágikus vétel visszavonása: pénz, leltár, bejegyzés és készlet visszaáll', w);
+  ellenoriz(hivas('shop.undo', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_magikus01' }, dm2).ok, 'ismételt visszavonás nem hibázik');
+  // DM bárki nevében, mínuszba is
+  w = hivas('shop.buy', { kampany_id: kampany.id, bolt_id: 'el_bolt00001', id: 'vb_dmvesz001', karakter_id: masik.id, tetelek: [{ tetel_id: 'kt_drag', db: 1 }] }, dm2);
+  ellenoriz(w.ok && w.karakter.adat.felszereles.penz_rez < 0, 'a DM bárki nevében vásárolhat (az elem azonosítójával is), mínuszba is', w);
+  // két tételből az olcsóbb féláron
+  hivas('shop.open', { kampany_id: kampany.id, bolt: { elem_id: 'el_bolt00002', nev: 'Félárú Feri', bogo: true, tetelek: [{ id: 'a', nev: 'Csizma', ar: 100 }, { id: 'b', nev: 'Köpeny', ar: 60 }] } }, dm2);
+  w = hivas('shop.buy', { kampany_id: kampany.id, bolt_id: 'el_bolt00002', id: 'vb_bogo00001', karakter_id: vevo.id, tetelek: [{ tetel_id: 'a', db: 1 }, { tetel_id: 'b', db: 1 }] }, doraT);
+  ellenoriz(w.ok && w.vasarlas.osszeg === -130, 'két tételből az olcsóbb féláron (100 + 30)', w.vasarlas);
+  hivas('shop.open', { kampany_id: kampany.id, bolt: { elem_id: 'el_bolt00003', nev: 'Cserebere', csere: true, tetelek: [{ id: 'a', nev: 'Só', ar: 5 }] } }, dm2);
+  ellenoriz(hivas('shop.buy', { kampany_id: kampany.id, bolt_id: 'el_bolt00003', id: 'vb_csere0001', karakter_id: vevo.id, tetelek: [{ tetel_id: 'a', db: 1 }] }, doraT).hiba === 'hibas_adat', 'csak csere: pénzért nem lehet venni');
+  // bezárás, újranyitás, törlés
+  w = hivas('shop.close', { kampany_id: kampany.id, bolt_id: boltId }, dm2);
+  st = hivas('state.get', { kampany_id: kampany.id }, doraT);
+  ellenoriz(w.ok && !w.bolt.nyitva && !st.boltok.some((b) => b.id === boltId) && hivas('state.get', { kampany_id: kampany.id }, dm2).boltok.length === 3, 'bezárás: a játékos már nem látja, a DM igen');
+  ellenoriz(hivas('shop.buy', { kampany_id: kampany.id, bolt_id: boltId, id: 'vb_zarva0001', karakter_id: vevo.id, tetelek: [{ tetel_id: 'kt_gyogy', db: 1 }] }, doraT).hiba === 'hibas_adat', 'zárt boltban nem lehet vásárolni');
+  w = hivas('shop.open', { kampany_id: kampany.id, bolt, keszlet_ujra: true }, dm2);
+  ellenoriz(w.ok && w.bolt.tetelek[0].keszlet === 2 && w.bolt.naplo.length >= 4, 'újranyitás a készlet újraindításával, a napló megmarad', w.bolt);
+  w = hivas('shop.close', { kampany_id: kampany.id, bolt_id: 'el_bolt00003', torol: true }, dm2);
+  ellenoriz(w.ok && hivas('state.get', { kampany_id: kampany.id }, dm2).boltok.length === 2, 'a bolt sora törölhető');
+}
+
 ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).hiba === 'hibas_adat', 'nem archivált kampány nem törölhető');
 hivas('campaign.update', { id: kampany.id, allapot: 'archivált' }, dm2);
 ellenoriz(hivas('campaigns.list', {}, annaT).kampanyok.length === 0, 'archivált kampányt a mesterjátékos nem látja');
@@ -897,6 +987,7 @@ ellenoriz(!jatek.getSheetByName('Elemek').adat.some(sor => sor.includes('el_kamp
 ellenoriz(!jatek.getSheetByName('Kapcsolatok').adat.some(sor => sor.includes('ln_kapcs0004')), 'a törölt kampány kapcsolatai is törlődtek');
 ellenoriz(!jatek.getSheetByName('Jegyzetek').adat.some(sor => sor.includes(kampany.id)), 'a törölt kampány jegyzetei is törlődtek');
 ellenoriz(!jatek.getSheetByName('Alkalmak').adat.some(sor => sor.includes(kampany.id)), 'a törölt kampány alkalmai is törlődtek');
+ellenoriz(!jatek.getSheetByName('Boltok').adat.some(sor => sor.includes(kampany.id)), 'a törölt kampány boltjai is törlődtek');
 
 console.log(hibak ? `\n${hibak} HIBA` : '\nMinden teszt sikeres.');
 process.exit(hibak ? 1 : 0);

@@ -18,6 +18,7 @@ import { kalandJelenetei, jelenetFelold, utemSor, ivSzerint } from './kaland.js'
 import { lenyekNorm } from './jelenet.js';
 import { penzSzoveg } from '../karakter/varazslo.js';
 import { alkalomCim, valosIdoSzoveg, jatekbeliIdoSzoveg } from './alkalom_ido.js';
+import { vasarlasEsemenyek } from './vasarlas.js';
 
 export { alkalomCim, valosIdoSzoveg, jatekbeliIdoSzoveg };
 
@@ -288,7 +289,7 @@ export function esemenyekAllapotbol(allapot, alkalom) {
       xpCsoport.get(k).adat.tetelek.push({ nev: c.nev, xp: Number(x.xp) || 0 });
     });
     lista(obj(d.felszereles).jatek).forEach((t) => {
-      if (!benne(t.idopont, kezdet, veg) || !Number(t.penz) || t.kiosztas_id) return; // a kiosztásoké lent, a kasszából
+      if (!benne(t.idopont, kezdet, veg) || !Number(t.penz) || t.kiosztas_id || t.vasarlas_id) return; // a kiosztásoké és a vásárlásoké lent
       ki.push({ kulcs: 'penz:' + c.id + ':' + t.idopont, ido: t.idopont, fajta: 'penz', szoveg: szoveg(t.megjegyzes) || szoveg(t.nev) || '',
         adat: { nev: c.nev, penz: Number(t.penz) || 0, tipus: szoveg(t.tipus) } });
     });
@@ -315,6 +316,8 @@ export function esemenyekAllapotbol(allapot, alkalom) {
       adat: { kiosztas_id: x.id, fajta: szoveg(x.fajta), tetelek, kassza, tars: x.tars ? { nev: szoveg(x.tars.nev), csapat: x.tars.kotodes === 'csapat' } : null,
         ...(vissza ? { visszavont: true } : {}) } });
   });
+  // 6.6: a boltok vásárlásai és eladásai (a bolt naplójából) karakterenként „pénz” esemény.
+  vasarlasEsemenyek(st, (ido) => benne(ido, kezdet, veg)).forEach((e) => ki.push(e));
   return ki.sort((a, b) => szoveg(a.ido).localeCompare(szoveg(b.ido)));
 }
 

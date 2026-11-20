@@ -743,7 +743,8 @@ export function JutalomKotes({ elem, prep, cel }) {
 // ================= A bolt mágikus kínálata =================
 
 // A „Mágikus kínálat” üzletrészlet tárgyai (53. oldal): a bolt típusa szerinti véletlen tárgyak mágikus tulajdonsággal,
-// egyedi tételként a kínálatba (ár nélkül: a könyv szerint „ennek megfelelő áron”, a DM adja meg).
+// egyedi tételként a kínálatba (ár nélkül: a könyv szerint „ennek megfelelő áron”, a DM adja meg). 6.6 óta a tétel
+// `magikus` mezője őrzi az alapot és az előnyöket, így vásárláskor a karakterlapra mágikus tárgyként kerül.
 export function magikusTetelek(a, lapok, db, opciok = {}) {
   const tablak = tablakBol(lapok);
   const korny = { tablak, rng: opciok.rng || Math.random, kikapcsolt: opciok.kikapcsolt || {} };
@@ -768,7 +769,10 @@ export function magikusTetelek(a, lapok, db, opciok = {}) {
       return tp.nev + (tp.ertekes && e.ertek !== '' ? ' ' + elojel(e.ertek) : '') + (e.mire ? ' (' + e.mire + ')' : '');
     });
     ki.push({ id: ujAzon('kt'), forras: 'egyedi', tetel: '', nev: 'Mágikus: ' + nev + (kid && t.kidolgozottsag !== 'atlagos' ? ' (' + kid.nev.toLowerCase() + ')' : ''),
-      lista_rez: null, darab: 1, ar_rez: null, megj: elonyok.join(', ') + (t.atok.van ? ', átkozott' : '') + (fajta ? '' : '; a tárgy fajtáját a DM választja') });
+      lista_rez: null, darab: 1, ar_rez: null, megj: elonyok.join(', ') + (t.atok.van ? ', átkozott' : '') + (fajta ? '' : '; a tárgy fajtáját a DM választja'),
+      // 6.6: a vásárláskor a karakterlapra kerülő bejegyzéshez (a fegyver és a páncél előnye így beleszámít)
+      magikus: { targy_fajta: fajta || 'egyeb', alap_id: t.nincs ? '' : t.alap_id, alap_nev: t.nincs ? '' : t.alap_nev, kidolgozottsag: t.kidolgozottsag,
+        elonyok: t.elonyok, atok: t.atok } });
   }
   return ki;
 }

@@ -477,6 +477,18 @@ const SEMA = {
           "letrehozva",
           "modositva",
           "modositotta"
+        ],
+        "Boltok": [
+          "id",
+          "kampany_id",
+          "elem_id",
+          "nev",
+          "nyitva",
+          "adat",
+          "verzio",
+          "megnyitva",
+          "modositva",
+          "modositotta"
         ]
       }
     }

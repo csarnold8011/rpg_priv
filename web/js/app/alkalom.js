@@ -16,6 +16,9 @@ import { CsataInditasParbeszed, csataUt } from './csata.js';
 import { KiosztasParbeszed, Kivetito } from './anyagok.js';
 import { XpKiosztas } from './xpkiosztas.js';
 import { JutalomElemSorok, KasszaPanel, ZsakmanyParbeszed } from './kioszt.js';
+import { BoltokPanel, BoltGomb } from './vasarlas.js';
+import * as VS from '../kampany/vasarlas.js';
+import * as B6 from '../kampany/bolt.js';
 import { useJegyzetfuzet, Jegyzetfuzet } from './jegyzetfuzet.js';
 import { KarakterKep } from './kepek.js';
 import { fokuszNevLapbol } from './proba.js';
@@ -218,6 +221,7 @@ function JatekTartalom({ allapot, prep, cel, Oldalfej, dm }) {
       <aside className="jatek__jobb" aria-label="Csapat és napló">
         <${CsapatAllapot} allapot=${allapot}/>
         <${KasszaPanel} allapot=${allapot} dm=${true} kompakt=${true}/>
+        <${BoltokPanel} allapot=${allapot} prep=${prep}/>
         <${GyorsJegyzet} alk=${alk} jelenetNev=${jelenetNev}/>
         <${K.Panel}>
           <div className="kapcsolo kapcsolo--teljes" role="group" aria-label="Napló vagy jegyzetfüzet">
@@ -345,6 +349,7 @@ function JelenetKartya({ jelenet, prep, cel, allapot, adat, fut, aktualis, kovet
   const e = JL.erzekekNorm(a.erzekek);
   const erzekek = [['Fények', e.fenyek], ['Hőmérséklet', e.homerseklet], ['Szagok', e.szagok], ['Hangok', e.hangok]].filter((x) => van(x[1]));
   const helyek = HS.helyszineiOf(jelenet.id, prep.adat.kapcsolatok || []).map((k) => ix.get(k.hova)).filter(Boolean);
+  const boltok = VS.helyszinBoltjai(helyek, prep.adat.elemek, (x) => E.megjelenitett(x, ix));
   const konf = JL.konfliktusokNorm(a.konfliktusok).filter((k) => van(k.cel) || van(k.akadaly));
   const megold = JL.megoldasokNorm(a.megoldasok).filter((m) => van(m.mod) || van(m.szoveg));
   const lenyek = JL.lenyekNorm(a.lenyek).filter((l) => van(l.nev) || l.ref_id);
@@ -387,6 +392,12 @@ function JelenetKartya({ jelenet, prep, cel, allapot, adat, fut, aktualis, kovet
         <a className="sorlista__nev" href=${elemUt(cel, h.id)}>${HS.osok(h, ix).map((x) => E.nev(x, ix)).concat([E.nev(h, ix)]).join(' › ')}</a>
         ${van(m.felolvasando) ? html`<div className="felolvasando felolvasando--kicsi">${m.felolvasando}</div>` : van(m.leiras) ? html`<p className="szoveg tordelt kicsi">${m.leiras}</p>` : null}
       </div>`; })}
+    <//>` : null}
+    ${boltok.length ? html`<${Szakasz} cim="Boltok">
+      <ul className="sorlista">${boltok.map((b) => html`<li key=${b.id} className="sorlista__sor">
+        <span><a className="sorlista__nev" href=${elemUt(cel, b.id)}>${E.nev(b, ix)}</a><br/><span className="halvany kicsi">${B6.osszefoglalo(E.megjelenitett(b, ix))}</span></span>
+        <span className="sorlista__muvelet"><${BoltGomb} allapot=${allapot} elem=${b} ix=${ix} prep=${prep}/></span>
+      </li>`)}</ul>
     <//>` : null}
     ${konf.length || megold.length || van(a.tet) || van(a.siker) || van(a.kudarc) ? html`<${Szakasz} cim="Konfliktus és megoldások" nyitva=${false}>
       ${konf.map((k) => html`<p key=${k.id} className="szoveg kicsi"><strong>${k.cel || 'Cél'}</strong>${k.akadaly ? ', akadály: ' + k.akadaly : ''}${k.miert ? ' (miért: ' + k.miert + ')' : ''}</p>`)}

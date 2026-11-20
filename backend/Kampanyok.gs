@@ -47,7 +47,7 @@ function indulas_(a, felh) {
 // action: campaign.delete (csak DM)   adat: { id }
 // Csak archivált kampány törölhető. A kampánykapcsolatok törlődnek, a karakterek megmaradnak,
 // a dobásnapló sorai is maradnak. A kampány összecsapásai, csatái, előkészítő elemei (Kampányépítő) és azok
-// kapcsolatai, megosztásai, jegyzetei és alkalmai (kalandnapló) törlődnek; a világ elemei és a sablonok megmaradnak.
+// kapcsolatai, megosztásai, jegyzetei, alkalmai (kalandnapló) és boltjai törlődnek; a világ elemei és a sablonok megmaradnak.
 function kampanyTorlese_(a, felh) {
   return zarolva_(function () {
     const k = kornyezet_();
@@ -61,6 +61,7 @@ function kampanyTorlese_(a, felh) {
     kampanyMegosztasainakTorlese_(kampany.id);
     kampanyJegyzeteinekTorlese_(kampany.id);
     kampanyAlkalmainakTorlese_(kampany.id);
+    kampanyBoltjainakTorlese_(kampany.id);
     sorTorlese_('jatek', 'Kampányok', kampany._sor);
     CacheService.getScriptCache().remove('kv_' + kampany.id);
     valtozasNaplozasa_(felh, 'kampany.torol', kampany.id, kampany.verzio, '');
@@ -214,6 +215,8 @@ function allapotLekerese_(a, felh) {
   };
   // az alkalmak (6.4): a DM-nek a lista és a futó (vagy legutóbbi) alkalom, a játékosnak a közzétett kalandnapló
   Object.assign(o, kampanyAlkalmai_(kampany, szerep === 'dm' ? 'dm' : szerep, megoszt.alanyok, osszesMegosztas));
+  // a boltok (6.6): a DM-nek mind, a többieknek a nyitottak
+  o.boltok = kampanyBoltjai_(kampany, szerep);
   // az előkészített összecsapások csak a DM-é
   if (szerep === 'dm') {
     o.osszecsapasok = kampanyOsszecsapasai_(kampany);
