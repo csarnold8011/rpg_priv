@@ -26,6 +26,7 @@ import { DobotablakOldal } from './dobotabla.js';
 import { KampanyAnyagokPanel } from './anyagok.js';
 import { useJegyzetfuzet, Jegyzetfuzet } from './jegyzetfuzet.js';
 import { JatekOldal, KalandnaploOldal, KampanyAlkalmakPanel, jatekUt } from './alkalom.js';
+import { KasszaPanel } from './kioszt.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -322,6 +323,7 @@ function KampanyOldal({ id }) {
       <div className="verem">
         <${KampanyAlkalmakPanel} allapot=${allapot}/>
         <${CsapatPanel} allapot=${allapot} frissit=${frissit}/>
+        <${KasszaPanel} allapot=${allapot} dm=${true}/>
         <${KampanyAnyagokPanel} allapot=${allapot} frissit=${frissit} felhasznaloNev=${dm.felhasznaloNev}/>
         <${KampanyJegyzetfuzet} allapot=${allapot}/>
         <${KampanyBeallitasok} kampany=${k} frissit=${frissit}/>

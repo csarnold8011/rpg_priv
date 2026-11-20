@@ -815,6 +815,75 @@ ellenoriz(v.torolve.length === 2 && fajlok[ekep.kep].kuka && fajlok[ekep.belyeg]
   ellenoriz(Array.isArray(OR) && OR.length > 30, 'a háttér örökölhető mezőlistája megvan');
 }
 
+// ---------- 6.5: jutalmak kiosztása, csapatkassza ----------
+{
+  const rika = hivas('character.create', { nev: 'Rika', kampany_id: kampany.id }, dm2).karakter;
+  const tomaj = hivas('character.create', { nev: 'Tomaj', kampany_id: kampany.id }, dm2).karakter;
+  const csenge = hivas('users.admin', { muvelet: 'letrehoz', nev: 'Csenge', jelszo: 'csenge1', szerep: 'jatekos' }, dm2).felhasznalo;
+  const csengeT = hivas('login', { nev: 'Csenge', jelszo: 'csenge1' }).token;
+  hivas('character.assign', { karakter_id: rika.id, jatekos_id: csenge.id }, dm2);
+  const morg0 = hivas('character.get', { id: rika.id }, dm2).karakter;
+  const pottom0 = hivas('character.get', { id: tomaj.id }, dm2).karakter;
+  const penz0 = Number((morg0.adat.felszereles || {}).penz_rez) || 0;
+  ellenoriz(hivas('reward.give', { kampany_id: kampany.id, id: 'ko_zsakmany1', karakterek: [{ karakter_id: rika.id, penz: 100 }] }, annaT).hiba === 'nincs_jogosultsag', 'jutalmat csak a DM oszthat ki');
+  ellenoriz(hivas('reward.give', { kampany_id: kampany.id, id: 'rossz', karakterek: [{ karakter_id: rika.id, penz: 100 }] }, dm2).hiba === 'hibas_adat', 'hibás kiosztásazonosító');
+  ellenoriz(hivas('reward.give', { kampany_id: kampany.id, id: 'ko_ures0001' }, dm2).hiba === 'hianyzo_adat', 'üres kiosztás hibát ad');
+  ellenoriz(hivas('reward.give', { kampany_id: kampany.id, id: 'ko_idegen01', karakterek: [{ karakter_id: bhos.id, penz: 5 }] }, dm2).hiba === 'hibas_adat', 'kampányon kívüli karakternek nem osztható');
+  // zsákmány: 250 réz két karakternek, a maradék 50 a kasszába
+  let w = hivas('reward.give', { kampany_id: kampany.id, id: 'ko_zsakmany1', fajta: 'zsakmany', ok: 'A goblinok ládája', kassza: 50,
+    karakterek: [{ karakter_id: rika.id, penz: 100 }, { karakter_id: tomaj.id, penz: 100 }] }, dm2);
+  ellenoriz(w.ok && w.kassza.egyenleg === 50 && w.karakterek.length === 2 && w.kiosztas.karakterek[0].penz === 100, 'zsákmány: két karakter és a kassza', w);
+  const morg1 = hivas('character.get', { id: rika.id }, dm2).karakter;
+  const t = morg1.adat.felszereles.jatek.slice(-1)[0];
+  ellenoriz(morg1.verzio === morg0.verzio + 1 && morg1.adat.felszereles.penz_rez === penz0 + 100 && t.kiosztas_id === 'ko_zsakmany1' && t.tipus === 'penz' && t.megjegyzes === 'A goblinok ládája',
+    'a pénz a karakter pénztételei közé került, a penz_rez frissült', t);
+  w = hivas('reward.give', { kampany_id: kampany.id, id: 'ko_zsakmany1', kassza: 50, karakterek: [{ karakter_id: rika.id, penz: 100 }] }, dm2);
+  ellenoriz(w.ok && w.ismetelt && w.kassza.egyenleg === 50 && hivas('character.get', { id: rika.id }, dm2).karakter.verzio === morg1.verzio, 'ismételt küldés nem duplikál');
+  // a kassza látszik a tagoknak, a jutalomelem azonosítója csak a DM-nek
+  w = hivas('reward.give', { kampany_id: kampany.id, id: 'ko_cim00001', fajta: 'jutalom', ok: 'Cím: Goblinölő', jutalom_id: 'el_jut01', jutalom_nev: 'Goblinölő',
+    karakterek: [{ karakter_id: rika.id, jutalom: { fajta: 'cim', nev: 'Goblinölő', hatas: '+1 Megfélemlítés goblinok ellen', bonusz: 1 } }] }, dm2);
+  ellenoriz(w.ok && w.kiosztas.jutalom_id === 'el_jut01', 'cím kiosztása', w);
+  const morg2 = hivas('character.get', { id: rika.id }, dm2).karakter;
+  const jb = (morg2.adat.jutalmak || [])[0];
+  ellenoriz(jb && jb.fajta === 'cim' && jb.nev === 'Goblinölő' && jb.kiosztas_id === 'ko_cim00001' && jb.jutalom_id === 'el_jut01' && jb.kampany_id === kampany.id, 'a cím a karakter jutalmai közt', jb);
+  const stDm = hivas('state.get', { kampany_id: kampany.id }, dm2);
+  const stB = hivas('state.get', { kampany_id: kampany.id }, csengeT);
+  ellenoriz(stDm.kampany.kassza.egyenleg === 50 && stDm.kampany.kassza.naplo.length === 2 && stDm.kampany.kassza.naplo[1].jutalom_id === 'el_jut01', 'a DM látja a kasszát a jutalomelemmel');
+  ellenoriz(stB.ok && stB.kampany.kassza.egyenleg === 50 && stB.kampany.kassza.naplo[1].jutalom_id === undefined, 'a játékos is látja a kasszát, a jutalomelem azonosítója nélkül', stB.kampany && stB.kampany.kassza);
+  ellenoriz(hivas('campaign.update', { id: kampany.id, beallitasok: { kassza: { egyenleg: 99999 }, celertek_rejtett: true } }, dm2).ok
+    && hivas('state.get', { kampany_id: kampany.id }, dm2).kampany.kassza.egyenleg === 50, 'a campaign.update nem írja át a kasszát');
+  // mágikus tárgy egyedi azonosítóval
+  w = hivas('reward.give', { kampany_id: kampany.id, id: 'ko_kard0001', ok: 'Lángnyelv', karakterek: [{ karakter_id: tomaj.id,
+    targy: { id: 'fgy_longsword~ko_kard0001', nev: 'Lángnyelv', db: 1 }, jutalom: { fajta: 'targy', nev: 'Lángnyelv', targy_id: 'fgy_longsword~ko_kard0001', elonyok: [{ tipus: 'tamadas', ertek: 1 }] } }] }, dm2);
+  const pottom1 = hivas('character.get', { id: tomaj.id }, dm2).karakter;
+  const kard = pottom1.adat.felszereles.targyak.find((x) => x.id === 'fgy_longsword~ko_kard0001');
+  ellenoriz(w.ok && kard && kard.db === 1 && kard.nev === 'Lángnyelv' && pottom1.adat.jutalmak.some((j) => j.targy_id === kard.id), 'mágikus tárgy a leltárban, a jutalombejegyzéssel', pottom1.adat.felszereles.targyak);
+  // társ: a követő a karakterhez kötődik
+  const tarsNjk = hivas('npc.save', { nev: 'Bundás', fajta: 'koveto', adat: { szerep: {} } }, dm2).njk;
+  w = hivas('reward.give', { kampany_id: kampany.id, id: 'ko_tars0001', ok: 'Társ: Bundás', tars: { njk_id: tarsNjk.id, kotodes: rika.id },
+    karakterek: [{ karakter_id: rika.id, jutalom: { fajta: 'tars', nev: 'Bundás', njk_id: tarsNjk.id } }] }, dm2);
+  let nj = hivas('npc.get', { id: tarsNjk.id }, dm2).njk;
+  ellenoriz(w.ok && nj.kotodes === rika.id && nj.kampanyok.includes(kampany.id), 'a társ a karakterhez kötődik és a kampányba kerül', nj);
+  ellenoriz((hivas('state.get', { kampany_id: kampany.id }, csengeT).njkk || []).some((n) => n.id === tarsNjk.id), 'a gazda játékosa látja a társat');
+  // visszavonás
+  ellenoriz(hivas('reward.undo', { kampany_id: kampany.id, id: 'ko_tars0001' }, annaT).hiba === 'nincs_jogosultsag', 'visszavonni csak a DM tud');
+  w = hivas('reward.undo', { kampany_id: kampany.id, id: 'ko_tars0001' }, dm2);
+  nj = hivas('npc.get', { id: tarsNjk.id }, dm2).njk;
+  ellenoriz(w.ok && w.kiosztas.visszavonva && nj.kotodes === '' && !nj.kampanyok.includes(kampany.id) && !hivas('character.get', { id: rika.id }, dm2).karakter.adat.jutalmak.some((j) => j.fajta === 'tars'),
+    'a társ visszavonása: a kötődés és a bejegyzés visszaáll', nj);
+  w = hivas('reward.undo', { kampany_id: kampany.id, id: 'ko_zsakmany1' }, dm2);
+  const morg3 = hivas('character.get', { id: rika.id }, dm2).karakter;
+  ellenoriz(w.ok && w.kassza.egyenleg === 0 && morg3.adat.felszereles.penz_rez === penz0 && !morg3.adat.felszereles.jatek.some((x) => x.kiosztas_id === 'ko_zsakmany1')
+    && morg3.adat.jutalmak.length === 1, 'a zsákmány visszavonása: a pénz és a kassza visszaáll, a cím megmarad', w.kassza);
+  w = hivas('reward.undo', { kampany_id: kampany.id, id: 'ko_kard0001' }, dm2);
+  const pottom2 = hivas('character.get', { id: tomaj.id }, dm2).karakter;
+  ellenoriz(w.ok && !pottom2.adat.felszereles.targyak.some((x) => x.id === 'fgy_longsword~ko_kard0001') && !(pottom2.adat.jutalmak || []).length, 'a tárgy visszavonása: lekerül a leltárból');
+  ellenoriz(hivas('reward.undo', { kampany_id: kampany.id, id: 'ko_kard0001' }, dm2).ok, 'ismételt visszavonás nem hibázik');
+  // kassza: be és ki
+  w = hivas('reward.give', { kampany_id: kampany.id, id: 'ko_kassza01', fajta: 'kassza', kassza: -30, kassza_megjegyzes: 'Szállás' }, dm2);
+  ellenoriz(w.ok && w.kassza.egyenleg === -30 && w.kassza.naplo.slice(-1)[0].kassza_megjegyzes === 'Szállás', 'kassza kiadás (mínuszba is mehet)');
+}
+
 ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).hiba === 'hibas_adat', 'nem archivált kampány nem törölhető');
 hivas('campaign.update', { id: kampany.id, allapot: 'archivált' }, dm2);
 ellenoriz(hivas('campaigns.list', {}, annaT).kampanyok.length === 0, 'archivált kampányt a mesterjátékos nem látja');

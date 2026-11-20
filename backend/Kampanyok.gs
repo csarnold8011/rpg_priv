@@ -10,6 +10,8 @@ function kampanyNezet_(kampany, szerep) {
     beallitasok: kampanyBeallitasai_(kampany)
   };
   if (szerep === 'dm') o.dm_jegyzet = kampany.dm_jegyzet || '';
+  // a csapatkassza (6.5, Jutalmak.gs): minden tag látja
+  o.kassza = kasszaNezet_(kampany, szerep);
   // a kampánykeret játékosoknak szóló része (bemutatás, szintsáv, karakterkészítési ajánlások), lásd Epito.gs
   const jr = keretJatekosoknak_(keretAdat_(kampany));
   if (jr) o.keret_jatekosoknak = jr;
@@ -93,7 +95,9 @@ function kampanyModositasa_(a, felh) {
     });
     if (a.beallitasok && typeof a.beallitasok === 'object') {
       const regi = kampany.beallitasok && typeof kampany.beallitasok === 'object' ? kampany.beallitasok : {};
-      kampany.beallitasok = Object.assign({}, regi, a.beallitasok);
+      const uj = Object.assign({}, a.beallitasok);
+      delete uj.kassza; // a csapatkasszát csak a reward.give és a reward.undo írja
+      kampany.beallitasok = Object.assign({}, regi, uj);
     }
     sorFrissitese_('jatek', 'Kampányok', kampany);
     kampanyVerziokNovelese_([kampany.id], kampanyok);

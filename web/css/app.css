@@ -1025,3 +1025,23 @@ a.kisgomb { text-decoration: none; }
   .jatekos__fulek .jelveny { margin-left: 2px; }
 }
 @media (max-width: 380px) { .jatekos__fulek button { padding: 0 4px; font-size: 14px; letter-spacing: -0.01em; } }
+
+/* 6.5: csapatkassza, jutalmak kiosztása, a karakterlap jutalmai */
+.kassza__egyenleg { white-space: nowrap; }
+.kasszanaplo .esemenylista__sor { flex-wrap: wrap; align-items: center; }
+.kasszanaplo .esemenylista__ido { width: auto; flex: 1 1 auto; white-space: nowrap; font-size: 13px; }
+.kasszanaplo .esemenylista__szoveg { order: 3; flex: 1 1 100%; }
+.kasszanaplo__osszeg { flex: none; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.kasszanaplo__osszeg--minusz { color: var(--danger); }
+.kasszanaplo__visszavont .esemenylista__szoveg, .kasszanaplo__visszavont .kasszanaplo__osszeg { color: var(--ink-muted); text-decoration: line-through; }
+.kiosztasdoboz { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;
+  padding: var(--space-3); border: 1px dashed var(--line-strong, var(--line)); border-radius: var(--radius-md, 8px); }
+.jutalombejegyzes { border-bottom: 1px solid var(--line); padding-bottom: var(--space-1); }
+.jutalombejegyzes:last-child { border-bottom: 0; }
+.jutalombejegyzes__fej { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
+.jutalombejegyzes__fajta { font-family: var(--font-sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.ereklyelista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.ereklyelista li { display: flex; gap: var(--space-2); align-items: flex-start; }
+.ereklyelista__nyitva > span:first-child { color: var(--accent); }
+.ereklyelista__zarva { color: var(--ink-muted); }
+.magikusjel { color: var(--accent); }

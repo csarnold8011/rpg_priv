@@ -37,7 +37,7 @@ export const UTEM_ALLAPOTOK = { '': 'hátravan', kesz: 'megtörtént', kihagyva:
 export const SZAL_ALLAPOTOK = { nyitott: 'nyitott', lezart: 'lezárva' };
 export const SZEREPLO_TIPUSOK = { njk: 'NJK', alany: 'alany', elem: 'elem', szabad: 'szabad' };
 export const ESEMENY_FAJTAK = {
-  jelenet: 'Jelenet', proba: 'Próba', csata: 'Csata', anyag: 'Anyag', xp: 'XP', penz: 'Pénz', jegyzet: 'Jegyzet', alkalom: 'Alkalom', egyeb: 'Egyéb'
+  jelenet: 'Jelenet', proba: 'Próba', csata: 'Csata', anyag: 'Anyag', xp: 'XP', penz: 'Pénz', jutalom: 'Jutalom', jegyzet: 'Jegyzet', alkalom: 'Alkalom', egyeb: 'Egyéb'
 };
 
 export const MAX_NAPLO = 250;
@@ -288,12 +288,33 @@ export function esemenyekAllapotbol(allapot, alkalom) {
       xpCsoport.get(k).adat.tetelek.push({ nev: c.nev, xp: Number(x.xp) || 0 });
     });
     lista(obj(d.felszereles).jatek).forEach((t) => {
-      if (!benne(t.idopont, kezdet, veg) || !Number(t.penz)) return;
+      if (!benne(t.idopont, kezdet, veg) || !Number(t.penz) || t.kiosztas_id) return; // a kiosztásoké lent, a kasszából
       ki.push({ kulcs: 'penz:' + c.id + ':' + t.idopont, ido: t.idopont, fajta: 'penz', szoveg: szoveg(t.megjegyzes) || szoveg(t.nev) || '',
         adat: { nev: c.nev, penz: Number(t.penz) || 0, tipus: szoveg(t.tipus) } });
     });
   });
   xpCsoport.forEach((e) => ki.push(e));
+  // 6.5: a kiosztások (jutalom, kincs, zsákmány, kassza) a kassza naplójából. A karakterek pénze karakterenként „pénz”
+  // esemény (a karakter pénztételével azonos kulccsal), a többi (cím, tárgy, társ, a kassza mozgása) egy „jutalom” esemény.
+  // A visszavont kiosztás eseményei „visszavonva” jelet kapnak.
+  lista(obj(obj(st.kampany).kassza).naplo).forEach((x) => {
+    if (!x || !benne(x.idopont, kezdet, veg)) return;
+    const vissza = !!x.visszavonva;
+    const tetelek = [];
+    lista(x.karakterek).forEach((t) => {
+      const nev = szoveg(t.nev) || nevOf(karakterek, t.id);
+      if (Number(t.penz)) {
+        ki.push({ kulcs: 'penz:' + t.id + ':' + x.idopont, ido: x.idopont, fajta: 'penz', szoveg: szoveg(x.ok),
+          adat: { nev, penz: Number(t.penz) || 0, tipus: 'penz', kiosztas_id: x.id, ...(vissza ? { visszavont: true } : {}) } });
+      }
+      if (t.targy || t.jutalom) tetelek.push({ nev, mit: szoveg((t.targy && t.targy.nev) || (t.jutalom && t.jutalom.nev)), fajta: szoveg(t.jutalom ? t.jutalom.fajta : 'targy') });
+    });
+    const kassza = Number(x.kassza) || 0;
+    if (!tetelek.length && !kassza && !x.tars) return;
+    ki.push({ kulcs: 'kiosztas:' + x.id, ido: x.idopont, fajta: 'jutalom', szoveg: szoveg(x.ok) || szoveg(x.kassza_megjegyzes) || 'Kiosztás',
+      adat: { kiosztas_id: x.id, fajta: szoveg(x.fajta), tetelek, kassza, tars: x.tars ? { nev: szoveg(x.tars.nev), csapat: x.tars.kotodes === 'csapat' } : null,
+        ...(vissza ? { visszavont: true } : {}) } });
+  });
   return ki.sort((a, b) => szoveg(a.ido).localeCompare(szoveg(b.ido)));
 }
 
@@ -343,7 +364,13 @@ export function esemenySzoveg(e) {
   if (e.fajta === 'anyag') return 'Anyag: ' + e.szoveg + ' (' + (d.mindenki ? 'mindenkinek' : lista(d.cimzettek).join(', ')) + (d.visszavont ? ', visszavonva' : '') + ')';
   if (e.fajta === 'csata') return 'Csata: ' + e.szoveg + (d.lezart ? ' (lezárva)' : ' (elkezdődött)');
   if (e.fajta === 'xp') return 'XP: ' + e.szoveg + ' (' + lista(d.tetelek).map((t) => t.nev + ' ' + t.xp).join(', ') + ')';
-  if (e.fajta === 'penz') return 'Pénz: ' + d.nev + ' ' + (d.penz > 0 ? '+' : '') + penzSzoveg(d.penz) + (van(e.szoveg) ? ' (' + e.szoveg + ')' : '');
+  if (e.fajta === 'penz') return 'Pénz: ' + d.nev + ' ' + (d.penz > 0 ? '+' : '') + penzSzoveg(d.penz) + (van(e.szoveg) ? ' (' + e.szoveg + ')' : '') + (d.visszavont ? ', visszavonva' : '');
+  if (e.fajta === 'jutalom') {
+    const r = lista(d.tetelek).map((t) => t.nev + (t.mit ? ': ' + t.mit : ''));
+    if (d.tars) r.push('társ: ' + (d.tars.nev || 'NJK') + (d.tars.csapat ? ' (a csapaté)' : ''));
+    if (Number(d.kassza)) r.push('kassza ' + (d.kassza > 0 ? '+' : '') + penzSzoveg(d.kassza));
+    return 'Jutalom: ' + e.szoveg + (r.length ? ' (' + r.join(', ') + ')' : '') + (d.visszavont ? ', visszavonva' : '');
+  }
   return e.szoveg;
 }
 
@@ -455,7 +482,9 @@ export function xpOsszesites(naplo) {
 }
 export function penzOsszesites(naplo) {
   const m = new Map();
-  lista(naplo).filter((e) => e.fajta === 'penz').forEach((e) => { const d = obj(e.adat); m.set(d.nev, (m.get(d.nev) || 0) + (Number(d.penz) || 0)); });
+  lista(naplo).filter((e) => e.fajta === 'penz' && !obj(e.adat).visszavont).forEach((e) => { const d = obj(e.adat); m.set(d.nev, (m.get(d.nev) || 0) + (Number(d.penz) || 0)); });
+  lista(naplo).filter((e) => e.fajta === 'jutalom' && !obj(e.adat).visszavont && Number(obj(e.adat).kassza))
+    .forEach((e) => m.set('Csapatkassza', (m.get('Csapatkassza') || 0) + Number(e.adat.kassza)));
   return Array.from(m, ([nev, penz]) => ({ nev, penz })).filter((x) => x.penz);
 }
 
@@ -508,6 +537,9 @@ export function vazlat(alkalom, ctx = {}) {
   const csatak = a.naplo.filter((e) => e.fajta === 'csata').map((e) => e.szoveg);
   if (csatak.length) jt.push(pont('Csaták: ' + csatak.join(', ')));
   if (xp.length) jt.push('XP: ' + xp.map((x) => x.nev + ' ' + x.xp).join(', ') + '.');
+  const jutalmak = a.naplo.filter((e) => e.fajta === 'jutalom' && !obj(e.adat).visszavont && lista(obj(e.adat).tetelek).length)
+    .flatMap((e) => lista(e.adat.tetelek).map((t) => t.nev + (t.mit ? ': ' + t.mit : '')));
+  if (jutalmak.length) jt.push(pont('Jutalmak: ' + jutalmak.join(', ')));
   return { szoveg: sorok.join('\n').trim(), jatekosoknak: jt.join('\n'), xp, kincsek };
 }
 

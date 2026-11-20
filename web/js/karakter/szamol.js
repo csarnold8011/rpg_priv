@@ -7,6 +7,7 @@ import { TULAJDONSAGOK, fejlesztesKoltseg, fokozatNev, fokozatSzam } from './tab
 import { atallit } from './adat.js';
 import { ellenorzes, gyujto } from './ellenoriz.js';
 import { xpKuszob, xpSzint } from './xp.js';
+import { alapId, targyJutalma, magikusBonuszok } from './jutalmak.js';
 
 const ertekBol = (reszek) => reszek.reduce((a, r) => a + r.ertek, 0);
 const nevE = (e, tartalek) => (e ? e.nev_hu || e.nev_en || e.id : tartalek || '');
@@ -301,8 +302,15 @@ export function karakterSzamol(nyers, lapok, opciok = {}) {
   });
 
   // ---- Felszerelés: páncél, pajzs, fegyverek ----
-  const targyElem = (id) => ix.elem(id.startsWith('fgy_') ? 'Fegyverek' : id.startsWith('pan_') ? 'Páncélok' : 'Felszerelés', id);
-  const targyak = (adat.felszereles.targyak || []).filter((t) => t && t.id).map((t) => ({ ...t, elem: targyElem(t.id) }));
+  // A mágikus tárgy (6.5) egyedi azonosítója `fgy_…~k_…`: a szabályadat eleme a ~ előtti rész, a neve és a számszerű
+  // előnyei (támadás, sebzés, Páncélérték, Védekezés) a jutalombejegyzésből jönnek.
+  const targyElem = (id) => { const a = alapId(id); return ix.elem(a.startsWith('fgy_') ? 'Fegyverek' : a.startsWith('pan_') ? 'Páncélok' : 'Felszerelés', a); };
+  const targyak = (adat.felszereles.targyak || []).filter((t) => t && t.id).map((t) => {
+    const j = targyJutalma(adat, t.id);
+    return { ...t, elem: targyElem(t.id), magikus: j ? { nev: j.nev || t.nev || '', bonusz: magikusBonuszok(j) } : null };
+  });
+  const tnev = (t) => (t.magikus && t.magikus.nev) || t.nev || nevE(t.elem);
+  const mb = (t, k) => (t && t.magikus ? t.magikus.bonusz[k] || 0 : 0);
   const viselt = targyak.filter((t) => t.felszerelve && t.elem && t.id.startsWith('pan_'));
   const pancelT = viselt.find((t) => reszletek(t.elem).tipus === 'pancel') || null;
   const pajzsT = viselt.find((t) => reszletek(t.elem).tipus === 'pajzs') || null;
@@ -312,7 +320,8 @@ export function karakterSzamol(nyers, lapok, opciok = {}) {
   const pancelReszek = [];
   if (pancelT) {
     const b = Math.abs(szam(pancelT.elem.buntetes));
-    pancelReszek.push({ ertek: szam(pancelT.elem.pancelertek), eredet: nevE(pancelT.elem) });
+    pancelReszek.push({ ertek: szam(pancelT.elem.pancelertek), eredet: tnev(pancelT) });
+    if (mb(pancelT, 'pancel')) pancelReszek.push({ ertek: mb(pancelT, 'pancel'), eredet: tnev(pancelT) + ' (mágikus)' });
     // Zsiványpáncél: bőrpáncélban nincs büntetés (Alapkönyv 23. o.).
     const mentes = (reszletek(szint1).kepessegek || []).some((k) => (k.pancel_buntetes_nincs || []).includes(pancelT.id)
       || (!k.pancel_buntetes_nincs && k.nev_en === "Rogue's Armor" && /leather/.test(pancelT.id)));
@@ -335,8 +344,13 @@ export function karakterSzamol(nyers, lapok, opciok = {}) {
     const talentum = alt.pajzs_talentum || 'tal_weapon_and_shield_style';
     let bonusz = szam(pr.pajzs_bonusz);
     if (!talentumFokozat(talentum) && alt.pajzs_max_talentum_nelkul !== undefined) bonusz = Math.min(bonusz, szam(alt.pajzs_max_talentum_nelkul));
-    vedReszek.push({ ertek: bonusz, eredet: nevE(pajzsT.elem) });
+    vedReszek.push({ ertek: bonusz, eredet: tnev(pajzsT) });
   }
+  // a viselt mágikus páncél és pajzs Védekezés-előnye, a pajzs Páncélérték-előnye
+  [pancelT, pajzsT].forEach((t) => {
+    if (mb(t, 'vedekezes')) vedReszek.push({ ertek: mb(t, 'vedekezes'), eredet: tnev(t) + ' (mágikus)' });
+    if (t === pajzsT && mb(t, 'pancel')) pancelReszek.push({ ertek: mb(t, 'pancel'), eredet: tnev(t) + ' (mágikus)' });
+  });
   const sebReszek = faj ? [{ ertek: szam(fr.sebesseg_alap, 10), eredet: 'Faj: ' + nevE(faj) }, { ertek: ugyesseg, eredet: 'Ügyesség' }] : [];
   if (faj && fajiBonusz.sebesseg) sebReszek.push({ ertek: fajiBonusz.sebesseg, eredet: 'Faji előny' });
   if (faj && sebessegBuntetes) sebReszek.push({ ertek: -sebessegBuntetes, eredet: 'Páncélbüntetés' });
@@ -351,16 +365,16 @@ export function karakterSzamol(nyers, lapok, opciok = {}) {
     const tulId = csr.tulajdonsag || tulajdonsagNevbol(ix, r.tulajdonsag) || 'tul_fighting';
     const fok = csr.fokusz && fokuszLista[csr.fokusz] ? fokuszLista[csr.fokusz].bonusz : 0;
     const ismert = csoportok.has(e.csoport);
-    const tamadas = tulErtek(tulId) + fok + (ismert ? 0 : szam((fegyverAlt.kepzetlen || {}).tamadas, -2));
+    const tamadas = tulErtek(tulId) + fok + (ismert ? 0 : szam((fegyverAlt.kepzetlen || {}).tamadas, -2)) + mb(t, 'tamadas');
     const sebzesTul = eszlelesCsoportok.includes(e.csoport) ? 'tul_perception' : (tulajdonsagNevbol(ix, r.sebzes_tulajdonsag) || 'tul_strength');
-    let sebzes = sebzesSzoveg(e.sebzes, tulErtek(sebzesTul));
+    let sebzes = sebzesSzoveg(e.sebzes, tulErtek(sebzesTul) + mb(t, 'sebzes'));
     if (!ismert) sebzes = `(${sebzes}) / 2`;
     const minEro = e.min_ero === '' || e.min_ero === null || e.min_ero === undefined ? null : szam(e.min_ero);
     // Képzetlen csoportban a hatótáv is feleződik (lefelé kerekítve).
     let hatotav = e.hatotav || null;
     if (!ismert && r.rovid) hatotav = [r.rovid, r.hosszu].filter(Boolean).map((x) => Math.floor(szam(x) / 2) + ' yard').join(' / ');
     return {
-      id: t.id, nev_hu: nevE(e), csoport: e.csoport, csoport_nev: nevE(cs, e.csoport), felszerelve: !!t.felszerelve,
+      id: t.id, nev_hu: tnev(t), magikus: !!t.magikus, csoport: e.csoport, csoport_nev: nevE(cs, e.csoport), felszerelve: !!t.felszerelve,
       tulajdonsag: tulId, fokusz: csr.fokusz && fokuszLista[csr.fokusz] ? csr.fokusz : null,
       tamadas, sebzes, sebzes_tulajdonsag: sebzesTul, ismert, min_ero: minEro,
       min_ero_alatt: minEro !== null && tulErtek('tul_strength') < minEro,
@@ -407,8 +421,8 @@ export function karakterSzamol(nyers, lapok, opciok = {}) {
     vedekezes: vegso('vedekezes', vedReszek),
     sebesseg: faj || felulir.sebesseg ? vegso('sebesseg', sebReszek) : null,
     pancelertek: vegso('pancelertek', pancelReszek),
-    pancel: pancelT ? { id: pancelT.id, nev_hu: nevE(pancelT.elem), buntetes: sebessegBuntetes, ugyesseg_buntetes: ugyessegBuntetes } : null,
-    pajzs: pajzsT ? { id: pajzsT.id, nev_hu: nevE(pajzsT.elem) } : null,
+    pancel: pancelT ? { id: pancelT.id, nev_hu: tnev(pancelT), buntetes: sebessegBuntetes, ugyesseg_buntetes: ugyessegBuntetes } : null,
+    pajzs: pajzsT ? { id: pajzsT.id, nev_hu: tnev(pajzsT) } : null,
     fegyverek,
     nyelvek: [...new Set([...(fr.nyelvek || []), ...(adat.alap.nyelvek || [])])],
     kepessegek,

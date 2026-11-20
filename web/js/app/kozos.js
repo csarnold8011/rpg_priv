@@ -230,6 +230,16 @@ export function Jelolo({ checked, onChange, children }) {
   </label>`;
 }
 
+// Pénz bevitele arany, ezüst, réz mezőkkel (6.1; a karakterlap és a csapatkassza közös eleme). Az érték { a, e, r } szöveg,
+// rézben a web/js/karakter/jegyzet.js penzRezben függvénye számolja.
+export function PenzBevitel({ ertek, set, cimke }) {
+  const mezo = (k, nev, max) => html`<${K.TextField} label=${nev} inputMode="numeric" aria-label=${cimke + ': ' + nev.toLowerCase()} value=${ertek[k] || ''}
+    onChange=${(e) => set({ ...ertek, [k]: e.target.value.replace(/[^0-9]/g, '').slice(0, max) })}/>`;
+  return html`<fieldset className="szakasz"><legend className="cimke">${cimke}</legend>
+    <div className="penzbevitel">${mezo('a', 'Arany', 5)}${mezo('e', 'Ezüst', 6)}${mezo('r', 'Réz', 3)}</div>
+  </fieldset>`;
+}
+
 // Párbeszédablak (laptopon középen, telefonon alsó lap). Esc és a háttér bezárja.
 export function Parbeszed({ cim, onBezar, children, lab }) {
   const doboz = useRef(null);

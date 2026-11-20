@@ -2,7 +2,7 @@
 // felszerelés és pénz, XP) és szerkesztés mód (kép, leírás, a karakterkészítő lépései, szintek, kézi módosítók).
 // A karakter adatai a karakterkészítő mentési horgán (useVarazsloAdat) keresztül mentődnek: optimistán,
 // pár másodperc késleltetéssel, ütközéskor a saját módosítások a máshol mentett változatra kerülnek.
-import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Parbeszed, Megerosites, Valaszto, Sugo, Ikon, navigal, elojel } from './kozos.js';
+import { html, K, useApp, useState, useEffect, useMemo, useRef, Uzenet, Parbeszed, Megerosites, Valaszto, Sugo, Ikon, navigal, elojel, PenzBevitel } from './kozos.js';
 import { karakterSzamol } from '../karakter/szamol.js';
 import { atallit } from '../karakter/adat.js';
 import { index, reszletek, szam } from '../karakter/szabalyindex.js';
@@ -20,6 +20,8 @@ import { KeszitesGomb, SzintlepesGomb, KarakterFejlec } from './jatek.js';
 import { KarakterDobasai } from './dobasnaplo.js';
 import { CelpontProbaGomb } from './probakeres.js';
 import * as J from '../karakter/jegyzet.js';
+import * as KJ from '../karakter/jutalmak.js';
+import { JutalmakPanel } from './karakter_jutalmak.js';
 
 const TUL_NEV = {
   tul_accuracy: 'Pontosság', tul_communication: 'Kommunikáció', tul_constitution: 'Szívósság', tul_dexterity: 'Ügyesség',
@@ -133,6 +135,7 @@ function JatekMod(p) {
     </div>
     <div className="verem verem--nagy">
       <${Talentumok} ...${p}/>
+      <${JutalmakPanel} ...${p}/>
       <${Felszereles} ...${p}/>
       <${Jegyzetek} ...${p}/>
       <${Tortenet} ...${p}/>
@@ -252,7 +255,7 @@ function Fegyverek(p) {
       cim: 'Támadás: ' + w.nev_hu, megjegyzes: `Sebzés: ${w.sebzes}${w.hatotav ? ', hatótáv ' + w.hatotav : ''}.`
         + (w.ismert ? '' : ` Nem ismert fegyvercsoport: −2 a támadásra, fél sebzés${w.tavolsagi ? ' és fél hatótáv' : ''}.`)
         + (w.csoport_fokusz_nelkul ? ' Ehhez a fegyvercsoporthoz a könyv nem ad fókuszt. Ha a DM megengedi, fent választhatsz egy hasonlót (például Verekedés vagy Botok).' : '') })}>
-      <span><strong>${w.nev_hu}</strong><br/><span className="halvany kicsi">${w.csoport_nev}${w.hatotav ? ' · ' + w.hatotav : ''}${w.ismert ? '' : ' · nem ismert csoport'}</span></span>
+      <span><strong>${w.magikus ? html`<span className="magikusjel" aria-label="mágikus">✦ </span>` : null}${w.nev_hu}</strong><br/><span className="halvany kicsi">${w.csoport_nev}${w.hatotav ? ' · ' + w.hatotav : ''}${w.ismert ? '' : ' · nem ismert csoport'}</span></span>
       <span className="fegyver-ertek"><span>${elojel(w.tamadas)}</span><span className="halvany kicsi">${w.sebzes}</span></span>
     </button>
   </li>`;
@@ -345,13 +348,6 @@ function Talentumok({ lap }) {
 }
 
 // ---- Felszerelés és pénz ----
-function PenzBevitel({ ertek, set, cimke }) {
-  const mezo = (k, nev, max) => html`<${K.TextField} label=${nev} inputMode="numeric" aria-label=${cimke + ': ' + nev.toLowerCase()} value=${ertek[k] || ''}
-    onChange=${(e) => set({ ...ertek, [k]: e.target.value.replace(/[^0-9]/g, '').slice(0, max) })}/>`;
-  return html`<fieldset className="szakasz"><legend className="cimke">${cimke}</legend>
-    <div className="penzbevitel">${mezo('a', 'Arany', 5)}${mezo('e', 'Ezüst', 6)}${mezo('r', 'Réz', 3)}</div>
-  </fieldset>`;
-}
 const penzRezben = J.penzRezben;
 
 function Bolt({ ix, lapok, adat, valtoztat, onBezar }) {
@@ -458,7 +454,7 @@ function Felszereles({ adat, lap, ix, lapok, valtoztat, irhato }) {
         <${K.Button} size="sm" variant="secondary" onClick=${() => setAblak('targy')}>Tárgy hozzáadása<//>
       </div>` : null}
       <ul className="sorlista">${targyak.map((t) => html`<li key=${t.id} className="sorlista__sor">
-        <span>${targyNev(ix, t)}${t.db > 1 ? html` <strong>× ${t.db}</strong>` : null}</span>
+        <span>${KJ.targyJutalma(adat, t.id) ? html`<span className="magikusjel" title="Mágikus tárgy (a Címek, tagságok, ereklyék szakaszban a részletei)">✦ </span>` : null}${targyNev(ix, t)}${t.db > 1 ? html` <strong>× ${t.db}</strong>` : null}</span>
         ${irhato ? html`<span className="sorlista__muvelet">
           ${viselheto(t) ? html`<button type="button" className="csip csip--kicsi" aria-pressed=${!!t.felszerelve}
             onClick=${() => valtoztat((a) => { const x = a.felszereles.targyak.find((y) => y.id === t.id); if (x) x.felszerelve = !x.felszerelve; })}>${t.felszerelve ? '✓ Rajta' : 'Felvesz'}</button>` : null}

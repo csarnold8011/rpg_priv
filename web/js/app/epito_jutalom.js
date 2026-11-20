@@ -7,6 +7,7 @@ import { html, K, useApp, useState, useMemo, useLekeres, navigal, Ikon, Uzenet, 
 import { FaSor, tablakBol } from './dobotabla.js';
 import { UjNjkParbeszed } from './njk.js';
 import { useDm } from './dm.js';
+import { KiosztasDoboz } from './kioszt.js';
 import * as E from '../kampany/elem.js';
 import * as J from '../kampany/jutalom.js';
 import * as KR from '../kampany/keret.js';
@@ -131,6 +132,7 @@ function HasznalatLepes({ elem, ix, valt, prep, cel, a, set, all, fig }) {
     </div>
     <${Figyelmeztetesek} lista=${fig} lepes="hasznalat"/>
     <${HolSzerzik} elem=${elem} prep=${prep} cel=${cel}/>
+    ${cel.szint === 'kampany' && a.fajta ? html`<${KiosztasDoboz} kampanyId=${cel.kampany_id} jutalom=${elem} ix=${ix}/>` : null}
   <//>`;
 }
 

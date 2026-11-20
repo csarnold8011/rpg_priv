@@ -17,6 +17,7 @@ import { JatekosAnyagok, AnyagMegnyitoReteg, useAnyagMegnyitas, anyagUjak } from
 import { useJegyzetfuzet, Jegyzetfuzet, KapcsolodoJegyzetek, useJegyzetJelveny } from './jegyzetfuzet.js';
 import { alanyCel } from '../kampany/anyag.js';
 import { JatekosKalandnaplo, useKalandnaploJelveny } from './kalandnaplo.js';
+import { KasszaPanel } from './kioszt.js';
 
 export function JatekosFelulet({ ut }) {
   const { felhasznalo, kilepes } = useApp();
@@ -188,6 +189,7 @@ function KampanyFo({ allapot, fulek, reteg }) {
         })}
       </ul>` : html`<p className="halvany">Még nincs karakter a kampányban.</p>`}
     <//>
+    <${KasszaPanel} allapot=${allapot} dm=${false} kompakt=${true}/>
     <${JatekosNjkPanel} allapot=${allapot} naploz=${naploz}/>
     ${k.sajat_szerep === 'mester' ? html`<${UjKampanyKarakter} kampanyId=${k.id} nagy=${true} onLetrejott=${(c) => navigal('/jatekos/karakter/' + c.id + '/keszites')}/>` : null}
     <${K.Panel} title="Dobásnapló"><${KampanyNaplo} allapot=${allapot} dobasok=${dobasok}/><//>

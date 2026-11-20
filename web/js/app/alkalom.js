@@ -15,6 +15,7 @@ import { ProbakPanel, useLapok } from './probakeres.js';
 import { CsataInditasParbeszed, csataUt } from './csata.js';
 import { KiosztasParbeszed, Kivetito } from './anyagok.js';
 import { XpKiosztas } from './xpkiosztas.js';
+import { JutalomElemSorok, KasszaPanel, ZsakmanyParbeszed } from './kioszt.js';
 import { useJegyzetfuzet, Jegyzetfuzet } from './jegyzetfuzet.js';
 import { KarakterKep } from './kepek.js';
 import { fokuszNevLapbol } from './proba.js';
@@ -216,6 +217,7 @@ function JatekTartalom({ allapot, prep, cel, Oldalfej, dm }) {
       </section>
       <aside className="jatek__jobb" aria-label="Csapat és napló">
         <${CsapatAllapot} allapot=${allapot}/>
+        <${KasszaPanel} allapot=${allapot} dm=${true} kompakt=${true}/>
         <${GyorsJegyzet} alk=${alk} jelenetNev=${jelenetNev}/>
         <${K.Panel}>
           <div className="kapcsolo kapcsolo--teljes" role="group" aria-label="Napló vagy jegyzetfüzet">
@@ -335,6 +337,7 @@ function JelenetKartya({ jelenet, prep, cel, allapot, adat, fut, aktualis, kovet
   const ix = prep.ix;
   const [csata, setCsata] = useState(null);
   const [xp, setXp] = useState(false);
+  const [zsakmany, setZsakmany] = useState(false);
   if (!jelenet) return null;
   const a = E.megjelenitett(jelenet, ix);
   const all = A.jelenetAllapot(adat, jelenet.id);
@@ -417,16 +420,18 @@ function JelenetKartya({ jelenet, prep, cel, allapot, adat, fut, aktualis, kovet
     ${xpErtek !== null || van(a.kincs) || van(a.targyak) || van(a.egyeb_jutalom) || jutalmak.length ? html`<${Szakasz} cim="Jutalmak">
       ${xpErtek !== null ? html`<div className="sorlista__sor"><span>XP: ${JL.NEHEZSEGEK[a.nehezseg].nev} (${xpErtek} XP fejenként)</span>
         <${K.Button} size="sm" variant="secondary" onClick=${() => setXp(true)}>XP kiosztása<//></div>` : null}
-      ${van(a.kincs) ? html`<p className="szoveg kicsi"><strong>Kincs:</strong> ${a.kincs}</p>` : null}
+      ${van(a.kincs) ? html`<div className="sorlista__sor"><span className="szoveg kicsi"><strong>Kincs:</strong> ${a.kincs}</span>
+        <${K.Button} size="sm" variant="secondary" onClick=${() => setZsakmany(true)}>Zsákmány elosztása<//></div>` : null}
       ${van(a.targyak) ? html`<p className="szoveg kicsi"><strong>Tárgyak:</strong> ${a.targyak}</p>` : null}
       ${van(a.egyeb_jutalom) ? html`<p className="szoveg kicsi"><strong>Egyéb:</strong> ${a.egyeb_jutalom}</p>` : null}
-      ${jutalmak.length ? html`<p className="szoveg kicsi"><strong>Jutalomelemek:</strong> ${jutalmak.map((j, i) => html`${i ? ', ' : ''}<a key=${j.id} href=${elemUt(cel, j.id)}>${E.nev(j, ix)}</a>`)}</p>` : null}
+      ${jutalmak.length ? html`<div><p className="cimke">Jutalomelemek</p><${JutalomElemSorok} allapot=${allapot} jutalmak=${jutalmak} ix=${ix} elemUt=${(id) => elemUt(cel, id)}/></div>` : null}
     <//>` : null}
     ${csata ? html`<${CsataInditasParbeszed} allapot=${allapot} osszecsapas=${csata} onBezar=${() => setCsata(null)}
       onKesz=${(cs) => { setCsata(null); navigal(csataUt(allapot.kampany.id, cs.id)); }}/>` : null}
     ${xp ? html`<${XpKiosztas} karakterek=${(allapot.karakterek || []).filter(aktivKarakter).map((c) => ({ id: c.id, nev: c.nev, xp: c.xp || 0, szint: Number(c.szint) || 1 }))}
       kampanyId=${allapot.kampany.id} kezdoBesorolas=${a.nehezseg} kezdoOk=${'Jelenet: ' + E.nev(jelenet, ix)}
       onBezar=${() => setXp(false)} onKesz=${() => setXp(false)}/>` : null}
+    ${zsakmany ? html`<${ZsakmanyParbeszed} allapot=${allapot} onBezar=${() => setZsakmany(false)}/>` : null}
   </article>`;
 }
 
@@ -534,7 +539,7 @@ function GyorsJegyzet({ alk, jelenetNev }) {
   <//>`;
 }
 
-const FAJTA_JEL = { jelenet: '▸', proba: '⚄', csata: '⚔', anyag: '✉', xp: '★', penz: '¤', jegyzet: '✎', alkalom: '◆', egyeb: '•' };
+const FAJTA_JEL = { jelenet: '▸', proba: '⚄', csata: '⚔', anyag: '✉', xp: '★', penz: '¤', jutalom: '♛', jegyzet: '✎', alkalom: '◆', egyeb: '•' };
 
 function EsemenyLista({ adat, jelenetNev, ures, max = 60 }) {
   const lista = adat.naplo.slice().reverse().slice(0, max);

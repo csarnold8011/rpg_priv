@@ -43,6 +43,8 @@ function muveletek_() {
     'session.save':            { fn: alkalomMentese_, szerep: 'dm' },
     'session.get':             { fn: alkalomLekerese_, szerep: 'dm' },
     'session.delete':          { fn: alkalomTorlese_, szerep: 'dm' },
+    'reward.give':             { fn: jutalomKiosztasa_, szerep: 'dm' },
+    'reward.undo':             { fn: jutalomVisszavonasa_, szerep: 'dm' },
     'npc.list':                { fn: njkLista_, szerep: 'dm' },
     'npc.get':                 { fn: njkLekerese_ },
     'npc.save':                { fn: njkMentese_, szerep: 'dm' },

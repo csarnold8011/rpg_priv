@@ -112,8 +112,15 @@ export function atallit(regi) {
     if (regi[k] !== undefined && regi[k] !== null && regi[k] !== '') kezi(k, Number(regi[k]) || 0, 'felulir');
   });
 
+  // A háttér által a régi szerkezetű karakterbe is írt mezők (XP, kiosztott jutalmak, pénz és tárgyak) megmaradnak.
+  if (regi.allapot && typeof regi.allapot === 'object' && regi.allapot.xp !== undefined) uj.allapot.xp = Number(regi.allapot.xp) || 0;
+  if (Array.isArray(regi.xp_naplo)) uj.xp_naplo = regi.xp_naplo;
+  if (Array.isArray(regi.jutalmak)) uj.jutalmak = regi.jutalmak;
+  if (regi.felszereles && typeof regi.felszereles === 'object') Object.assign(uj.felszereles, regi.felszereles);
+
   // Ismeretlen mezők megőrzése, hogy a DM a nyers szerkesztőben még lássa őket.
-  const ismert = ['nev', 'faj', 'osztaly', 'szint', 'tulajdonsagok', 'fokuszok', 'egeszseg', 'magiapont', 'vedekezes', 'sebesseg', 'pancelertek'];
+  const ismert = ['nev', 'faj', 'osztaly', 'szint', 'tulajdonsagok', 'fokuszok', 'egeszseg', 'magiapont', 'vedekezes', 'sebesseg', 'pancelertek',
+    'allapot', 'xp_naplo', 'jutalmak', 'felszereles'];
   const egyeb = {};
   Object.keys(regi).forEach((k) => { if (!ismert.includes(k)) egyeb[k] = regi[k]; });
   if (Object.keys(egyeb).length) uj.atvett_egyeb = egyeb;
