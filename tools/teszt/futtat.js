@@ -206,6 +206,75 @@ ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).megosztasok.leng
   hivas('share.update', { id: pottomNak.id, allapot: 'visszavont' }, dm);
 }
 
+// ---- Élő munkamenet és kalandnapló (6.4) ----
+{
+  const pollB = () => hivas('state.poll', { kampany_id: kampany.id }, bencT).verzio;
+  let vB = pollB();
+  const ujAdat = { v: 1, jelenetek: { el_j1: 'folyamatban' }, aktualis: 'el_j1', naplo: [{ id: 'e1', ido: '2026-11-20T18:00:00Z', fajta: 'alkalom', szoveg: 'Az alkalom elkezdődött.' }],
+    szereplok: [], szalak: [{ id: 'sl1', cim: 'Ki küldte a levelet?', allapot: 'nyitott' }], osszefoglalo: {} };
+  let w = hivas('session.save', { id: 'a_elso000001', uj: true, verzio: 0, kampany_id: kampany.id, kezdet: '2026-11-20T18:00:00Z', jatekbeli_datum: 'Aratás hava 3.', adat: ujAdat }, dm);
+  ellenoriz(w.ok && w.verzio === 1 && w.alkalom.sorszam === 1 && w.alkalom.allapot === 'fut' && w.alkalom.jatekbeli_datum === 'Aratás hava 3.', 'a DM alkalmat indít (1. alkalom)', w);
+  ellenoriz(pollB() === vB, 'a futó alkalom mentése nem növeli a kampányverziót (a játékosokat nem terheli)');
+  ellenoriz(hivas('session.save', { id: 'a_elso000001', uj: true, verzio: 0, kampany_id: kampany.id, adat: {} }, dm).mar_megvolt, 'az ismételt indítás nem duplikál (sorból újraküldés)');
+  ellenoriz(hivas('session.save', { id: 'a_masodik001', uj: true, verzio: 0, kampany_id: kampany.id, adat: {} }, dm).hiba === 'hibas_adat', 'egy kampányban egyszerre egy alkalom futhat');
+  ellenoriz(hivas('session.save', { id: 'a_jatekos001', uj: true, verzio: 0, kampany_id: kampany.id, adat: {} }, annaT).hiba === 'nincs_jogosultsag', 'alkalmat csak a DM indít');
+  ellenoriz(hivas('session.save', { id: 'rossz', uj: true, kampany_id: kampany.id }, dm).hiba === 'hibas_adat', 'hibás azonosító nem menthető');
+  ellenoriz(hivas('session.save', { id: 'a_elso000001', verzio: 1, adat: { x: 'y'.repeat(50000) } }, dm).hiba === 'tul_nagy', 'a túl nagy adat nem menthető');
+
+  const zart = { ...ujAdat, jelenetek: { el_j1: 'kesz' }, szereplok: [
+    { id: 'sz1', tipus: 'alany', ref_id: 'm_alany00001', nev: 'A kapucnis idegen', jegyzet: 'DM-TITOK: ő a molnár fia', nyilvanos: 'Sántít.' },
+    { id: 'sz2', tipus: 'njk', ref_id: 'npc_x', nev: 'Varga mester', jegyzet: '' },
+    { id: 'sz3', tipus: 'njk', ref_id: 'npc_ismeretlen', nev: 'Titkos bérgyilkos', jegyzet: '' },
+    { id: 'sz4', tipus: 'alany', ref_id: 'm_alany00001', nev: 'Más alkalom', jegyzet: '' }],
+    osszefoglalo: { szoveg: 'DM összefoglaló: a bérgyilkos figyel.', jatekosoknak: 'A hídnál találkoztatok az idegennel.', itt: ['sz1', 'sz2', 'sz3'] } };
+  w = hivas('session.save', { id: 'a_elso000001', verzio: 1, adat: zart, jatekbeli_veg: 'Aratás hava 5.' }, dm);
+  ellenoriz(w.ok && w.verzio === 2 && w.alkalom.jatekbeli_veg === 'Aratás hava 5.', 'a DM menti az alkalmat (verzióval)');
+  w = hivas('session.save', { id: 'a_elso000001', verzio: 1, cim: 'régi' }, dm);
+  ellenoriz(w.hiba === 'utkozes' && w.aktualis && w.aktualis.verzio === 2 && w.aktualis.adat.jelenetek.el_j1 === 'kesz', 'régi verzióra mentés ütközést jelez az aktuálissal', w);
+  ellenoriz(hivas('session.save', { id: 'a_elso000001', verzio: 2, kozzeteve: true }, dm).alkalom.kozzeteve === false, 'futó alkalom nem tehető közzé');
+  let d = hivas('state.get', { kampany_id: kampany.id }, dm);
+  ellenoriz(d.alkalmak.length === 1 && d.alkalom && d.alkalom.id === 'a_elso000001' && d.alkalom.adat.szalak.length === 1 && d.alkalmak[0].adat === undefined,
+    'a DM állapotában a rövid lista és a futó alkalom teljes adata', { alkalmak: d.alkalmak, alkalom: d.alkalom && d.alkalom.id });
+  let b = hivas('state.get', { kampany_id: kampany.id }, bencT);
+  ellenoriz(b.alkalom === undefined && b.alkalmak === undefined && Array.isArray(b.kalandnaplo) && !b.kalandnaplo.length, 'a játékos a futó alkalmat nem látja');
+
+  vB = pollB();
+  w = hivas('session.save', { id: 'a_elso000001', verzio: 3, allapot: 'lezart', veg: '2026-11-20T22:00:00Z', kozzeteve: true }, dm);
+  ellenoriz(w.ok && w.alkalom.allapot === 'lezart' && w.alkalom.veg === '2026-11-20T22:00:00Z' && w.alkalom.kozzeteve === true, 'a DM lezárja és közzéteszi', w.alkalom);
+  ellenoriz(pollB() > vB, 'a közzététel növeli a kampányverziót');
+  b = hivas('state.get', { kampany_id: kampany.id }, bencT);
+  const n1 = b.kalandnaplo[0];
+  ellenoriz(b.kalandnaplo.length === 1 && n1.szoveg === 'A hídnál találkoztatok az idegennel.' && n1.jatekbeli_veg === 'Aratás hava 5.' && n1.sorszam === 1,
+    'a játékos a közzétett alkalom játékosoknak szóló részét látja', n1);
+  ellenoriz(n1.szereplok.length === 1 && n1.szereplok[0].nev === 'Varga mester' && n1.szereplok[0].jegyzet === 'Sántít.',
+    'a szereplők közül csak az Ismereteiben lévő, az összekapcsolt alany nevén, egyszer', n1.szereplok);
+  ellenoriz(!JSON.stringify(b.kalandnaplo).includes('DM-TITOK') && !JSON.stringify(b.kalandnaplo).includes('bérgyilkos') && !JSON.stringify(b.kalandnaplo).includes('Más alkalom'),
+    'a DM jegyzete, összefoglalója és az ismeretlen szereplő nem jut el a játékoshoz');
+  ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).kalandnaplo.length === 1, 'a mesterjátékos is látja a kalandnaplót');
+
+  vB = pollB();
+  const naplo2 = zart.naplo.concat([{ id: 'e2', ido: '2026-11-20T19:00:00Z', fajta: 'proba', szoveg: 'Keresés' }]);
+  w = hivas('session.save', { id: 'a_elso000001', verzio: 4, adat: { ...zart, naplo: naplo2 } }, dm);
+  ellenoriz(w.ok && pollB() === vB, 'a csak DM-nek szóló rész változása nem növeli a kampányverziót');
+  w = hivas('session.save', { id: 'a_elso000001', verzio: 5, adat: { ...zart, naplo: naplo2, osszefoglalo: { ...zart.osszefoglalo, jatekosoknak: 'Javított szöveg.' } } }, dm);
+  ellenoriz(w.ok && pollB() > vB && hivas('state.get', { kampany_id: kampany.id }, bencT).kalandnaplo[0].szoveg === 'Javított szöveg.', 'a játékosoknak szóló szöveg javítása eljut hozzájuk');
+
+  w = hivas('session.save', { id: 'a_masodik001', uj: true, verzio: 0, kampany_id: kampany.id, adat: { szalak: zart.szalak } }, dm);
+  ellenoriz(w.ok && w.alkalom.sorszam === 2, 'a következő alkalom a 2. sorszámot kapja');
+  ellenoriz(hivas('session.save', { id: 'a_elso000001', verzio: 6, allapot: 'fut' }, dm).hiba === 'hibas_adat', 'lezárt alkalom nem nyitható újra, ha más fut');
+  d = hivas('state.get', { kampany_id: kampany.id }, dm);
+  ellenoriz(d.alkalmak.length === 2 && d.alkalom.id === 'a_masodik001' && d.alkalmak[0].osszefoglalo_eleje.startsWith('DM összefoglaló'), 'a DM állapotában a futó (2.) alkalom, a listában mindkettő');
+  ellenoriz(hivas('session.get', { id: 'a_elso000001' }, dm).alkalom.adat.naplo.length === 2, 'session.get: egy régebbi alkalom teljes adata');
+  ellenoriz(hivas('session.get', { id: 'a_elso000001' }, bencT).hiba === 'nincs_jogosultsag', 'session.get csak a DM-é');
+  ellenoriz(hivas('session.delete', { id: 'a_masodik001' }, dm).ok && hivas('state.get', { kampany_id: kampany.id }, dm).alkalmak.length === 1, 'alkalom törlése');
+  vB = pollB();
+  ellenoriz(hivas('session.delete', { id: 'a_elso000001' }, dm).ok && pollB() > vB && !hivas('state.get', { kampany_id: kampany.id }, bencT).kalandnaplo.length,
+    'a közzétett alkalom törlése a játékosoknál is látszik');
+  ellenoriz(hivas('state.get', { kampany_id: kampany.id }, dm).alkalom === null, 'alkalom nélkül a DM állapotában üres');
+  // a kampány törlésének ellenőrzéséhez marad egy alkalom
+  hivas('session.save', { id: 'a_marado0001', uj: true, verzio: 0, kampany_id: kampany.id, adat: {} }, dm);
+}
+
 // ---- Próbák (2. fejlesztési lépés) ----
 let kall = hivas('state.get', { kampany_id: kampany.id }, bencT);
 ellenoriz(kall.kampany.beallitasok && kall.kampany.beallitasok.celertek_rejtett === true && kall.kampany.beallitasok.mutatvanyok.felfedezes === true && kall.kampany.beallitasok.mutatvanyok.isteni === false,
@@ -758,6 +827,7 @@ ellenoriz(!jatek.getSheetByName('Csaták').adat.some(sor => sor.includes(csata.i
 ellenoriz(!jatek.getSheetByName('Elemek').adat.some(sor => sor.includes('el_kamp0002')) && jatek.getSheetByName('Elemek').adat.some(sor => sor.includes('el_vilag001')), 'a törölt kampány elemei törlődtek, a világ elemei megmaradtak');
 ellenoriz(!jatek.getSheetByName('Kapcsolatok').adat.some(sor => sor.includes('ln_kapcs0004')), 'a törölt kampány kapcsolatai is törlődtek');
 ellenoriz(!jatek.getSheetByName('Jegyzetek').adat.some(sor => sor.includes(kampany.id)), 'a törölt kampány jegyzetei is törlődtek');
+ellenoriz(!jatek.getSheetByName('Alkalmak').adat.some(sor => sor.includes(kampany.id)), 'a törölt kampány alkalmai is törlődtek');
 
 console.log(hibak ? `\n${hibak} HIBA` : '\nMinden teszt sikeres.');
 process.exit(hibak ? 1 : 0);

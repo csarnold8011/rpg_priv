@@ -44,7 +44,8 @@
         "Elemek": ["id", "tipus", "nev", "vilag_id", "kampany_id", "alap_id", "szulo_id", "sorrend", "adat", "verzio", "modositva", "modositotta", "aktiv"],
         "Kapcsolatok": ["id", "honnan", "hova", "tipus", "megjegyzes", "vilag_id", "kampany_id", "aktiv"],
         "Változásnapló": ["idopont", "ki", "mit", "elem_id", "regi_verzio", "uj_verzio"],
-        "Jegyzetek": ["id", "kampany_id", "szerzo_id", "karakter_id", "lathatosag", "kapcsolodik", "cim", "szoveg", "cimkek", "rogzitett", "verzio", "letrehozva", "modositva", "modositotta", "aktiv"]
+        "Jegyzetek": ["id", "kampany_id", "szerzo_id", "karakter_id", "lathatosag", "kapcsolodik", "cim", "szoveg", "cimkek", "rogzitett", "verzio", "letrehozva", "modositva", "modositotta", "aktiv"],
+        "Alkalmak": ["id", "kampany_id", "sorszam", "cim", "allapot", "kezdet", "veg", "jatekbeli_datum", "jatekbeli_veg", "kozzeteve", "adat", "verzio", "letrehozva", "modositva", "modositotta"]
       }
     }
   },

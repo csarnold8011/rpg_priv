@@ -460,6 +460,23 @@ const SEMA = {
           "modositva",
           "modositotta",
           "aktiv"
+        ],
+        "Alkalmak": [
+          "id",
+          "kampany_id",
+          "sorszam",
+          "cim",
+          "allapot",
+          "kezdet",
+          "veg",
+          "jatekbeli_datum",
+          "jatekbeli_veg",
+          "kozzeteve",
+          "adat",
+          "verzio",
+          "letrehozva",
+          "modositva",
+          "modositotta"
         ]
       }
     }

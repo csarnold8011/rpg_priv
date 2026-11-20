@@ -36,7 +36,7 @@ function kampanyCsatai_(kampany) {
   const mind = csataSorok_().filter(function (c) { return c.kampany_id === kampany.id; });
   const futo = mind.filter(function (c) { return c.allapot !== 'lezart'; }).map(csataNezet_);
   const lezart = mind.filter(function (c) { return c.allapot === 'lezart'; }).slice(-LEZART_CSATAK_SZAMA)
-    .map(function (c) { return { id: c.id, cim: c.cim, allapot: 'lezart', lezarva: c.lezarva || '', osszecsapas_id: c.osszecsapas_id || '' }; });
+    .map(function (c) { return { id: c.id, cim: c.cim, allapot: 'lezart', letrehozva: c.letrehozva || '', lezarva: c.lezarva || '', osszecsapas_id: c.osszecsapas_id || '' }; });
   return futo.concat(lezart);
 }
 

@@ -1,7 +1,7 @@
 // DM próbakérés: „Próbák” panel a kampány élő nézetében (új kérés, élő tábla, lezárás, titkos próba, ellenfél dobása),
 // a játékos kártyái a kampány nézetében, és a varázslat célpontjának próbája. A szabályok: web/js/jatek/probakeres.js.
 // A terv: claude/probak-terv.md (4. ütem). A háttér: test.request, test.update, test.close, roll.log (proba_id).
-import { html, K, useApp, useState, useMemo, Jelolo, Valaszto, Parbeszed, Sugo, elojel } from './kozos.js';
+import { html, K, useApp, useState, useEffect, useMemo, Jelolo, Valaszto, Parbeszed, Sugo, elojel } from './kozos.js';
 import { Kapcsolo, Csip } from './varazslo_lepesek.js';
 import { KarakterKep } from './kepek.js';
 import { Kockadobo } from './kockadobo.js';
@@ -17,7 +17,7 @@ const szamBol = (s) => { const n = parseInt(String(s).replace('−', '-'), 10); 
 const aktivKarakterek = (allapot) => (allapot.karakterek || []).filter((c) => !c.kampany_allapot || c.kampany_allapot === 'aktív');
 
 // A karakter lapja (karakterSzamol), ha a teljes adat megvan (a DM-nél és a szerkeszthető karaktereknél).
-function useLapok(karakterek) {
+export function useLapok(karakterek) {
   const { szabalyok } = useApp();
   const lapok = szabalyok && szabalyok.adat && szabalyok.adat.lapok;
   return useMemo(() => {
@@ -63,9 +63,11 @@ function useProbaMuveletek(allapot) {
 }
 
 // =================== DM: Próbák panel ===================
-export function ProbakPanel({ allapot, naploz }) {
+// kerendo: kívülről megnyitott kérés (például a Játék nézet előkészített próbájának „Kiküldöm” gombja), onKerendo(null) nyugtázza.
+export function ProbakPanel({ allapot, naploz, kerendo = null, onKerendo }) {
   const { listak, keres, lezar } = useProbaMuveletek(allapot);
   const [uj, setUj] = useState(null); // az új kérés kiinduló űrlapja, vagy null
+  useEffect(() => { if (kerendo) { setUj(kerendo); if (onKerendo) onKerendo(null); } }, [kerendo]);
   const karakterek = allapot.karakterek || [];
   const lapok = useLapok(karakterek);
   const beallitas = allapot.kampany.beallitasok;

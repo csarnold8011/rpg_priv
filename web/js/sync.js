@@ -15,7 +15,8 @@ const SOR_KULCS = 'fage.varakozo';
 const VERZIO_LANC = {
   'character.save': 'karakter', 'combat.act': 'csata',
   'element.save': 'elem', 'element.archive': 'elem', 'element.detach': 'elem', 'element.promote': 'elem',
-  'world.save': 'vilag', 'campaign.frame.save': 'keret', 'note.save': 'jegyzet', 'note.archive': 'jegyzet'
+  'world.save': 'vilag', 'campaign.frame.save': 'keret', 'note.save': 'jegyzet', 'note.archive': 'jegyzet',
+  'session.save': 'alkalom'
 };
 
 function sorOlvasas() {
@@ -82,6 +83,16 @@ export class AppsScriptSync {
     this._kuld({ tipus: 'allapot', allapot: v });
     this._statusz();
     return v;
+  }
+
+  // A tárolt állapot helyi módosítása (például a DM alkalmának mentése után, amely nem növeli a kampány verzióját):
+  // fn(állapot) az új állapotot adja (vagy null-t, ha nincs változás); a figyelők megkapják.
+  helyiModositas(fn) {
+    if (!this.allapot) return;
+    const uj = fn(this.allapot);
+    if (!uj || uj === this.allapot) return;
+    this.allapot = uj;
+    this._kuld({ tipus: 'allapot', allapot: uj });
   }
 
   // valtozas: { action: 'character.save' | 'roll.log' | ..., adat: {...} }

@@ -28,7 +28,7 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 ```bash
 python3 tools/sema_general.py      # schema/sema.json -> backend/Sema.gs
 python3 tools/backend_osszefuz.py  # backend/*.gs -> dist/Kod.gs (előtte a csatamotort is lefordítja: backend/Csatamotor.gs)
-node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 272 ellenőrzés)
+node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 368 ellenőrzés)
 node tools/teszt/karakter.mjs      # a karakterszámoló tesztje (az Alapkönyv példakarakterével, 73 ellenőrzés)
 node tools/teszt/varazslo.mjs      # a karakterkészítő varázsló logikájának tesztje (48 ellenőrzés)
 node tools/teszt/szintlepes.mjs    # a szintlépés-varázsló logikájának tesztje (44 ellenőrzés)
@@ -40,6 +40,7 @@ node tools/teszt/probakeres.mjs    # a DM próbakérés tesztje (54)
 node tools/teszt/csata.mjs         # a csatamotor tesztje (61)
 node tools/teszt/csatamuvelet.mjs  # a csatalépések, varázslatok, a játékos szűrt csatája és a lezárás tesztje (65; valódi szabályadattal 68)
 node tools/teszt/kampany.mjs       # a Kampányépítő tiszta függvényei: öröklés, fa, kapcsolatok, kampánykeret, dobótábla-generátor, kalandok, jelenetek, helyszínek, boltok, szereplők, jutalmak (248)
+node tools/teszt/alkalom.mjs       # az élő munkamenet és a kalandnapló tiszta függvényei (55)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 
