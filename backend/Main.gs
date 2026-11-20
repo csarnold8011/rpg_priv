@@ -49,6 +49,8 @@ function muveletek_() {
     'shop.close':              { fn: boltBezarasa_, szerep: 'dm' },
     'shop.buy':                { fn: boltVasarlas_ },
     'shop.undo':               { fn: boltVisszavonas_, szerep: 'dm' },
+    'character.rest':          { fn: pihenes_ },
+    'character.rest.undo':     { fn: pihenesVisszavonasa_ },
     'npc.list':                { fn: njkLista_, szerep: 'dm' },
     'npc.get':                 { fn: njkLekerese_ },
     'npc.save':                { fn: njkMentese_, szerep: 'dm' },

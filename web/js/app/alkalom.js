@@ -17,6 +17,7 @@ import { KiosztasParbeszed, Kivetito } from './anyagok.js';
 import { XpKiosztas } from './xpkiosztas.js';
 import { JutalomElemSorok, KasszaPanel, ZsakmanyParbeszed } from './kioszt.js';
 import { BoltokPanel, BoltGomb } from './vasarlas.js';
+import { CsapatPihenes } from './pihenes.js';
 import * as VS from '../kampany/vasarlas.js';
 import * as B6 from '../kampany/bolt.js';
 import { useJegyzetfuzet, Jegyzetfuzet } from './jegyzetfuzet.js';
@@ -146,7 +147,7 @@ export function KampanyAlkalmakPanel({ allapot }) {
       ${alk.fut ? html`<p className="szoveg"><strong>${A.alkalomCim(alk.a)}</strong> fut, ${ora(alk.a.kezdet)} óta.
           ${alk.a.jatekbeli_datum ? html` <span className="halvany">Játékbeli idő: ${alk.a.jatekbeli_datum}.</span>` : null}</p>`
         : html`<p className="halvany">Most nincs futó alkalom. A Játék nézetben indítható; amíg fut, a jelenetek, próbák, anyagok, csaták, XP és
-          pénz az alkalom eseménynaplójába kerülnek, lezáráskor ebből készül a kalandnapló vázlata.</p>`}
+          pénz, pihenés az alkalom eseménynaplójába kerülnek, lezáráskor ebből készül a kalandnapló vázlata.</p>`}
       ${lezartak.length ? html`<ul className="sorlista">${lezartak.slice(0, 4).map((x) => html`<li key=${x.id} className="sorlista__sor">
         <div><a className="sorlista__nev" href=${'#' + naploUt(k.id, x.id)}>${A.alkalomCim(x)}</a>
           <div className="halvany kicsi">${A.valosIdoSzoveg(x)}${x.jatekbeli_datum ? ' · ' + A.jatekbeliIdoSzoveg(x) : ''}</div></div>
@@ -517,6 +518,7 @@ function CsapatAllapot({ allapot }) {
         ${f.length ? html`<div className="cimkek">${f.map((x) => html`<${K.Badge} key=${x.id} tone=${x.veszely ? 'danger' : 'warning'}>${x.nev}<//>`)}</div>` : null}
       </li>`;
     })}</ul>` : html`<p className="halvany kicsi">Nincs aktív karakter a kampányban.</p>`}
+    ${karakterek.length ? html`<${CsapatPihenes} allapot=${allapot} dm=${true}/>` : null}
   <//>`;
 }
 
@@ -550,7 +552,7 @@ function GyorsJegyzet({ alk, jelenetNev }) {
   <//>`;
 }
 
-const FAJTA_JEL = { jelenet: '▸', proba: '⚄', csata: '⚔', anyag: '✉', xp: '★', penz: '¤', jutalom: '♛', jegyzet: '✎', alkalom: '◆', egyeb: '•' };
+const FAJTA_JEL = { jelenet: '▸', proba: '⚄', csata: '⚔', anyag: '✉', xp: '★', penz: '¤', jutalom: '♛', pihenes: '☾', jegyzet: '✎', alkalom: '◆', egyeb: '•' };
 
 function EsemenyLista({ adat, jelenetNev, ures, max = 60 }) {
   const lista = adat.naplo.slice().reverse().slice(0, max);

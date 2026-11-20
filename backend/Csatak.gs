@@ -164,7 +164,11 @@ function csataLezarasa_(a, felh) {
       }
     }
     const njkIrt = csataNjkVisszairasa_(c, a.njk_visszairas !== false, felh);
-    kampanyVerziokNovelese_([c.kampany_id], k.kampanyok);
+    // 6.7: a szusszanáshoz a karakterekbe az utolsó csata és a végén mért Egészség (Pihenes.gs)
+    const karIrt = csataUtolsoBeirasa_(c, k, felh);
+    const karKampanyok = [c.kampany_id];
+    karIrt.forEach(function (id) { karakterKampanyai_(id, k).forEach(function (x) { if (karKampanyok.indexOf(x) < 0) karKampanyok.push(x); }); });
+    kampanyVerziokNovelese_(karKampanyok, k.kampanyok);
     valtozasNaplozasa_(felh, 'csata.lezar', c.id, '', c.verzio);
     return { csata: csataNezet_(c), njkk: njkIrt };
   });

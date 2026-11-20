@@ -22,6 +22,7 @@ import { CelpontProbaGomb } from './probakeres.js';
 import * as J from '../karakter/jegyzet.js';
 import * as KJ from '../karakter/jutalmak.js';
 import { JutalmakPanel } from './karakter_jutalmak.js';
+import { KarakterPihenes } from './pihenes.js';
 
 const TUL_NEV = {
   tul_accuracy: 'Pontosság', tul_communication: 'Kommunikáció', tul_constitution: 'Szívósság', tul_dexterity: 'Ügyesség',
@@ -168,7 +169,8 @@ function Szamlalo({ nev, kind, ertek, max, onAllit, csokkentFelirat, novelFelira
   </div>`;
 }
 
-function Eroforrasok({ lap, adat, lapok, valtoztat, irhato }) {
+function Eroforrasok({ karakter, lap, adat, lapok, valtoztat, irhato, dm }) {
+  const kampany = useKarakterKampanya(karakter);
   const allit = (kulcs) => (n) => valtoztat && valtoztat((a) => { a.allapot[kulcs] = n; });
   const [penzAblak, setPenzAblak] = useState(null); // 'be' | 'ki'
   const egyenleg = adat.felszereles.penz_rez || 0;
@@ -184,6 +186,7 @@ function Eroforrasok({ lap, adat, lapok, valtoztat, irhato }) {
             csokkentFelirat="Elkölt" novelFelirat="Visszanyer"
             sugo=${html`<${Sugo} cim="Mágiapont visszanyerése">Pihenéssel óránként 1d6 + Akaraterő, 8 óra zavartalan pihenés után mind visszajön.<//>`}/>`
         : html`<${K.ResourceBar} kind="magic" value=${lap.magiapont.aktualis} max=${lap.magiapont.ertek}/>`) : null}
+      ${irhato && valtoztat && lap.egeszseg.ertek ? html`<${KarakterPihenes} karakter=${karakter} adat=${adat} lap=${lap} valtoztat=${valtoztat} kampany=${kampany} dm=${dm}/>` : null}
       <div className="penzsor">
         <span className="penzsor__nev">Pénz</span>
         <span className=${'penzsor__ertek' + (egyenleg < 0 ? ' penzsor__ertek--minusz' : '')}>${V.penzSzoveg(egyenleg)}</span>

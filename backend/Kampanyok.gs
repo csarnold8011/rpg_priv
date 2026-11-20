@@ -13,8 +13,13 @@ function kampanyNezet_(kampany, szerep) {
   // a csapatkassza (6.5, Jutalmak.gs): minden tag látja
   o.kassza = kasszaNezet_(kampany, szerep);
   // a kampánykeret játékosoknak szóló része (bemutatás, szintsáv, karakterkészítési ajánlások), lásd Epito.gs
-  const jr = keretJatekosoknak_(keretAdat_(kampany));
+  const kr = keretAdat_(kampany);
+  const jr = keretJatekosoknak_(kr);
   if (jr) o.keret_jatekosoknak = jr;
+  // a kampánykeret bekapcsolt választható szabályai (Kampányépítő 9. fejezet), például a Súlyos sebek a pihenéshez (6.7)
+  const vsz = objektum_(kr.szabalyok);
+  const be = Object.keys(vsz).filter(function (x) { return vsz[x] === true; });
+  if (be.length) o.valasztott_szabalyok = be;
   return o;
 }
 

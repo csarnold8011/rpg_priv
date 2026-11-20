@@ -580,6 +580,10 @@ ellenoriz(hivas('combat.act', { id: csata.id, verzio: 2, kulcs: 'l3', adat: csAd
 v = hivas('combat.close', { id: csata.id }, dm2);
 ellenoriz(v.ok && v.csata.allapot === 'lezart' && v.csata.lezarva && v.csata.adat.allapot === 'lezart', 'a csata lezárul');
 ellenoriz(hivas('encounter.list', { kampany_id: kampany.id }, dm2).osszecsapasok.find(e => e.id === marado.id).allapot === 'lefutott', 'az összecsapása „lefutott” lesz');
+{
+  const uc = hivas('character.get', { id: pottom.id }, dm2).karakter.adat.allapot.utolso_csata;
+  ellenoriz(uc && uc.id === csata.id && uc.nulla === false && uc.cim === 'Farkasok', 'lezáráskor a karakterbe íródik az utolsó csata (a szusszanáshoz)', uc);
+}
 ellenoriz(hivas('combat.act', { id: csata.id, verzio: 3, kulcs: 'l4', adat: csAdat() }, dm2).hiba === 'hibas_adat', 'lezárt csata nem léptethető');
 csAll = hivas('state.get', { kampany_id: kampany.id }, dm2);
 ellenoriz(csAll.csatak.some(c => c.id === csata.id && c.allapot === 'lezart' && !c.adat), 'a lezárt csata röviden szerepel (a napló szűrőjéhez)');
@@ -972,6 +976,62 @@ ellenoriz(v.torolve.length === 2 && fajlok[ekep.kep].kuka && fajlok[ekep.belyeg]
   ellenoriz(w.ok && w.bolt.tetelek[0].keszlet === 2 && w.bolt.naplo.length >= 4, 'újranyitás a készlet újraindításával, a napló megmarad', w.bolt);
   w = hivas('shop.close', { kampany_id: kampany.id, bolt_id: 'el_bolt00003', torol: true }, dm2);
   ellenoriz(w.ok && hivas('state.get', { kampany_id: kampany.id }, dm2).boltok.length === 2, 'a bolt sora törölhető');
+}
+
+// ---------- 6.7: pihenés ----------
+{
+  const hos1 = hivas('character.create', { nev: 'Pihenő Piroska', kampany_id: kampany.id }, dm2).karakter;
+  const hos2 = hivas('character.create', { nev: 'Álmos Ábel', kampany_id: kampany.id }, dm2).karakter;
+  const kivul = hivas('character.create', { nev: 'Kívülálló', kampany_id: '' }, dm2).karakter;
+  const eszter = hivas('users.admin', { muvelet: 'letrehoz', nev: 'Eszter', jelszo: 'eszter1', szerep: 'jatekos' }, dm2).felhasznalo;
+  const eszterT = hivas('login', { nev: 'Eszter', jelszo: 'eszter1' }).token;
+  hivas('character.assign', { karakter_id: hos1.id, jatekos_id: eszter.id }, dm2);
+  const allit = (id, eg, mp) => { const c = hivas('character.get', { id }, dm2).karakter; c.adat.allapot = Object.assign({}, c.adat.allapot, { egeszseg: eg, magiapont: mp }); hivas('character.save', { id, verzio: c.verzio, adat: c.adat }, dm2); };
+  allit(hos1.id, 10, 2);
+  allit(hos2.id, 25, null);
+  const adatOf = (id) => hivas('character.get', { id }, dm2).karakter.adat;
+  const ker = (id, tetelek, extra) => Object.assign({ kampany_id: kampany.id, id, fajta: 'alvas', tetelek }, extra || {});
+  ellenoriz(hivas('character.rest', ker('rossz', [{ karakter_id: hos1.id, eg: 5, eg_max: 30 }]), dm2).hiba === 'hibas_adat', 'hibás pihenésazonosító');
+  ellenoriz(hivas('character.rest', ker('pi_ures00001', []), dm2).hiba === 'hianyzo_adat', 'üres pihenés hibát ad');
+  ellenoriz(hivas('character.rest', ker('pi_kivul0001', [{ karakter_id: kivul.id, eg: 5, eg_max: 30 }]), dm2).hiba === 'hibas_adat', 'kampányon kívüli karakter nem pihenhet itt');
+  ellenoriz(hivas('character.rest', ker('pi_idegen001', [{ karakter_id: hos2.id, eg: 5, eg_max: 30 }]), eszterT).hiba === 'nincs_jogosultsag', 'a játékos más karakterét nem pihentetheti');
+  let w = hivas('character.rest', ker('pi_alvas0001', [
+    { karakter_id: hos1.id, eg: 14, eg_max: 30, mp: 50, mp_max: 20, reszlet: 'Egészség +14', orak: 8, napok: 1 },
+    { karakter_id: hos2.id, eg: 14, eg_max: 30, mp: 0, mp_max: null, orak: 8, napok: 1 }]), dm2);
+  let a1 = adatOf(hos1.id), a2 = adatOf(hos2.id);
+  ellenoriz(w.ok && w.karakterek.length === 2 && a1.allapot.egeszseg === 24 && a1.allapot.magiapont === 20 && a2.allapot.egeszseg === 30, 'a csapat alvása: Egészség és Mágiapont a maximumig', w);
+  const b1 = a1.pihenes_naplo[0], b2 = a2.pihenes_naplo[0];
+  ellenoriz(b1.id === 'pi_alvas0001' && b1.eg === 14 && b1.mp === 18 && b1.eg_utana === 24 && b2.eg === 5 && b1.ki && b1.kampany_id === kampany.id && b1.orak === 8, 'a napló bejegyzése a ténylegesen kapott értékkel', [b1, b2]);
+  const ver = hivas('character.get', { id: hos1.id }, dm2).karakter.verzio;
+  w = hivas('character.rest', ker('pi_alvas0001', [{ karakter_id: hos1.id, eg: 14, eg_max: 30 }]), dm2);
+  ellenoriz(w.ok && w.ismetelt && hivas('character.get', { id: hos1.id }, dm2).karakter.verzio === ver, 'ismételt küldés nem duplikál');
+  w = hivas('character.rest', ker('pi_szusz0001', [{ karakter_id: hos1.id, eg: 9, eg_max: 30, csata_id: 'cs_x' }], { fajta: 'szusszanas' }), eszterT);
+  a1 = adatOf(hos1.id);
+  ellenoriz(w.ok && a1.allapot.egeszseg === 30 && a1.pihenes_naplo[1].csata_id === 'cs_x' && a1.pihenes_naplo[1].eg === 6 && !('orak' in a1.pihenes_naplo[1]), 'a játékos a saját karakterének szusszanhat (a maximumig)');
+  allit(hos1.id, 4, 20);
+  w = hivas('character.rest', ker('pi_sulyos001', [{ karakter_id: hos1.id, eg: -7, eg_max: 30, orak: 8, napok: 2, sulyos: true, korulmeny: 'rossz', dobasok: { eg: [3, 4] } }]), dm2);
+  a1 = adatOf(hos1.id);
+  const bs = a1.pihenes_naplo[2];
+  ellenoriz(w.ok && a1.allapot.egeszseg === 0 && bs.eg === -4 && bs.sulyos && bs.korulmeny === 'rossz' && bs.dobasok.eg.join() === '3,4', 'súlyos sebek, rossz körülmények: sebzés 0-ig, a dobásokkal', bs);
+  ellenoriz(hivas('character.rest.undo', { kampany_id: kampany.id, id: 'pi_alvas0001' }, eszterT).hiba === 'nincs_jogosultsag', 'a játékos a csapat pihenését nem vonhatja vissza (más karakterét is érinti)');
+  w = hivas('character.rest.undo', { kampany_id: kampany.id, id: 'pi_sulyos001' }, dm2);
+  a1 = adatOf(hos1.id);
+  ellenoriz(w.ok && a1.allapot.egeszseg === 4 && a1.pihenes_naplo[2].visszavonva, 'visszavonás: a sebzés is visszajön, a jel megmarad');
+  w = hivas('character.rest.undo', { kampany_id: kampany.id, id: 'pi_alvas0001' }, dm2);
+  a1 = adatOf(hos1.id); a2 = adatOf(hos2.id);
+  ellenoriz(w.ok && w.karakterek.length === 2 && a1.allapot.magiapont === 2 && a2.allapot.egeszseg === 25, 'a csapat pihenésének visszavonása mindenkin', [a1.allapot, a2.allapot]);
+  ellenoriz(hivas('character.rest.undo', { kampany_id: kampany.id, id: 'pi_alvas0001' }, dm2).karakterek.length === 0, 'kétszer nem vonható vissza');
+  ellenoriz(hivas('character.rest.undo', { kampany_id: kampany.id, id: 'pi_nincs0001' }, dm2).hiba === 'nem_talalhato', 'ismeretlen pihenés');
+  const regiKar = hivas('character.create', { nev: 'Régi Rezső', kampany_id: kampany.id, adat: { egeszseg: { aktualis: 7, max: 20 }, magiapont: { aktualis: 1, max: 10 } } }, dm2).karakter;
+  hivas('character.rest', ker('pi_regi00001', [{ karakter_id: regiKar.id, eg: 5, eg_max: 20, mp: 3, mp_max: 10 }], { fajta: 'szusszanas' }), dm2);
+  const ra = adatOf(regiKar.id);
+  ellenoriz(ra.egeszseg.aktualis === 12 && ra.allapot.egeszseg === 12 && ra.magiapont.aktualis === 4 && ra.pihenes_naplo[0].eg === 5, 'régi szerkezetű karakter: a régi mezőből indul, és oda is ír', ra);
+  const st = hivas('state.get', { kampany_id: kampany.id }, eszterT);
+  ellenoriz(st.karakterek.find((c) => c.id === hos1.id).adat.pihenes_naplo.length === 3, 'a pihenések a kampányállapotban (az eseménynaplóhoz)');
+  ellenoriz(!hivas('campaigns.list', {}, eszterT).kampanyok.find((c) => c.id === kampany.id).valasztott_szabalyok, 'választott szabály nélkül nincs jel');
+  hivas('campaign.frame.save', { id: kampany.id, keret: { szabalyok: { sulyos_sebek: true, mas: false } } }, dm2);
+  const vs = hivas('campaigns.list', {}, eszterT).kampanyok.find((c) => c.id === kampany.id).valasztott_szabalyok;
+  ellenoriz(Array.isArray(vs) && vs.join() === 'sulyos_sebek', 'a játékos is látja a bekapcsolt Súlyos sebeket', vs);
 }
 
 ellenoriz(hivas('campaign.delete', { id: kampany.id }, dm2).hiba === 'hibas_adat', 'nem archivált kampány nem törölhető');

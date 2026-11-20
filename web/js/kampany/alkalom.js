@@ -19,6 +19,7 @@ import { lenyekNorm } from './jelenet.js';
 import { penzSzoveg } from '../karakter/varazslo.js';
 import { alkalomCim, valosIdoSzoveg, jatekbeliIdoSzoveg } from './alkalom_ido.js';
 import { vasarlasEsemenyek } from './vasarlas.js';
+import { pihenesEsemenyek } from '../karakter/pihenes.js';
 
 export { alkalomCim, valosIdoSzoveg, jatekbeliIdoSzoveg };
 
@@ -38,7 +39,7 @@ export const UTEM_ALLAPOTOK = { '': 'hátravan', kesz: 'megtörtént', kihagyva:
 export const SZAL_ALLAPOTOK = { nyitott: 'nyitott', lezart: 'lezárva' };
 export const SZEREPLO_TIPUSOK = { njk: 'NJK', alany: 'alany', elem: 'elem', szabad: 'szabad' };
 export const ESEMENY_FAJTAK = {
-  jelenet: 'Jelenet', proba: 'Próba', csata: 'Csata', anyag: 'Anyag', xp: 'XP', penz: 'Pénz', jutalom: 'Jutalom', jegyzet: 'Jegyzet', alkalom: 'Alkalom', egyeb: 'Egyéb'
+  jelenet: 'Jelenet', proba: 'Próba', csata: 'Csata', anyag: 'Anyag', xp: 'XP', penz: 'Pénz', jutalom: 'Jutalom', pihenes: 'Pihenés', jegyzet: 'Jegyzet', alkalom: 'Alkalom', egyeb: 'Egyéb'
 };
 
 export const MAX_NAPLO = 250;
@@ -318,6 +319,8 @@ export function esemenyekAllapotbol(allapot, alkalom) {
   });
   // 6.6: a boltok vásárlásai és eladásai (a bolt naplójából) karakterenként „pénz” esemény.
   vasarlasEsemenyek(st, (ido) => benne(ido, kezdet, veg)).forEach((e) => ki.push(e));
+  // 6.7: a pihenések (a csapat egyszerre adott pihenése egy esemény)
+  pihenesEsemenyek(karakterek, obj(st.kampany).id, (ido) => benne(ido, kezdet, veg)).forEach((e) => ki.push(e));
   return ki.sort((a, b) => szoveg(a.ido).localeCompare(szoveg(b.ido)));
 }
 
@@ -373,6 +376,11 @@ export function esemenySzoveg(e) {
     if (d.tars) r.push('társ: ' + (d.tars.nev || 'NJK') + (d.tars.csapat ? ' (a csapaté)' : ''));
     if (Number(d.kassza)) r.push('kassza ' + (d.kassza > 0 ? '+' : '') + penzSzoveg(d.kassza));
     return 'Jutalom: ' + e.szoveg + (r.length ? ' (' + r.join(', ') + ')' : '') + (d.visszavont ? ', visszavonva' : '');
+  }
+  if (e.fajta === 'pihenes') {
+    const r = lista(d.tetelek).map((t) => t.nev + ' ' + [Number(t.eg) ? (t.eg > 0 ? '+' : '−') + Math.abs(t.eg) + ' Egészség' : '', Number(t.mp) ? (t.mp > 0 ? '+' : '−') + Math.abs(t.mp) + ' MP' : ''].filter(Boolean).join(', ')
+      .replace(/^$/, 'változatlan'));
+    return 'Pihenés: ' + e.szoveg + (r.length ? ' (' + r.join('; ') + ')' : '') + (d.visszavont ? ', visszavonva' : '');
   }
   return e.szoveg;
 }

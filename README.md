@@ -14,7 +14,7 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 | `index.html` | A felület nyitóoldala (belépés, utána a szerep szerint DM vagy játékos nézet): https://csarnold8011.github.io/rpg_priv/ |
 | `web/js/app/` | A felület: `main.js` (belépési pont), `belepes.js`, `dm.js`, `jatekos.js`, `jatek.js` (közös játékelemek), `kozos.js`, `ikonok.js`, a karakterkészítő varázsló (`varazslo.js` keret és mentés, `varazslo_lepesek.js` a tíz lépés és az élő karakterlap), a szintlépés-varázsló (`szintlepes.js` keret, `szintlepes_lepesek.js` az öt lépés), a karakterlap (`karakterlap.js`, játék és szerkesztés mód), a karakterkép (`kepek.js`: gyorsítótár, kivágás, feltöltés), az XP kiosztása (`xpkiosztas.js`) és a kockadobó (`kockadobo.js`, Dobj vagy Beírom) |
 | `web/js/` | Közös modulok: `api.js` (háttérhívások), `sync.js` (szinkronréteg), `szabalyok.js` (szabályadat a böngészőben) |
-| `web/js/karakter/` | A karakter adatszerkezete és számolása: `adat.js` (szerkezet, átállás a korábbiról), `szamol.js` (végértékek a döntésekből, magyarázattal), `ellenoriz.js` (figyelmeztetések), `felszereles.js` (kezdő csomag), `varazslo.js` (a varázsló lépéseinek logikája), `szintlepes.js` (a szintlépés logikája), `magia.js` (arkánumok varázslatai fokozatonként), `xp.js` (XP-küszöbök és jutalmak), `leltar.js` (játék közbeni vásárlás, eladás, pénz, tárgyak), `tablak.js`, `szabalyindex.js` |
+| `web/js/karakter/` | A karakter adatszerkezete és számolása: `adat.js` (szerkezet, átállás a korábbiról), `szamol.js` (végértékek a döntésekből, magyarázattal), `ellenoriz.js` (figyelmeztetések), `felszereles.js` (kezdő csomag), `varazslo.js` (a varázsló lépéseinek logikája), `szintlepes.js` (a szintlépés logikája), `magia.js` (arkánumok varázslatai fokozatonként), `xp.js` (XP-küszöbök és jutalmak), `leltar.js` (játék közbeni vásárlás, eladás, pénz, tárgyak), `pihenes.js` (szusszanás, alvás, meditáció, Súlyos sebek), `tablak.js`, `szabalyindex.js` |
 | `web/js/kampany/` | A Kampányépítő (5. lépés) tiszta függvényei: `elem.js` (típusok, szintek, öröklés), `fa.js`, `kapcsolat.js`, `keret.js` (kampánykeret a könyv 1. fejezete szerint), `kaland.js` (2. fejezet), `jelenet.js` (3. fejezet: jelenetek, típusok aránya), `helyszin.js` és `bolt.js` (4. fejezet), `szereplo.js` (5. fejezet), `jutalom.js` (6. fejezet: jutalmak, jutalomtérkép, véletlen tárgyak), `generator.js` (dobótáblák). Felület: `web/js/app/epito.js`, `epito_keret.js`, `epito_kaland.js`, `epito_jelenet.js`, `epito_helyszin.js`, `epito_szereplo.js`, `epito_jutalom.js`, `epito_kepek.js` (az elemek képei és térképei), `dobotabla.js`; háttér: `backend/Epito.gs` |
 | `web/kaland/` | A design rendszer másolata (komponensek, tokenek), lásd `web/kaland/README.md` |
 | `web/css/app.css` | A felület elrendezése, csak tokenekkel |
@@ -28,7 +28,7 @@ Ebben a repóban **csak program kód** van. Minden tartalom (szabályadatbázis,
 ```bash
 python3 tools/sema_general.py      # schema/sema.json -> backend/Sema.gs
 python3 tools/backend_osszefuz.py  # backend/*.gs -> dist/Kod.gs (előtte a csatamotort is lefordítja: backend/Csatamotor.gs)
-node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 368 ellenőrzés)
+node tools/teszt/futtat.js         # a háttér helyi tesztje (Google szolgáltatások utánzatával, 440 ellenőrzés)
 node tools/teszt/karakter.mjs      # a karakterszámoló tesztje (az Alapkönyv példakarakterével, 73 ellenőrzés)
 node tools/teszt/varazslo.mjs      # a karakterkészítő varázsló logikájának tesztje (48 ellenőrzés)
 node tools/teszt/szintlepes.mjs    # a szintlépés-varázsló logikájának tesztje (44 ellenőrzés)
@@ -41,6 +41,7 @@ node tools/teszt/csata.mjs         # a csatamotor tesztje (61)
 node tools/teszt/csatamuvelet.mjs  # a csatalépések, varázslatok, a játékos szűrt csatája és a lezárás tesztje (65; valódi szabályadattal 68)
 node tools/teszt/kampany.mjs       # a Kampányépítő tiszta függvényei: öröklés, fa, kapcsolatok, kampánykeret, dobótábla-generátor, kalandok, jelenetek, helyszínek, boltok, szereplők, jutalmak (248)
 node tools/teszt/alkalom.mjs       # az élő munkamenet és a kalandnapló tiszta függvényei (55)
+node tools/teszt/pihenes.mjs       # a pihenés (szusszanás, alvás, meditáció, Súlyos sebek) tiszta függvényei (44)
 node tools/helyi_szerver.js        # a felület kipróbálása helyben, bemutató adatokkal (--ures: üres adatbázis)
 ```
 
