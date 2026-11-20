@@ -145,7 +145,8 @@ function NagyKep({ k, onBezar }) {
 }
 
 // Teljes képernyős megnyitás (a játékos telefonján és a DM kivetítőjén).
-export function AnyagMegnyito({ a, cim, alcim, onBezar, kivetito = false }) {
+// kiegeszites: a tartalom alá kerülő rész (a játékosnál a kapcsolódó jegyzetek, 6.3).
+export function AnyagMegnyito({ a, cim, alcim, onBezar, kivetito = false, kiegeszites = null }) {
   const doboz = useRef(null);
   useEffect(() => {
     const billentyu = (e) => { if (e.key === 'Escape') onBezar(); };
@@ -172,7 +173,10 @@ export function AnyagMegnyito({ a, cim, alcim, onBezar, kivetito = false }) {
         <button type="button" className="ikongomb" onClick=${onBezar} aria-label="Bezárás"><${Ikon} nev="bezar"/></button>
       </div>
     </header>
-    <div className="megnyito__torzs"><${AnyagNezet} a=${a} nagy=${true}/></div>
+    <div className="megnyito__torzs">
+      <${AnyagNezet} a=${a} nagy=${true}/>
+      ${kiegeszites && !kivetito ? html`<div className="megnyito__kiegeszites">${kiegeszites}</div>` : null}
+    </div>
   </div>`;
 }
 
@@ -662,7 +666,8 @@ export function useAnyagMegnyitas(allapot) {
   return { nyitott, nyit, bezar: () => setNyitott(null), megosztasok };
 }
 
-export function JatekosAnyagok({ allapot, megnyitas }) {
+// alanyJegyzetek(csoport): az Ismeretek lapján az alany jegyzetei (6.3).
+export function JatekosAnyagok({ allapot, megnyitas, alanyJegyzetek = null }) {
   const [nezet, setNezet] = useState('ido');
   const [fajta, setFajta] = useState('');
   const { megosztasok, nyit } = megnyitas;
@@ -684,6 +689,7 @@ export function JatekosAnyagok({ allapot, megnyitas }) {
           ${cs.map((c) => html`<${K.Panel} key=${c.alany.id} title=${c.alany.nev}>
             ${c.korabbi.length ? html`<p className="halvany kicsi">Korábban: ${c.korabbi.join(', ')}</p>` : null}
             <ul className="kartyalista">${c.anyagok.map((m) => html`<li key=${m.id}><${AnyagKartya} m=${m} allapot=${allapot} ujabb=${ujabb.has(m.id)} onNyit=${() => nyit(m)}/></li>`)}</ul>
+            ${alanyJegyzetek ? alanyJegyzetek(c) : null}
           <//>`)}
         </section>`;
       })}</div>`
@@ -717,7 +723,8 @@ function AnyagBelyeg({ k }) {
 }
 
 // A megnyitott anyag és a felugró megmutatás (a játékos telefonján). A megmutatás eszközönként egyszer ugrik fel.
-export function AnyagMegnyitoReteg({ allapot, megnyitas }) {
+// kiegeszites(m): a megnyitott anyag alá kerülő rész (a kapcsolódó jegyzetek, 6.3).
+export function AnyagMegnyitoReteg({ allapot, megnyitas, kiegeszites = null }) {
   const { felhasznalo } = useApp();
   const kulcs = gyorsKulcs(felhasznalo.id, 'megmutatva.' + allapot.kampany.id);
   const [mutatott, setMutatott] = useState(() => new Set(tarOlvas(kulcs, [])));
@@ -736,7 +743,7 @@ export function AnyagMegnyitoReteg({ allapot, megnyitas }) {
   const m = megosztasok.find((x) => x.id === nyitott.id) || nyitott;
   const alany = m.alany_id ? alanyok.find((x) => x.id === A.alanyCel(alanyok, m.alany_id)) : null;
   const alcim = [alany ? A.alanyNezet(alany).nev : '', !A.mindenkinekE(m) ? 'csak: ' + A.cimzettSzoveg(m.cimzettek, allapot.karakterek) : '', idopont(m.idopont)].filter(Boolean).join(' · ');
-  return html`<${AnyagMegnyito} a=${m} cim=${A.anyagCim(m)} alcim=${alcim} onBezar=${bezar}/>`;
+  return html`<${AnyagMegnyito} a=${m} cim=${A.anyagCim(m)} alcim=${alcim} onBezar=${bezar} kiegeszites=${kiegeszites ? kiegeszites(m) : null}/>`;
 }
 
 export const anyagUjak = (megosztasok, felhId) => A.ujakSzama(megosztasok, felhId);

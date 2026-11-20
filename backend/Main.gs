@@ -38,6 +38,8 @@ function muveletek_() {
     'share.update':            { fn: megosztasModositasa_, szerep: 'dm' },
     'share.seen':              { fn: megosztasLatta_ },
     'share.image.add':         { fn: megosztasKepFeltoltese_, szerep: 'dm' },
+    'note.save':               { fn: jegyzetMentese_ },
+    'note.archive':            { fn: jegyzetArchivalasa_ },
     'npc.list':                { fn: njkLista_, szerep: 'dm' },
     'npc.get':                 { fn: njkLekerese_ },
     'npc.save':                { fn: njkMentese_, szerep: 'dm' },

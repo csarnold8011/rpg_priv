@@ -15,7 +15,7 @@ const SOR_KULCS = 'fage.varakozo';
 const VERZIO_LANC = {
   'character.save': 'karakter', 'combat.act': 'csata',
   'element.save': 'elem', 'element.archive': 'elem', 'element.detach': 'elem', 'element.promote': 'elem',
-  'world.save': 'vilag', 'campaign.frame.save': 'keret'
+  'world.save': 'vilag', 'campaign.frame.save': 'keret', 'note.save': 'jegyzet', 'note.archive': 'jegyzet'
 };
 
 function sorOlvasas() {

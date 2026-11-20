@@ -303,7 +303,8 @@ const SEMA = {
           "letrehozva",
           "beallitasok",
           "keret",
-          "latta"
+          "latta",
+          "cimkek"
         ],
         "Kampánykarakterek": [
           "kampany_id",
@@ -442,6 +443,23 @@ const SEMA = {
           "elem_id",
           "regi_verzio",
           "uj_verzio"
+        ],
+        "Jegyzetek": [
+          "id",
+          "kampany_id",
+          "szerzo_id",
+          "karakter_id",
+          "lathatosag",
+          "kapcsolodik",
+          "cim",
+          "szoveg",
+          "cimkek",
+          "rogzitett",
+          "verzio",
+          "letrehozva",
+          "modositva",
+          "modositotta",
+          "aktiv"
         ]
       }
     }
@@ -483,6 +501,7 @@ const SEMA = {
     "kampanyok",
     "pillanatkepek",
     "keret",
-    "latta"
+    "latta",
+    "cimkek"
   ]
 };

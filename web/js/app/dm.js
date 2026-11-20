@@ -24,6 +24,7 @@ import { VilagokOldal, VilagOldal, SablonokOldal } from './epito.js';
 import { KampanyEpitoOldal } from './epito_keret.js';
 import { DobotablakOldal } from './dobotabla.js';
 import { KampanyAnyagokPanel } from './anyagok.js';
+import { useJegyzetfuzet, Jegyzetfuzet } from './jegyzetfuzet.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -317,6 +318,7 @@ function KampanyOldal({ id }) {
       <div className="verem">
         <${CsapatPanel} allapot=${allapot} frissit=${frissit}/>
         <${KampanyAnyagokPanel} allapot=${allapot} frissit=${frissit} felhasznaloNev=${dm.felhasznaloNev}/>
+        <${KampanyJegyzetfuzet} allapot=${allapot}/>
         <${KampanyBeallitasok} kampany=${k} frissit=${frissit}/>
         <${KampanyArchivPanel} kampany=${k} frissit=${frissit}/>
       </div>
@@ -330,6 +332,14 @@ function KampanyOldal({ id }) {
       </div>
     </div>
   </div>`;
+}
+
+// A kampány jegyzetfüzete (6.3): a csapatjegyzetek és a DM saját jegyzetei (a játékosok sajátjai nem).
+function KampanyJegyzetfuzet({ allapot }) {
+  const fuzet = useJegyzetfuzet(allapot);
+  return html`<${K.Panel} title="Jegyzetfüzet">
+    <${Jegyzetfuzet} allapot=${allapot} fuzet=${fuzet} kompakt=${true}/>
+  <//>`;
 }
 
 function CsapatPanel({ allapot, frissit }) {

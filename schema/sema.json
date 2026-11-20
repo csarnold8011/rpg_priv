@@ -33,7 +33,7 @@
         "Felhasználók": ["id", "nev", "szerep", "jelszo_hash", "so", "aktiv", "letrehozva"],
         "Karakterek": ["id", "nev", "jatekos_id", "faj", "osztaly", "szint", "adat", "verzio", "modositva", "modositotta", "aktiv", "njk"],
         "NJK-k": ["id", "nev", "fajta", "alap_szorny", "fenyegetes", "kampanyok", "kotodes", "iranyito", "adat", "verzio", "modositva", "modositotta", "aktiv", "vilag_id", "alap_id"],
-        "Kampányok": ["id", "cim", "mesterjatekos_id", "aktiv_forrasok", "allapot", "verzio", "dm_jegyzet", "letrehozva", "beallitasok", "keret", "latta"],
+        "Kampányok": ["id", "cim", "mesterjatekos_id", "aktiv_forrasok", "allapot", "verzio", "dm_jegyzet", "letrehozva", "beallitasok", "keret", "latta", "cimkek"],
         "Kampánykarakterek": ["kampany_id", "karakter_id", "allapot", "csatlakozott"],
         "Dobásnapló": ["id", "idopont", "kampany_id", "karakter_id", "dobta", "mire", "kockak", "modosito", "celertek", "eredmeny", "mutatvanypont", "rejtett", "proba_id", "tipus", "tulajdonsag", "fokusz", "kezi", "felfedve", "reszletek", "njk_id", "csata_id"],
         "Próbák": ["id", "kampany_id", "letrehozva", "letrehozta", "tipus", "cim", "tulajdonsag", "fokuszok", "fokusz_kotelezo", "celertek", "celertek_rejtett", "kuszob", "haladas", "idoegyseg", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "allapot", "lezarva"],
@@ -43,10 +43,11 @@
         "Világok": ["id", "nev", "adat", "verzio", "modositva", "modositotta", "aktiv"],
         "Elemek": ["id", "tipus", "nev", "vilag_id", "kampany_id", "alap_id", "szulo_id", "sorrend", "adat", "verzio", "modositva", "modositotta", "aktiv"],
         "Kapcsolatok": ["id", "honnan", "hova", "tipus", "megjegyzes", "vilag_id", "kampany_id", "aktiv"],
-        "Változásnapló": ["idopont", "ki", "mit", "elem_id", "regi_verzio", "uj_verzio"]
+        "Változásnapló": ["idopont", "ki", "mit", "elem_id", "regi_verzio", "uj_verzio"],
+        "Jegyzetek": ["id", "kampany_id", "szerzo_id", "karakter_id", "lathatosag", "kapcsolodik", "cim", "szoveg", "cimkek", "rogzitett", "verzio", "letrehozva", "modositva", "modositotta", "aktiv"]
       }
     }
   },
   "szabaly_lapok": ["Tulajdonságok", "Fókuszok", "Fajok", "Hátterek", "Osztályok", "Szintlépés", "Talentumok", "Specializációk", "Arkánumok", "Varázslatok", "Fegyvercsoportok", "Fegyverek", "Páncélok", "Felszerelés", "Mutatványok", "Szörnyek", "Különleges képességek", "Dobótáblák", "Szótár", "Házi szabályok"],
-  "json_oszlopok": ["reszletek", "adat", "aktiv_forrasok", "kockak", "beallitasok", "fokuszok", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "kampanyok", "pillanatkepek", "keret", "latta"]
+  "json_oszlopok": ["reszletek", "adat", "aktiv_forrasok", "kockak", "beallitasok", "fokuszok", "cimzettek", "modositok", "mutatvany", "ellenfel", "allas", "kampanyok", "pillanatkepek", "keret", "latta", "cimkek"]
 }

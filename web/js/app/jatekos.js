@@ -14,6 +14,8 @@ import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo, taroltKampanyok } from './varazslo.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
 import { JatekosAnyagok, AnyagMegnyitoReteg, useAnyagMegnyitas, anyagUjak } from './anyagok.js';
+import { useJegyzetfuzet, Jegyzetfuzet, KapcsolodoJegyzetek, useJegyzetJelveny } from './jegyzetfuzet.js';
+import { alanyCel } from '../kampany/anyag.js';
 
 export function JatekosFelulet({ ut }) {
   const { felhasznalo, kilepes } = useApp();
@@ -28,7 +30,7 @@ export function JatekosFelulet({ ut }) {
     return html`<${SzintlepesVarazslo} key=${azon} id=${azon} lepes=${ut[3]} birodalom="jatekos"/>`;
   }
   let tartalom;
-  if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon} ful=${ut[2] === 'anyagok' ? 'anyagok' : ''}/>`;
+  if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon} ful=${ut[2] === 'anyagok' || ut[2] === 'jegyzetek' ? ut[2] : ''}/>`;
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;
   else tartalom = html`<${Kezdolap}/>`;
 
@@ -109,25 +111,41 @@ function KampanyOldal({ id, ful }) {
   return html`<${KampanyTartalom} allapot=${allapot} ful=${ful}/>`;
 }
 
-// Fülek: Kampány (csata, próbák, csapat, dobás) és Anyagok (a DM-től kapott levelek, nyomok, képek).
+// Fülek: Kampány (csata, próbák, csapat, dobás), Anyagok (a DM-től kapott levelek, nyomok, képek) és Jegyzetek
+// (a kampány jegyzetfüzete, 6.3).
 function KampanyTartalom({ allapot, ful }) {
   const { felhasznalo } = useApp();
   const megnyitas = useAnyagMegnyitas(allapot);
+  const fuzet = useJegyzetfuzet(allapot);
   const ujak = anyagUjak(megnyitas.megosztasok, felhasznalo.id);
+  const ujJegyzet = useJegyzetJelveny(allapot, fuzet, ful === 'jegyzetek');
   const k = allapot.kampany;
+  const fulGomb = (f, nev, jel) => html`<button type="button" aria-pressed=${ful === f}
+    onClick=${() => navigal('/jatekos/kampany/' + k.id + (f ? '/' + f : ''))}>${nev}${jel ? html` <span className="jelveny" aria-label=${jel + ' új'}>${jel}</span>` : null}</button>`;
   const fulek = html`<nav className="kapcsolo kapcsolo--teljes jatekos__fulek" aria-label="A kampány részei">
-    <button type="button" aria-pressed=${ful !== 'anyagok'} onClick=${() => navigal('/jatekos/kampany/' + k.id)}>Kampány</button>
-    <button type="button" aria-pressed=${ful === 'anyagok'} onClick=${() => navigal('/jatekos/kampany/' + k.id + '/anyagok')}>Anyagok${ujak ? html` <span className="jelveny" aria-label=${ujak + ' új'}>${ujak}</span>` : null}</button>
+    ${fulGomb('', 'Kampány')}${fulGomb('anyagok', 'Anyagok', ujak)}${fulGomb('jegyzetek', 'Jegyzetek', ujJegyzet)}
   </nav>`;
-  const reteg = html`<${AnyagMegnyitoReteg} allapot=${allapot} megnyitas=${megnyitas}/>`;
+  const anyagJegyzetei = (m) => html`<${KapcsolodoJegyzetek} allapot=${allapot} fuzet=${fuzet} idk=${[m.id]} ujKapcsolodik=${m.id}/>`;
+  const alanyJegyzetei = (c) => html`<${KapcsolodoJegyzetek} allapot=${allapot} fuzet=${fuzet} cim="Jegyzetek róla"
+    idk=${c.alanyIdk.concat(c.anyagok.map((m) => m.id))} ujKapcsolodik=${alanyCel(allapot.alanyok || [], c.alany.id)}/>`;
+  const reteg = html`<${AnyagMegnyitoReteg} allapot=${allapot} megnyitas=${megnyitas} kiegeszites=${anyagJegyzetei}/>`;
+  const fej = html`<div className="oldalfej">
+    <a className="visszalink" href="#/jatekos"><${Ikon} nev="vissza" meret=${20}/>Kezdőlap</a>
+    <h1 className="oldalcim">${k.cim}</h1>
+  </div>`;
   if (ful === 'anyagok') {
     return html`<div className="verem verem--nagy">
-      <div className="oldalfej">
-        <a className="visszalink" href="#/jatekos"><${Ikon} nev="vissza" meret=${20}/>Kezdőlap</a>
-        <h1 className="oldalcim">${k.cim}</h1>
-      </div>
+      ${fej}
       ${fulek}
-      <${JatekosAnyagok} allapot=${allapot} megnyitas=${megnyitas}/>
+      <${JatekosAnyagok} allapot=${allapot} megnyitas=${megnyitas} alanyJegyzetek=${alanyJegyzetei}/>
+      ${reteg}
+    </div>`;
+  }
+  if (ful === 'jegyzetek') {
+    return html`<div className="verem verem--nagy">
+      ${fej}
+      ${fulek}
+      <${Jegyzetfuzet} allapot=${allapot} fuzet=${fuzet} onAnyag=${megnyitas.nyit}/>
       ${reteg}
     </div>`;
   }

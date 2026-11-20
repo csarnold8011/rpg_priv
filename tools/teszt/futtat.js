@@ -159,6 +159,53 @@ ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).megosztasok.leng
   ellenoriz(hivas('share.seen', { id: 'm_alany00001' }, bencT).hiba === 'nem_talalhato', 'alanyra nincs „látta”');
 }
 
+// ---- Jegyzetfüzet (6.3) ----
+{
+  const titkos = hivas('state.get', { kampany_id: kampany.id }, dm).megosztasok.find((m) => m.cim === 'Titkos nyom');
+  const pottomNak = hivas('share.send', { kampany_id: kampany.id, tipus: 'anyag', cim: 'Csak Pöttömnek', cimzettek: [pottom.id], adat: { fajta: 'nyom', szoveg: 'psszt' } }, dm).megosztas;
+  const verzioElotte = hivas('state.poll', { kampany_id: kampany.id }, bencT).verzio;
+  let w = hivas('note.save', { id: 'j_sajat00001', uj: true, kampany_id: kampany.id, lathatosag: 'sajat', karakter_id: morg.id,
+    kapcsolodik: titkos.id, cim: 'Gyanú', szoveg: 'Szerintem a sánta ember követ minket.', cimkek: 'gyanú, idegen, Gyanú' }, bencT);
+  ellenoriz(w.ok && w.verzio === 1 && w.jegyzet.szerzo_id === bence.id && w.jegyzet.szerzo_nev === 'Bence' && w.jegyzet.karakter_id === morg.id,
+    'Bence saját jegyzetet ír Morg nevében, a titkos nyomhoz kötve', w);
+  ellenoriz(w.jegyzet.cimkek.length === 2, 'a címkék kis- és nagybetűtől függetlenül egyszer szerepelnek', w.jegyzet.cimkek);
+  ellenoriz(hivas('state.poll', { kampany_id: kampany.id }, bencT).verzio > verzioElotte, 'a jegyzet mentése növeli a kampányverziót');
+  w = hivas('note.save', { id: 'j_sajat00001', uj: true, kampany_id: kampany.id, szoveg: 'újra' }, bencT);
+  ellenoriz(w.ok && w.mar_megvolt && w.jegyzet.szoveg.startsWith('Szerintem'), 'az ismételt létrehozás nem duplikál (sorból újraküldés)');
+  ellenoriz(hivas('note.save', { id: 'j_ures000001', uj: true, kampany_id: kampany.id, szoveg: '  ' }, bencT).hiba === 'hianyzo_adat', 'üres jegyzet nem menthető');
+  ellenoriz(hivas('note.save', { id: 'rossz', uj: true, kampany_id: kampany.id, szoveg: 'x' }, bencT).hiba === 'hibas_adat', 'hibás azonosító nem menthető');
+  ellenoriz(hivas('note.save', { id: 'j_titok00001', uj: true, kampany_id: kampany.id, szoveg: 'x', kapcsolodik: pottomNak.id }, bencT).hiba === 'nem_talalhato',
+    'nem köthető olyan anyaghoz, amelyet az írója nem lát');
+  ellenoriz(hivas('note.save', { id: 'j_titok00002', uj: true, kampany_id: kampany.id, szoveg: 'x', karakter_id: pottom.id }, bencT).hiba === 'nincs_jogosultsag',
+    'más karakterének nevében nem írhat');
+  w = hivas('note.save', { id: 'j_csapat0001', uj: true, kampany_id: kampany.id, lathatosag: 'csapat', kapcsolodik: 'm_alany00001',
+    cim: 'Amit eddig tudunk', szoveg: 'A híd.' }, bencT);
+  ellenoriz(w.ok && w.jegyzet.lathatosag === 'csapat' && w.jegyzet.kapcsolodik === 'm_alany00001', 'csapatjegyzet egy ismert alanyhoz kötve');
+
+  let aAll = hivas('state.get', { kampany_id: kampany.id }, annaT);
+  ellenoriz(aAll.jegyzetek.length === 1 && aAll.jegyzetek[0].id === 'j_csapat0001', 'a mesterjátékos a csapatjegyzetet látja, Bence saját jegyzetét nem', aAll.jegyzetek);
+  const dAll = hivas('state.get', { kampany_id: kampany.id }, dm);
+  ellenoriz(dAll.jegyzetek.length === 1 && !JSON.stringify(dAll).includes('sánta ember követ'), 'a DM sem látja a játékos saját jegyzetét');
+  ellenoriz(hivas('state.get', { kampany_id: kampany.id }, bencT).jegyzetek.length === 2, 'Bence a sajátját és a csapatjegyzetet is látja');
+  ellenoriz(hivas('note.save', { id: 'j_sajat00001', verzio: 1, szoveg: 'x' }, annaT).hiba === 'nincs_jogosultsag', 'más saját jegyzete nem szerkeszthető');
+  ellenoriz(hivas('note.archive', { id: 'j_sajat00001' }, dm).hiba === 'nem_talalhato', 'más saját jegyzete nem törölhető (a DM sem)');
+
+  w = hivas('note.save', { id: 'j_csapat0001', verzio: 1, szoveg: 'A híd. Éjfélkor.' }, annaT);
+  ellenoriz(w.ok && w.verzio === 2 && w.jegyzet.modositotta === 'Anna', 'a mesterjátékos szerkeszti a csapatjegyzetet');
+  w = hivas('note.save', { id: 'j_csapat0001', verzio: 1, szoveg: 'A híd. Hajnalban.' }, bencT);
+  ellenoriz(w.hiba === 'utkozes' && w.aktualis && w.aktualis.verzio === 2 && w.aktualis.szoveg === 'A híd. Éjfélkor.', 'régi verzióra mentés ütközést jelez az aktuálissal', w);
+  ellenoriz(hivas('note.save', { id: 'j_csapat0001', verzio: 2, lathatosag: 'sajat' }, annaT).hiba === 'nincs_jogosultsag', 'a láthatóságot csak az írója változtatja');
+  w = hivas('note.save', { id: 'j_csapat0001', verzio: 2, szoveg: 'A dm is ír.', rogzitett: true }, dm);
+  ellenoriz(w.ok && w.jegyzet.rogzitett === true && w.verzio === 3, 'a DM is szerkeszti és rögzíti a csapatjegyzetet');
+
+  w = hivas('note.archive', { id: 'j_csapat0001' }, bencT);
+  ellenoriz(w.ok && !hivas('state.get', { kampany_id: kampany.id }, annaT).jegyzetek.length, 'a törölt csapatjegyzet eltűnik');
+  w = hivas('note.archive', { id: 'j_csapat0001', aktiv: true }, bencT);
+  ellenoriz(w.ok && hivas('state.get', { kampany_id: kampany.id }, annaT).jegyzetek.length === 1, 'a törlés visszavonható');
+  ellenoriz(hivas('note.save', { id: 'j_kivul00001', uj: true, kampany_id: 'k_nincs', szoveg: 'x' }, bencT).hiba === 'nem_talalhato', 'nem létező kampányba nem írható');
+  hivas('share.update', { id: pottomNak.id, allapot: 'visszavont' }, dm);
+}
+
 // ---- Próbák (2. fejlesztési lépés) ----
 let kall = hivas('state.get', { kampany_id: kampany.id }, bencT);
 ellenoriz(kall.kampany.beallitasok && kall.kampany.beallitasok.celertek_rejtett === true && kall.kampany.beallitasok.mutatvanyok.felfedezes === true && kall.kampany.beallitasok.mutatvanyok.isteni === false,
@@ -710,6 +757,7 @@ ellenoriz(!jatek.getSheetByName('Összecsapások').adat.some(sor => sor.includes
 ellenoriz(!jatek.getSheetByName('Csaták').adat.some(sor => sor.includes(csata.id)), 'a törölt kampány csatái is törlődtek');
 ellenoriz(!jatek.getSheetByName('Elemek').adat.some(sor => sor.includes('el_kamp0002')) && jatek.getSheetByName('Elemek').adat.some(sor => sor.includes('el_vilag001')), 'a törölt kampány elemei törlődtek, a világ elemei megmaradtak');
 ellenoriz(!jatek.getSheetByName('Kapcsolatok').adat.some(sor => sor.includes('ln_kapcs0004')), 'a törölt kampány kapcsolatai is törlődtek');
+ellenoriz(!jatek.getSheetByName('Jegyzetek').adat.some(sor => sor.includes(kampany.id)), 'a törölt kampány jegyzetei is törlődtek');
 
 console.log(hibak ? `\n${hibak} HIBA` : '\nMinden teszt sikeres.');
 process.exit(hibak ? 1 : 0);

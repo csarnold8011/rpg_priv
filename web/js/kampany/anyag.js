@@ -244,7 +244,8 @@ export function idorendben(megosztasok, fajta = '') {
 }
 
 // Az Ismeretek nézet: alanyonként (az összekapcsolt alanyok egy csoportban, a lánc végénél) a hozzá kiosztott anyagok.
-// Visszaad: [{ alany, kategoria, korabbi: [ismert nevek], anyagok }], kategória, majd név szerint.
+// Visszaad: [{ alany, kategoria, korabbi: [ismert nevek], anyagok, alanyIdk: [a cél és a rá mutató alanyok] }],
+// kategória, majd név szerint.
 export function ismeretek(megosztasok, alanyok) {
   const lista = (alanyok || []).map(alanyNezet);
   const ix = new Map(lista.map((a) => [a.id, a]));
@@ -262,7 +263,7 @@ export function ismeretek(megosztasok, alanyok) {
   return [...csoportok.values()].map((cs) => {
     const korabbi = [...cs.tagok].map((id) => ix.get(id).ismert_nev).filter((n) => n && n !== cs.alany.nev && n !== cs.alany.ismert_nev);
     if (cs.alany.felfedve && cs.alany.ismert_nev !== cs.alany.nev) korabbi.unshift(cs.alany.ismert_nev);
-    return { alany: cs.alany, kategoria: cs.alany.kategoria, korabbi: [...new Set(korabbi)], anyagok: cs.anyagok };
+    return { alany: cs.alany, kategoria: cs.alany.kategoria, korabbi: [...new Set(korabbi)], anyagok: cs.anyagok, alanyIdk: [cs.alany.id, ...cs.tagok] };
   }).sort((a, b) => KATEGORIA_SORREND.indexOf(a.kategoria) - KATEGORIA_SORREND.indexOf(b.kategoria) || a.alany.nev.localeCompare(b.alany.nev, 'hu'));
 }
 
