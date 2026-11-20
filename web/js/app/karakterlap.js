@@ -19,6 +19,7 @@ import { fokuszNev, Kapcsolo } from './varazslo_lepesek.js';
 import { KeszitesGomb, SzintlepesGomb, KarakterFejlec } from './jatek.js';
 import { KarakterDobasai } from './dobasnaplo.js';
 import { CelpontProbaGomb } from './probakeres.js';
+import * as J from '../karakter/jegyzet.js';
 
 const TUL_NEV = {
   tul_accuracy: 'Pontosság', tul_communication: 'Kommunikáció', tul_constitution: 'Szívósság', tul_dexterity: 'Ügyesség',
@@ -133,6 +134,7 @@ function JatekMod(p) {
     <div className="verem verem--nagy">
       <${Talentumok} ...${p}/>
       <${Felszereles} ...${p}/>
+      <${Jegyzetek} ...${p}/>
       <${Tortenet} ...${p}/>
       <${Figyelmeztetesek} ...${p}/>
       <${Naplok} ...${p}/>
@@ -163,8 +165,10 @@ function Szamlalo({ nev, kind, ertek, max, onAllit, csokkentFelirat, novelFelira
   </div>`;
 }
 
-function Eroforrasok({ lap, valtoztat, irhato }) {
+function Eroforrasok({ lap, adat, lapok, valtoztat, irhato }) {
   const allit = (kulcs) => (n) => valtoztat && valtoztat((a) => { a.allapot[kulcs] = n; });
+  const [penzAblak, setPenzAblak] = useState(null); // 'be' | 'ki'
+  const egyenleg = adat.felszereles.penz_rez || 0;
   return html`<${K.Panel} title="Erőforrások">
     <div className="verem">
       ${lap.egeszseg.ertek ? (irhato
@@ -177,11 +181,21 @@ function Eroforrasok({ lap, valtoztat, irhato }) {
             csokkentFelirat="Elkölt" novelFelirat="Visszanyer"
             sugo=${html`<${Sugo} cim="Mágiapont visszanyerése">Pihenéssel óránként 1d6 + Akaraterő, 8 óra zavartalan pihenés után mind visszajön.<//>`}/>`
         : html`<${K.ResourceBar} kind="magic" value=${lap.magiapont.aktualis} max=${lap.magiapont.ertek}/>`) : null}
+      <div className="penzsor">
+        <span className="penzsor__nev">Pénz</span>
+        <span className=${'penzsor__ertek' + (egyenleg < 0 ? ' penzsor__ertek--minusz' : '')}>${V.penzSzoveg(egyenleg)}</span>
+        ${irhato && valtoztat ? html`<span className="lepteto">
+          <button type="button" aria-label="Pénz kiadása" onClick=${() => setPenzAblak('ki')}>−</button>
+          <button type="button" aria-label="Pénz bevétele" onClick=${() => setPenzAblak('be')}>+</button>
+        </span>` : null}
+      </div>
+      ${egyenleg < 0 ? html`<${Uzenet} tonus="warning">Mínuszban van a pénz (túlköltés).<//>` : null}
       <dl className="ertekek">
         <div><dt>Védekezés</dt><dd>${lap.vedekezes.ertek}</dd></div>
         <div><dt>Sebesség</dt><dd>${lap.sebesseg ? lap.sebesseg.ertek : '–'}</dd></div>
         <div><dt>Páncélérték</dt><dd>${lap.pancelertek.ertek}</dd></div>
       </dl>
+      ${penzAblak ? html`<${PenzAblak} key=${penzAblak} kezdoIrany=${penzAblak} lapok=${lapok} adat=${adat} valtoztat=${valtoztat} onBezar=${() => setPenzAblak(null)}/>` : null}
       ${lap.pancel ? html`<p className="kicsi halvany" style=${{ margin: 0 }}>${lap.pancel.nev_hu}${lap.pancel.buntetes ? `, páncélbüntetés −${lap.pancel.buntetes} Sebesség${lap.pancel.ugyesseg_buntetes ? ' és Ügyesség alapú próbák' : ''}` : ''}.</p>` : null}
     </div>
   <//>`;
@@ -332,12 +346,13 @@ function Talentumok({ lap }) {
 
 // ---- Felszerelés és pénz ----
 function PenzBevitel({ ertek, set, cimke }) {
-  return html`<div className="sorban">
-    <${K.TextField} label=${cimke + ': ezüst'} inputMode="numeric" value=${ertek.e} onChange=${(e) => set({ ...ertek, e: e.target.value.replace(/[^0-9]/g, '').slice(0, 6) })}/>
-    <${K.TextField} label="réz" inputMode="numeric" value=${ertek.r} onChange=${(e) => set({ ...ertek, r: e.target.value.replace(/[^0-9]/g, '').slice(0, 3) })}/>
-  </div>`;
+  const mezo = (k, nev, max) => html`<${K.TextField} label=${nev} inputMode="numeric" aria-label=${cimke + ': ' + nev.toLowerCase()} value=${ertek[k] || ''}
+    onChange=${(e) => set({ ...ertek, [k]: e.target.value.replace(/[^0-9]/g, '').slice(0, max) })}/>`;
+  return html`<fieldset className="szakasz"><legend className="cimke">${cimke}</legend>
+    <div className="penzbevitel">${mezo('a', 'Arany', 5)}${mezo('e', 'Ezüst', 6)}${mezo('r', 'Réz', 3)}</div>
+  </fieldset>`;
 }
-const penzRezben = (x) => szam(x.e) * 10 + szam(x.r);
+const penzRezben = J.penzRezben;
 
 function Bolt({ ix, lapok, adat, valtoztat, onBezar }) {
   const [kereso, setKereso] = useState('');
@@ -377,8 +392,8 @@ function EladasAblak({ ix, lapok, targy, valtoztat, onBezar }) {
   <//>`;
 }
 
-function PenzAblak({ lapok, valtoztat, onBezar }) {
-  const [irany, setIrany] = useState('be');
+function PenzAblak({ lapok, adat, valtoztat, onBezar, kezdoIrany = 'be' }) {
+  const [irany, setIrany] = useState(kezdoIrany);
   const [osszeg, setOsszeg] = useState({ e: '', r: '' });
   const [megj, setMegj] = useState('');
   const rez = penzRezben(osszeg);
@@ -390,9 +405,17 @@ function PenzAblak({ lapok, valtoztat, onBezar }) {
         <button type="button" aria-pressed=${irany === 'be'} onClick=${() => setIrany('be')}>Bevétel</button>
         <button type="button" aria-pressed=${irany === 'ki'} onClick=${() => setIrany('ki')}>Kiadás</button>
       </div>
+      <div className="csipek" role="group" aria-label="Gyorsösszegek">${[1, 5, 10, 50].map((n) => html`<button key=${n} type="button" className="csip"
+        onClick=${() => setOsszeg(J.penzHozzaad(osszeg, n))}>+${n} ezüst</button>`)}
+        ${rez ? html`<button type="button" className="csip" onClick=${() => setOsszeg({ a: '', e: '', r: '' })}>Törlés</button>` : null}</div>
       <${PenzBevitel} ertek=${osszeg} set=${setOsszeg} cimke="Összeg"/>
+      ${rez ? html`<p className="kicsi">${irany === 'be' ? 'Bevétel' : 'Kiadás'}: <strong>${V.penzSzoveg(rez)}</strong>${adat ? html`, utána <strong>${V.penzSzoveg((adat.felszereles.penz_rez || 0) + (irany === 'be' ? rez : -rez))}</strong>` : null}</p>` : null}
+      ${adat && irany === 'ki' && rez > (adat.felszereles.penz_rez || 0) ? html`<${Uzenet} tonus="warning">Ennyi pénze nincs: az egyenleg mínuszba megy (Pénz túlköltése).<//>` : null}
       <${K.TextField} label="Mire, honnan" hint="Például: zsákmány, jutalom, szállás." value=${megj} onChange=${(e) => setMegj(e.target.value)}/>
       <p className="sugo kicsi">1 arany = 10 ezüst = 100 réz.</p>
+      ${adat && J.utolsoPenztetelek(adat).length ? html`<div><p className="cimke">Legutóbbi pénztételek</p><ul className="sorlista">
+        ${J.utolsoPenztetelek(adat).map((t, i) => html`<li key=${i} className="sorlista__sor"><span>${t.megjegyzes || L.TETEL_NEV[t.tipus] || t.tipus}<br/><span className="halvany kicsi">${datum(t.idopont)}</span></span>
+          <strong>${t.penz > 0 ? '+' : ''}${V.penzSzoveg(t.penz)}</strong></li>`)}</ul></div>` : null}
     </div>
   <//>`;
 }
@@ -457,7 +480,7 @@ function Felszereles({ adat, lap, ix, lapok, valtoztat, irhato }) {
       </details>` : null}
     </div>
     ${ablak === 'bolt' ? html`<${Bolt} ix=${ix} lapok=${lapok} adat=${adat} valtoztat=${valtoztat} onBezar=${() => setAblak(null)}/>` : null}
-    ${ablak === 'penz' ? html`<${PenzAblak} lapok=${lapok} valtoztat=${valtoztat} onBezar=${() => setAblak(null)}/>` : null}
+    ${ablak === 'penz' ? html`<${PenzAblak} lapok=${lapok} adat=${adat} valtoztat=${valtoztat} onBezar=${() => setAblak(null)}/>` : null}
     ${ablak === 'targy' ? html`<${TargyAblak} ix=${ix} lapok=${lapok} valtoztat=${valtoztat} onBezar=${() => setAblak(null)}/>` : null}
     ${ablak && ablak.eladas ? html`<${EladasAblak} ix=${ix} lapok=${lapok} targy=${ablak.eladas} valtoztat=${valtoztat} onBezar=${() => setAblak(null)}/>` : null}
     ${elvesz ? html`<${Parbeszed} cim=${targyNev(ix, elvesz)} onBezar=${() => setElvesz(null)} lab=${html`<${K.Button} variant="quiet" onClick=${() => setElvesz(null)}>Mégse<//>`}>
@@ -467,6 +490,51 @@ function Felszereles({ adat, lap, ix, lapok, valtoztat, irhato }) {
         <${K.Button} variant="secondary" onClick=${() => { valtoztat((a) => L.targyElvesz(a, lapok, elvesz.id, 1, 'elveszett', elvesz.nev)); setElvesz(null); }}>Elveszett vagy odaadtam (−1)<//>
       </div>
     <//>` : null}
+  <//>`;
+}
+
+// ---- Jegyzetek (6.1): a karakterrel utaznak, aki a karaktert szerkesztheti, írhatja ----
+function Jegyzetek({ adat, valtoztat, irhato }) {
+  const { felhasznalo } = useApp();
+  const [szerk, setSzerk] = useState(null); // a szerkesztett jegyzet azonosítója
+  const [torolt, setTorolt] = useState(null);
+  const lista = J.jegyzetek(adat);
+  const lehet = irhato && valtoztat;
+  const meret = J.jegyzetMeret(adat);
+  const uj = () => {
+    const id = J.ujJegyzetId();
+    const idopont = new Date().toISOString();
+    valtoztat((a) => { J.jegyzetHozzaad(a, { id, ki: felhasznalo.nev, idopont }); });
+    setTorolt(null);
+    setSzerk(id);
+  };
+  const torol = (j) => { valtoztat((a) => { J.jegyzetTorol(a, j.id); }); setTorolt(j); setSzerk(null); };
+  return html`<${K.Panel} title="Jegyzetek" actions=${lehet ? html`<${K.Button} size="sm" variant="secondary" onClick=${uj} icon=${html`<${Ikon} nev="plusz" meret=${18}/>`}>Jegyzet<//>` : null}>
+    <div className="verem">
+      ${torolt ? html`<div className="sorban sorban--kozep visszavonosor"><span className="kicsi">Jegyzet törölve${torolt.cim ? ': ' + torolt.cim : ''}.</span>
+        <button type="button" className="szoveggomb" onClick=${() => { const j = torolt; valtoztat((a) => J.jegyzetVissza(a, j)); setTorolt(null); }}>Visszavonás</button></div>` : null}
+      ${lista.length ? html`<ul className="jegyzetlista">${lista.map((j) => html`<li key=${j.id} className=${'jegyzet' + (j.rogzitett ? ' jegyzet--rogzitett' : '')}>
+        ${szerk === j.id && lehet ? html`<div className="verem verem--kicsi">
+          <${K.TextField} label="Cím (nem kötelező)" value=${j.cim || ''} onChange=${(e) => { const x = e.target.value; valtoztat((a) => { J.jegyzetModosit(a, j.id, { cim: x }); }); }}/>
+          <${K.TextField} label="Jegyzet" multiline=${true} rows=${4} value=${j.szoveg || ''} onChange=${(e) => { const x = e.target.value; valtoztat((a) => { J.jegyzetModosit(a, j.id, { szoveg: x }); }); }}/>
+          <div className="gombsor gombsor--szoros">
+            <${K.Button} size="sm" variant="primary" onClick=${() => { if (!String(j.cim || '').trim() && !String(j.szoveg || '').trim()) torol(j); else setSzerk(null); }}>Kész<//>
+            <${K.Button} size="sm" variant="quiet" onClick=${() => torol(j)}>Törlés<//>
+          </div>
+        </div>` : html`<div className="jegyzet__test">
+          ${j.cim ? html`<p className="jegyzet__cim">${j.cim}</p>` : null}
+          ${j.szoveg ? html`<p className="jegyzet__szoveg">${j.szoveg}</p>` : html`<p className="halvany kicsi">(üres jegyzet)</p>`}
+          <div className="sorban sorban--kozep">
+            <span className="halvany kicsi">${j.ki ? j.ki + ' · ' : ''}${datum(j.modositva || j.idopont)}</span>
+            ${lehet ? html`<span className="gombsor gombsor--szoros">
+              <button type="button" className="csip csip--kicsi" aria-pressed=${!!j.rogzitett} onClick=${() => valtoztat((a) => { J.jegyzetModosit(a, j.id, { rogzitett: !j.rogzitett }); })}>${j.rogzitett ? '✓ Rögzítve' : 'Rögzítés'}</button>
+              <button type="button" className="szoveggomb" onClick=${() => { setSzerk(j.id); setTorolt(null); }}>Szerkesztés</button>
+            </span>` : null}
+          </div>
+        </div>`}
+      </li>`)}</ul>` : html`<p className="halvany">${lehet ? 'Ide írhatod, amit a karakter tud, gyanít vagy meg akar jegyezni. A jegyzetek a karakterrel maradnak minden kampányban.' : 'Nincs jegyzet.'}</p>`}
+      ${meret > J.FIGYELMEZTETES_HATAR ? html`<${Uzenet} tonus="warning">Sok a jegyzet: érdemes a régieket törölni vagy összevonni, mert a karakter adata korlátos méretű.<//>` : null}
+    </div>
   <//>`;
 }
 
@@ -591,6 +659,7 @@ function SzerkesztoMod({ karakter, adat, lap, ix, alap, valtoztat, v, dm }) {
           </div>
         </div>
       <//>
+      <${Jegyzetek} adat=${adat} valtoztat=${valtoztat} irhato=${true}/>
       <${KeziModositok} adat=${adat} ix=${ix} valtoztat=${valtoztat} dm=${dm}/>
       <${Figyelmeztetesek} lap=${lap} dm=${dm} valtoztat=${valtoztat}/>
     </div>

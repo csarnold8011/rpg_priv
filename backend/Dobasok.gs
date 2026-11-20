@@ -293,9 +293,11 @@ function kampanyBeallitasai_(kampany) {
 }
 
 // action: share.send (DM)
-// adat: { kampany_id, cimzett: 'mindenki' | karakter_id, tipus: 'kep' | 'level' | 'szoveg', cim, hivatkozas }
+// adat: { kampany_id, cimzett: 'mindenki' | karakter_id, tipus: 'njk' | 'kep' | 'level' | 'szoveg', cim, hivatkozas }
+// A 6.2 kiosztható anyagai és alanyai (tipus 'anyag', 'alany'): Anyagok.gs.
 function megosztasKuldese_(a, felh) {
   if (!a.kampany_id) throw hiba_('hianyzo_adat', 'Hiányzik a kampány azonosítója.');
+  if (a.tipus === 'anyag' || a.tipus === 'alany') return anyagKuldese_(a, felh);
   return zarolva_(function () {
     const kampanyok = sorok_('jatek', 'Kampányok');
     if (!kampanyok.some(function (x) { return x.id === a.kampany_id; })) throw hiba_('nem_talalhato', 'Nincs ilyen kampány.');

@@ -56,6 +56,7 @@ function kampanyTorlese_(a, felh) {
     kampanyOsszecsapasainakTorlese_(kampany.id);
     kampanyCsatainakTorlese_(kampany.id);
     kampanyElokeszitesTorlese_(kampany.id);
+    kampanyMegosztasainakTorlese_(kampany.id);
     sorTorlese_('jatek', 'Kampányok', kampany._sor);
     CacheService.getScriptCache().remove('kv_' + kampany.id);
     valtozasNaplozasa_(felh, 'kampany.torol', kampany.id, kampany.verzio, '');
@@ -192,10 +193,7 @@ function allapotLekerese_(a, felh) {
 
   const osszesMegosztas = sorok_('jatek', 'Megosztások');
   const njkk = kampanyNjkjai_(kampany, felh, k, osszesMegosztas);
-  const megosztasok = osszesMegosztas
-    .filter(function (m) { return m.kampany_id === kampany.id; })
-    .filter(function (m) { return mindentLat || m.cimzett === 'mindenki' || sajatKarakterek.indexOf(m.cimzett) >= 0; })
-    .map(function (m) { delete m._sor; return m; });
+  const megoszt = kampanyMegosztasai_(osszesMegosztas, kampany, szerep, sajatKarakterek, felh);
 
   const o = {
     verzio: Number(kampany.verzio) || 0,
@@ -203,7 +201,8 @@ function allapotLekerese_(a, felh) {
     karakterek: karakterek,
     dobasok: dobasok,
     probak: probak,
-    megosztasok: megosztasok,
+    megosztasok: megoszt.megosztasok,
+    alanyok: megoszt.alanyok,
     njkk: njkk
   };
   // az előkészített összecsapások csak a DM-é

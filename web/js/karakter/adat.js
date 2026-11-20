@@ -67,7 +67,7 @@ export function normalizal(adat) {
     ki[k] = Object.assign(uresKarakter()[k], (adat && adat[k]) || {});
   });
   ki.tulajdonsag_alap = Object.assign(uresKarakter().tulajdonsag_alap, (adat && adat.tulajdonsag_alap) || {});
-  ['kezi', 'elfogadott', 'dobasok'].forEach((k) => { if (!Array.isArray(ki[k])) ki[k] = []; });
+  ['kezi', 'elfogadott', 'dobasok', 'jegyzetek'].forEach((k) => { if (!Array.isArray(ki[k])) ki[k] = []; });
   if (!Array.isArray(ki.szintek) || !ki.szintek.length) ki.szintek = [uresSzint(1)];
   ki.szintek = ki.szintek
     .map((s) => Object.assign(uresSzint(Number(s.szint) || 1), s, { kapott: Array.isArray(s.kapott) ? s.kapott : [] }))

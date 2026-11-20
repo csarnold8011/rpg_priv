@@ -95,6 +95,70 @@ hivas('share.send', { kampany_id: kampany.id, cimzett: 'mindenki', tipus: 'kep',
 ellenoriz(hivas('state.get', { kampany_id: kampany.id }, bencT).megosztasok.length === 1, 'Bence csak a mindenkinek szóló megosztást látja');
 ellenoriz(hivas('state.get', { kampany_id: kampany.id }, annaT).megosztasok.length === 2, 'a mesterjátékos mindkettőt látja');
 
+// ---- Kiosztható anyagok és alanyok (6.2) ----
+{
+  const alanyV = hivas('share.send', { kampany_id: kampany.id, tipus: 'alany', id: 'm_alany00001', cim: 'A kapucnis idegen',
+    adat: { kategoria: 'szemely', valodi: { tipus: 'njk', id: 'npc_x', nev: 'Varga mester' } } }, dm);
+  ellenoriz(alanyV.ok && alanyV.megosztas.id === 'm_alany00001' && alanyV.megosztas.tipus === 'alany', 'DM alanyt hoz létre a saját azonosítójával', alanyV);
+  ellenoriz(hivas('share.send', { kampany_id: kampany.id, tipus: 'alany', cim: 'X' }, annaT).hiba === 'nincs_jogosultsag', 'alanyt csak a DM hoz létre');
+  ellenoriz(hivas('share.send', { kampany_id: kampany.id, tipus: 'anyag', cimzettek: ['kar_idegen'], adat: { fajta: 'nyom', szoveg: 'x' } }, dm).hiba === 'hibas_adat',
+    'kampányon kívüli címzett nem lehet');
+  const img = hivas('share.image.add', { kep: Buffer.from('kep').toString('base64'), belyeg: Buffer.from('b').toString('base64') }, dm);
+  ellenoriz(img.ok && img.kep.kep && img.kep.belyeg, 'a kivágott kép a Kiosztások mappába kerül', img);
+  const kioszt = U.mappaKeres(gyoker, U.tulajdonsagok.KIOSZTASMAPPA_ID);
+  ellenoriz(!!kioszt && kioszt.nev === 'Kiosztások', 'a Kiosztások mappa létrejött');
+  let w = hivas('share.send', { kampany_id: kampany.id, tipus: 'anyag', cim: 'Levél a toronyból', cimzettek: ['mindenki'], alany_id: 'm_alany00001', megmutat: true,
+    adat: { fajta: 'level', szoveg: 'Gyertek [[éjfélkor]] a hídhoz.', level: { felado: 'V.', kezires: 'kapkodo', titok: 'nem kell' },
+      kepek: [{ kep: img.kep.kep, belyeg: img.kep.belyeg, cim: 'pecsét' }], forras: { tipus: 'jelenet', id: 'el_x', nev: 'A híd' }, dm_titok: 'x' } }, dm);
+  const level = w.megosztas;
+  ellenoriz(w.ok && level.cimzett === 'mindenki' && level.megmutat && level.adat.level.kezires === 'kapkodo' && level.adat.level.titok === undefined && level.adat.dm_titok === undefined,
+    'levél kiosztása: ismeretlen mezők nélkül, megmutatással', w);
+  w = hivas('share.send', { kampany_id: kampany.id, tipus: 'anyag', cim: 'Titkos nyom', cimzettek: [morg.id], alany_id: 'm_alany00001', adat: { fajta: 'nyom', szoveg: 'Sántít.' } }, dm);
+  const titkos = w.megosztas;
+  ellenoriz(w.ok && titkos.cimzett === 'tobb', 'titkos nyom egy karakternek');
+  const ism = hivas('share.send', { kampany_id: kampany.id, tipus: 'anyag', id: titkos.id, cim: 'más', adat: { fajta: 'nyom' } }, dm);
+  ellenoriz(ism.ok && ism.mar_megvolt && ism.megosztas.cim === 'Titkos nyom', 'ugyanaz az azonosító kétszer nem kerül be (sorból újraküldés)');
+
+  let bAll = hivas('state.get', { kampany_id: kampany.id }, bencT);
+  const bLevel = bAll.megosztasok.find((m) => m.id === level.id);
+  ellenoriz(!!bLevel && !bLevel.adat.forras && bLevel.hivatkozas === undefined && bLevel.letrehozta === undefined && bLevel.latta === undefined && bLevel.latta_en === false,
+    'a játékos a levelet forrás és DM-adat nélkül kapja', bLevel);
+  ellenoriz(!!bAll.megosztasok.find((m) => m.id === titkos.id), 'Bence (Morg játékosa) látja a titkos nyomot');
+  const bAlany = (bAll.alanyok || []).find((x) => x.id === 'm_alany00001');
+  ellenoriz(bAlany && bAlany.nev === 'A kapucnis idegen' && !JSON.stringify(bAll.alanyok).includes('Varga'), 'az alany csak ismert névvel jut el, a valódi név nem', bAll.alanyok);
+  const nyitott = hivas('state.get', { kampany_id: kampany.id }, annaT);
+  ellenoriz(nyitott.megosztasok.some((m) => m.id === titkos.id), 'a mesterjátékos is látja a karakternek szóló anyagot');
+  const pAll = hivas('state.get', { kampany_id: kampany.id }, dm);
+  ellenoriz(pAll.alanyok.length === 1 && pAll.megosztasok.find((m) => m.id === level.id).adat.forras.id === 'el_x', 'a DM mindent lát, a forrással együtt');
+
+  // képek: a játékos csak a neki kiosztott anyag képét kérheti le
+  ellenoriz(Object.keys(hivas('image.get', { idk: [img.kep.kep] }, bencT).kepek).length === 1, 'a kiosztott kép a játékosnak lekérhető');
+  // látta
+  ellenoriz(hivas('share.seen', { id: level.id }, bencT).latta === true, 'Bence megnyitja a levelet');
+  ellenoriz(hivas('state.get', { kampany_id: kampany.id }, dm).megosztasok.find((m) => m.id === level.id).latta[bence.id], 'a DM látja, hogy Bence megnyitotta');
+  ellenoriz(hivas('state.get', { kampany_id: kampany.id }, bencT).megosztasok.find((m) => m.id === level.id).latta_en === true, 'Bence nézetében „láttam” jel');
+
+  // visszavonás
+  w = hivas('share.update', { id: level.id, allapot: 'visszavont' }, dm);
+  ellenoriz(w.ok && !hivas('state.get', { kampany_id: kampany.id }, bencT).megosztasok.some((m) => m.id === level.id), 'visszavont anyag eltűnik a játékos nézetéből');
+  ellenoriz(Object.keys(hivas('image.get', { idk: [img.kep.kep] }, bencT).kepek).length === 0, 'a visszavont anyag képe sem kérhető le');
+  ellenoriz(hivas('share.update', { id: level.id, allapot: 'aktiv' }, annaT).hiba === 'nincs_jogosultsag', 'visszavonni csak a DM tud');
+  hivas('share.update', { id: level.id, allapot: 'aktiv', megmutat: true }, dm);
+
+  // összekapcsolás és felfedés
+  hivas('share.send', { kampany_id: kampany.id, tipus: 'alany', id: 'm_alany00002', cim: 'Varga mester', adat: { kategoria: 'szemely', valodi: { tipus: 'njk', id: 'npc_x', nev: 'Varga mester' } } }, dm);
+  w = hivas('share.update', { id: 'm_alany00001', adat: { osszekapcsolva: 'm_alany00002' } }, dm);
+  ellenoriz(w.ok && w.megosztas.adat.osszekapcsolva === 'm_alany00002' && w.megosztas.adat.kategoria === 'szemely', 'összekapcsolás: a kapucnis idegen = Varga mester', w);
+  ellenoriz(hivas('share.update', { id: 'm_alany00002', adat: { osszekapcsolva: 'm_alany00001' } }, dm).hiba === 'hibas_adat', 'körbe érő összekapcsolás nem lehet');
+  bAll = hivas('state.get', { kampany_id: kampany.id }, bencT);
+  ellenoriz(bAll.alanyok.length === 2 && bAll.alanyok.find((x) => x.id === 'm_alany00001').osszekapcsolva === 'm_alany00002', 'a játékos megkapja az összekapcsolás célját is');
+  hivas('share.update', { id: 'm_alany00001', cim: 'A sánta idegen', adat: { felfedve: true } }, dm);
+  const felf = hivas('state.get', { kampany_id: kampany.id }, bencT).alanyok.find((x) => x.id === 'm_alany00001');
+  ellenoriz(felf.nev === 'Varga mester' && felf.ismert_nev === 'A sánta idegen', 'felfedés után a valódi név látszik', felf);
+  ellenoriz(hivas('share.update', { id: 'm_alany00001', cim: '' }, dm).hiba === 'hianyzo_adat', 'az alany ismert neve nem lehet üres');
+  ellenoriz(hivas('share.seen', { id: 'm_alany00001' }, bencT).hiba === 'nem_talalhato', 'alanyra nincs „látta”');
+}
+
 // ---- Próbák (2. fejlesztési lépés) ----
 let kall = hivas('state.get', { kampany_id: kampany.id }, bencT);
 ellenoriz(kall.kampany.beallitasok && kall.kampany.beallitasok.celertek_rejtett === true && kall.kampany.beallitasok.mutatvanyok.felfedezes === true && kall.kampany.beallitasok.mutatvanyok.isteni === false,

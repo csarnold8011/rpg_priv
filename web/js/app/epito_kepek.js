@@ -115,7 +115,7 @@ export function KepekPanel({ elem, ix, valt, prep, terkep = false, cim }) {
       </div>
     </li>`)}</ul>`
       : html`<p className="halvany kicsi">${terkep ? 'Még nincs térkép. Rajzold papírra vagy egy térképrajzolóval, és töltsd fel képként (fotó is jó).'
-        : 'Még nincs kép. A képek a Drive-ra kerülnek, csak a DM látja őket (a játékosoknak a 6. lépésben lehet majd megmutatni).'}</p>`}
+        : 'Még nincs kép. A képek a Drive-ra kerülnek, csak a DM látja őket. A játékosoknak a Kiosztható anyagok panelen mutathatod meg (egészben vagy kivágva).'}</p>`}
     ${hiba ? html`<${Uzenet}>${hiba}<//>` : null}
     ${nyitott ? html`<${NagyKep} k=${nyitott} onBezar=${() => setNyitott(null)}/>` : null}
   <//>`;

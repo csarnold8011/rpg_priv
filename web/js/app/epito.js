@@ -12,6 +12,7 @@ import * as KP from '../kampany/kapcsolat.js';
 import { peldanyFa, sablonFa } from '../kampany/kaland.js';
 import { DobotablaParbeszed } from './dobotabla.js';
 import { KepekPanel } from './epito_kepek.js';
+import { AnyagokPanel } from './anyagok.js';
 import { megjelenitettNev } from '../szabalyok.js';
 
 // A típusok saját mezői az elemszerkesztőben (a későbbi alépések moduljai töltik fel, például epito_kaland.js).
@@ -497,6 +498,7 @@ export function ElemSzerkeszto({ id, prep, cel, Oldalfej, vissza, sajatMezok }) 
         <//>
         <${KapcsolatokPanel} elem=${e} prep=${prep} cel=${cel}/>
         <${KepekPanel} elem=${e} ix=${ix} valt=${valt} prep=${prep}/>
+        <${AnyagokPanel} elem=${e} ix=${ix} valt=${valt} cel=${cel}/>
         <${K.Panel} title="Öröklés és szint">
           <div className="verem">
             <p className="sugo kicsi">${sz === 'sablon' ? 'Sablon: világtól független minta. Világ- vagy kampányelem épülhet rá.'

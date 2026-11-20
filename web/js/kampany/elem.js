@@ -23,11 +23,11 @@ export const SZINTEK = { sablon: 'Sablon', vilag: 'Világ', kampany: 'Kampány' 
 export const ALLAPOTOK = { vazlat: 'vázlat', kesz: 'kész' };
 
 // A minden elemen meglévő mezők (az adatban). A név is öröklődik.
-export const KOZOS_MEZOK = ['nev', 'osszefoglalo', 'leiras', 'felolvasando', 'titkok', 'cimkek', 'kepek', 'forras', 'oldal', 'allapot'];
+export const KOZOS_MEZOK = ['nev', 'osszefoglalo', 'leiras', 'felolvasando', 'titkok', 'cimkek', 'kepek', 'anyagok', 'forras', 'oldal', 'allapot'];
 
 export const MEZO_NEV = {
   nev: 'Név', osszefoglalo: 'Rövid összefoglaló', leiras: 'Leírás', felolvasando: 'Felolvasandó szöveg',
-  titkok: 'A DM titkai', cimkek: 'Címkék', kepek: 'Képek', forras: 'Forrás', oldal: 'Oldal', allapot: 'Állapot'
+  titkok: 'A DM titkai', cimkek: 'Címkék', kepek: 'Képek', anyagok: 'Kiosztható anyagok', forras: 'Forrás', oldal: 'Oldal', allapot: 'Állapot'
 };
 
 const LANC_MAX = 4;

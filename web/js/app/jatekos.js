@@ -13,6 +13,7 @@ import { JatekosCsatak } from './csatasav.js';
 import { uresKarakter } from '../karakter/adat.js';
 import { KarakterVarazslo, taroltKampanyok } from './varazslo.js';
 import { SzintlepesVarazslo } from './szintlepes.js';
+import { JatekosAnyagok, AnyagMegnyitoReteg, useAnyagMegnyitas, anyagUjak } from './anyagok.js';
 
 export function JatekosFelulet({ ut }) {
   const { felhasznalo, kilepes } = useApp();
@@ -27,7 +28,7 @@ export function JatekosFelulet({ ut }) {
     return html`<${SzintlepesVarazslo} key=${azon} id=${azon} lepes=${ut[3]} birodalom="jatekos"/>`;
   }
   let tartalom;
-  if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon}/>`;
+  if (oldal === 'kampany' && azon) tartalom = html`<${KampanyOldal} key=${azon} id=${azon} ful=${ut[2] === 'anyagok' ? 'anyagok' : ''}/>`;
   else if (oldal === 'karakter' && azon) tartalom = html`<${KarakterOldal} key=${azon} id=${azon}/>`;
   else tartalom = html`<${Kezdolap}/>`;
 
@@ -101,12 +102,41 @@ function UjKarakter({ onBezar }) {
   <//>`;
 }
 
-function KampanyOldal({ id }) {
+function KampanyOldal({ id, ful }) {
   const { allapot, hiba } = useKampanyAllapot(id);
-  const [dobasok, naploz] = useDobasok(allapot);
-  const [dobasNyitva, setDobasNyitva] = useState(false);
   if (hiba && !allapot) return html`<div className="verem"><a className="visszalink" href="#/jatekos"><${Ikon} nev="vissza" meret=${20}/>Kezdőlap</a><${Uzenet}>${hiba.message}<//></div>`;
   if (!allapot) return html`<${Betoltes} szoveg="Kampány betöltése…"/>`;
+  return html`<${KampanyTartalom} allapot=${allapot} ful=${ful}/>`;
+}
+
+// Fülek: Kampány (csata, próbák, csapat, dobás) és Anyagok (a DM-től kapott levelek, nyomok, képek).
+function KampanyTartalom({ allapot, ful }) {
+  const { felhasznalo } = useApp();
+  const megnyitas = useAnyagMegnyitas(allapot);
+  const ujak = anyagUjak(megnyitas.megosztasok, felhasznalo.id);
+  const k = allapot.kampany;
+  const fulek = html`<nav className="kapcsolo kapcsolo--teljes jatekos__fulek" aria-label="A kampány részei">
+    <button type="button" aria-pressed=${ful !== 'anyagok'} onClick=${() => navigal('/jatekos/kampany/' + k.id)}>Kampány</button>
+    <button type="button" aria-pressed=${ful === 'anyagok'} onClick=${() => navigal('/jatekos/kampany/' + k.id + '/anyagok')}>Anyagok${ujak ? html` <span className="jelveny" aria-label=${ujak + ' új'}>${ujak}</span>` : null}</button>
+  </nav>`;
+  const reteg = html`<${AnyagMegnyitoReteg} allapot=${allapot} megnyitas=${megnyitas}/>`;
+  if (ful === 'anyagok') {
+    return html`<div className="verem verem--nagy">
+      <div className="oldalfej">
+        <a className="visszalink" href="#/jatekos"><${Ikon} nev="vissza" meret=${20}/>Kezdőlap</a>
+        <h1 className="oldalcim">${k.cim}</h1>
+      </div>
+      ${fulek}
+      <${JatekosAnyagok} allapot=${allapot} megnyitas=${megnyitas}/>
+      ${reteg}
+    </div>`;
+  }
+  return html`<${KampanyFo} allapot=${allapot} fulek=${fulek} reteg=${reteg}/>`;
+}
+
+function KampanyFo({ allapot, fulek, reteg }) {
+  const [dobasok, naploz] = useDobasok(allapot);
+  const [dobasNyitva, setDobasNyitva] = useState(false);
   const k = allapot.kampany;
   return html`<div className="verem verem--nagy van-alsosav">
     <div className="oldalfej">
@@ -114,6 +144,7 @@ function KampanyOldal({ id }) {
       <h1 className="oldalcim">${k.cim}</h1>
       <${KampanyCimkek} kampany=${k}/>
     </div>
+    ${fulek}
     <${JatekosCsatak} allapot=${allapot} naploz=${naploz}/>
     <${JatekosProbak} allapot=${allapot} naploz=${naploz}/>
     <${K.Panel} title="Csapat">
@@ -137,6 +168,7 @@ function KampanyOldal({ id }) {
     ${dobasNyitva ? html`<${Parbeszed} cim="Dobás" onBezar=${() => setDobasNyitva(false)}>
       <${DobasPanel} allapot=${allapot} naploz=${naploz} nagy=${true}/>
     <//>` : null}
+    ${reteg}
   </div>`;
 }
 

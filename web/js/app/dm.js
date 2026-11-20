@@ -23,6 +23,7 @@ import { KampanyCsatakPanel, CsataOldal } from './csata.js';
 import { VilagokOldal, VilagOldal, SablonokOldal } from './epito.js';
 import { KampanyEpitoOldal } from './epito_keret.js';
 import { DobotablakOldal } from './dobotabla.js';
+import { KampanyAnyagokPanel } from './anyagok.js';
 
 const FORRASOK = ['Alapkönyv', 'Companion', 'Bestiárium', 'Kampányépítő'];
 const ALLAPOTOK = ['előkészítés', 'folyamatban', 'szünetel', 'lezárva'];
@@ -315,6 +316,7 @@ function KampanyOldal({ id }) {
     <div className="ket-hasab">
       <div className="verem">
         <${CsapatPanel} allapot=${allapot} frissit=${frissit}/>
+        <${KampanyAnyagokPanel} allapot=${allapot} frissit=${frissit} felhasznaloNev=${dm.felhasznaloNev}/>
         <${KampanyBeallitasok} kampany=${k} frissit=${frissit}/>
         <${KampanyArchivPanel} kampany=${k} frissit=${frissit}/>
       </div>

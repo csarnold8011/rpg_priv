@@ -302,7 +302,8 @@ const SEMA = {
           "dm_jegyzet",
           "letrehozva",
           "beallitasok",
-          "keret"
+          "keret",
+          "latta"
         ],
         "Kampánykarakterek": [
           "kampany_id",
@@ -390,7 +391,15 @@ const SEMA = {
           "tipus",
           "cim",
           "hivatkozas",
-          "idopont"
+          "idopont",
+          "cimzettek",
+          "adat",
+          "alany_id",
+          "allapot",
+          "latta",
+          "megmutat",
+          "letrehozta",
+          "verzio"
         ],
         "Világok": [
           "id",
@@ -473,6 +482,7 @@ const SEMA = {
     "allas",
     "kampanyok",
     "pillanatkepek",
-    "keret"
+    "keret",
+    "latta"
   ]
 };
